@@ -1,0 +1,18 @@
+spring:
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            user-name-attribute: preferred_username
+            issuer-uri: http://172.17.0.1:8090/auth/realms/contentcloud-gateway
+
+        registration:
+          keycloak:
+            client-id: contentcloud-gateway
+            client-secret: d6a59786-ea91-4b7d-892f-eb3426b4d8cb
+            scope:
+              - openid
+              - profile
+              - email

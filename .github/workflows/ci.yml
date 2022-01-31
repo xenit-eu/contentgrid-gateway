@@ -1,0 +1,27 @@
+name: build
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Test with Gradle
+        run: ./gradlew check --info --stacktrace
+      - name: Build docker image
+        run: ./gradlew buildDockerImage
+      - name: Publish docker image
+        if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
+        run: ./gradlew pushDockerImage
+        env:
+          XENIT_DOCKER_REGISTRY_URL: ${{ secrets.XENIT_DOCKER_REGISTRY_URL }}
+          XENIT_DOCKER_REGISTRY_USERNAME: ${{ secrets.XENIT_DOCKER_REGISTRY_USERNAME }}
+          XENIT_DOCKER_REGISTRY_PASSWORD: ${{ secrets.XENIT_DOCKER_REGISTRY_PASSWORD }}
+

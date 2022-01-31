@@ -1,0 +1,22 @@
+version: '3.7'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    volumes:
+      - ./example-keycloak:/tmp/keycloak/:rw
+    ports:
+      - 8090:8080
+    environment:
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=admin
+      - KEYCLOAK_IMPORT=/tmp/keycloak/contentcloud-gateway-realm.json
+
+  gateway:
+    environment:
+      # ip 172.17.0.1 is used rather than just `keycloak` docker domain name, because it needs to be resolvable
+      # from a browser too.
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI=http://172.17.0.1:8090/auth/realms/contentcloud-gateway
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID=contentcloud-gateway
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET=d6a59786-ea91-4b7d-892f-eb3426b4d8cb
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE=openid,profile,email

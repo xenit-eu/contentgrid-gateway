@@ -1,0 +1,33 @@
+version: '3.7'
+
+services:
+  opa:
+    image: ${OPENPOLICYAGENT_DOCKER_IMAGE:-docker.io/openpolicyagent/opa:0.36.1-debug}
+    ports:
+      - "8181:8181"
+    # WARNING: OPA is NOT running with an authorization policy configured. This
+    # means that clients can read and write policies in OPA. If you are
+    # deploying OPA in an insecure environment, be sure to configure
+    # authentication and authorization on the daemon. See the Security page for
+    # details: https://www.openpolicyagent.org/docs/security.html.
+    command:
+      - "run"
+      - "--server"
+      - "--log-format=json-pretty"
+      - "--set=decision_logs.console=true"
+      - "file:/config/example.rego"
+    volumes:
+      - "./example-rego/example.rego:/config/example.rego"
+
+  gateway:
+    image: ${CONTENT_CLOUD_GATEWAY_DOCKER_IMAGE:-hub.xenit.eu/content-cloud/gateway:local}
+    environment:
+      - "OPA_SERVICE_URL=http://opa:8181"
+      - "OPA_QUERY=data.gateway.example.allow == true"
+      - "TESTING_BOOTSTRAP_ENABLE=true"
+      - "TESTING_BOOTSTRAP_USERS_0_USERNAME=alice"
+      - "TESTING_BOOTSTRAP_USERS_0_AUTHORITIES={\"employers\": [\"BE0999999999\"]}"
+      - "TESTING_BOOTSTRAP_USERS_1_USERNAME=bob"
+      - "TESTING_BOOTSTRAP_USERS_1_AUTHORITIES={\"employers\": [\"BE0999999999\", \"BE0123456789\"], \"customers\": [\"BE9988776655\", \"BE5544332211\", \"BE0987654321\"], \"singlevalue\": \"BE1234567890\"}"
+    ports:
+      - "8080:8080"

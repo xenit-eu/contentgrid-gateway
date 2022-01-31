@@ -1,0 +1,33 @@
+server:
+  port: 9080
+management:
+  server:
+    port: 9081
+
+testing:
+  bootstrap:
+    enable: true
+    users:
+      - username: bob
+        authorities: '{"employers": ["BE0999999999", "BE0123456789"], "customers": ["BE9988776655", "BE5544332211", "BE0987654321"], "singlevalue": "BE1234567890"}'
+      - username: alice
+        authorities: '{"employers": ["BE0999999999"]}'
+      - username: admin
+        authorities: '{"admin": "true"}'
+
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: root
+          uri: https://ignored
+          predicates:
+            - Path=/
+          filters:
+            - RedirectTo=302, /me
+
+opa:
+  service:
+    url: http://localhost:8181
+  query: "data.gateway.example.allow == true"
