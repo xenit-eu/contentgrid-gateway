@@ -3,15 +3,6 @@
 server:
   forward-headers-strategy: native
 
-logging:
-  level:
-    root: INFO
-    org.springframework.web: INFO
-    org.springframework.web.HttpLogging: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    org.springframework.cloud.gateway: DEBUG
-    reactor.netty.http.client: INFO
 
 spring:
   cloud:
