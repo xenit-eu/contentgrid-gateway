@@ -28,7 +28,7 @@ reckon {
 }
 
 ext {
-	springCloudVersion = '2021.0.0'
+	springCloudVersion = '2021.0.1'
 }
 
 bootRun {
