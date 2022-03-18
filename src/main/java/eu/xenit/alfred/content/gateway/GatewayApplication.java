@@ -152,22 +152,24 @@ public class GatewayApplication {
                 MetricsEndpoint.class,
                 PrometheusScrapeEndpoint.class
         );
-        http.authorizeExchange(exchange -> exchange
-                // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
-                .matchers(allowedEndpoints).permitAll()
-                .pathMatchers(HttpMethod.GET, "/org/**").permitAll()
-                // other requests must pass through the authorizationManager (opa/keycloak)
-                .anyExchange().access(authorizationManager)
-        );
 
-        if (OAuth2ClientRegistrationsGuard.shouldConfigure(environment)) {
-            http.oauth2Login();
-            http.oauth2Client();
-            http.logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler));
-        } else {
-            http.httpBasic();
-            http.formLogin();
-        }
+        http.authorizeExchange().anyExchange().permitAll();
+//        http.authorizeExchange(exchange -> exchange
+//                // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
+//                .matchers(allowedEndpoints).permitAll()
+//                .pathMatchers(HttpMethod.GET, "/org/**").permitAll()
+//                // other requests must pass through the authorizationManager (opa/keycloak)
+//                .anyExchange().access(authorizationManager)
+//        );
+//
+//        if (OAuth2ClientRegistrationsGuard.shouldConfigure(environment)) {
+//            http.oauth2Login();
+//            http.oauth2Client();
+//            http.logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler));
+//        } else {
+//            http.httpBasic();
+//            http.formLogin();
+//        }
 
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
