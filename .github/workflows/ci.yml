@@ -13,13 +13,13 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11
-      - name: Test with Gradle
-        run: ./gradlew check --info --stacktrace
+#      - name: Test with Gradle
+#        run: ./gradlew check --info --stacktrace
       - name: Build docker image
-        run: ./gradlew buildDockerImage
+        run: ./gradlew buildDockerImage -x check
       - name: Publish docker image
         #if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
-        run: ./gradlew pushDockerImage
+        run: ./gradlew pushDockerImage -x check
         env:
           XENIT_DOCKER_REGISTRY_URL: ${{ secrets.XENIT_DOCKER_REGISTRY_URL }}
           XENIT_DOCKER_REGISTRY_USERNAME: ${{ secrets.XENIT_DOCKER_REGISTRY_USERNAME }}
