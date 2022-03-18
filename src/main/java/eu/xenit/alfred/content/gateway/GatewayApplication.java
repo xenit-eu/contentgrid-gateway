@@ -36,6 +36,7 @@ import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
@@ -154,6 +155,7 @@ public class GatewayApplication {
         http.authorizeExchange(exchange -> exchange
                 // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
                 .matchers(allowedEndpoints).permitAll()
+                .pathMatchers(HttpMethod.GET, "/org/**").permitAll()
                 // other requests must pass through the authorizationManager (opa/keycloak)
                 .anyExchange().access(authorizationManager)
         );
