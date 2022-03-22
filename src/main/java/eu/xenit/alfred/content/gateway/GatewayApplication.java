@@ -47,6 +47,9 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -170,6 +173,10 @@ public class GatewayApplication {
                 .anyExchange().access(authorizationManager)
         );
 
+        if (OAuth2ResourceServerGuard.shouldConfigure(environment)) {
+            http.oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
+        }
+
         if (OAuth2ClientRegistrationsGuard.shouldConfigure(environment)) {
             http.oauth2Login();
             http.oauth2Client();
@@ -178,6 +185,8 @@ public class GatewayApplication {
             http.httpBasic();
             http.formLogin();
         }
+
+        http.cors(cors -> cors.configurationSource(exchange -> new CorsConfiguration().applyPermitDefaultValues()));
 
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
@@ -210,6 +219,12 @@ public class GatewayApplication {
                     .orElse(Collections.emptyMap());
         }
 
+    }
+
+    private static class OAuth2ResourceServerGuard {
+        public static boolean shouldConfigure(Environment environment) {
+            return environment.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri") != null;
+        }
     }
 
 }

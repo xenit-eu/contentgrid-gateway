@@ -56,4 +56,22 @@ class UserInfoControllerTest {
                 .jsonPath("$.email").isEqualTo("alice@wonderland.example");
 
     }
+
+    @Test
+    public void withJwtPrincipal_expectHttp200_ok() {
+        this.rest
+                .mutateWith(mockJwt()
+                        .jwt(jwt -> jwt
+                                .subject("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
+                                .claim("name", "alice")
+                                .claim("email", "alice@wonderland.example")))
+                .get()
+                .uri("/me")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.sub").isEqualTo("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
+                .jsonPath("$.name").isEqualTo("alice")
+                .jsonPath("$.email").isEqualTo("alice@wonderland.example");
+    }
 }
