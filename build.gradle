@@ -35,15 +35,15 @@ bootRun {
 	systemProperty("spring.profiles.active", "bootRun")
 }
 
-tasks.register("keycloakBootRun") {
-	group = "application"
-	description = "Runs the Spring Boot application with the dev profile"
-	doFirst {
-		tasks.bootRun.configure {
-			systemProperty("spring.profiles.active", "bootRun,keycloak")
-		}
+tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
+	description = "Runs the Spring Boot application with the Keycloak profile"
+	group = ApplicationPlugin.APPLICATION_GROUP
+	classpath = tasks.bootRun.classpath
+	mainClass = tasks.bootRun.mainClass
+
+	configure {
+		systemProperty("spring.profiles.active", "bootRun,keycloak")
 	}
-	finalizedBy("bootRun")
 }
 
 dependencies {
