@@ -9,13 +9,6 @@ import eu.xenit.contentcloud.thunx.pdp.PolicyDecisionPointClient;
 import eu.xenit.contentcloud.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import eu.xenit.contentcloud.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import eu.xenit.contentcloud.thunx.spring.security.ReactivePolicyAuthorizationManager;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
@@ -26,6 +19,8 @@ import org.springframework.boot.actuate.info.InfoEndpoint;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
 import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties.Registration;
@@ -36,6 +31,7 @@ import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
@@ -51,12 +47,18 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootApplication
-@RestController
-@EnableConfigurationProperties(OpaProperties.class)
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 @Slf4j
+@SpringBootApplication
+@EnableConfigurationProperties(OpaProperties.class)
 public class GatewayApplication {
 
     public static void main(String[] args) {
@@ -120,6 +122,7 @@ public class GatewayApplication {
     }
 
     @Bean
+    @ConditionalOnProperty("opa.service.url")
     public OpaClient opaClient(OpaProperties opaProperties) {
         return OpaClient.builder()
                 .httpLogging(LogSpecification::all)
@@ -128,14 +131,23 @@ public class GatewayApplication {
     }
 
     @Bean
+    @ConditionalOnBean(OpaClient.class)
     public PolicyDecisionPointClient pdpClient(OpaProperties opaProperties, OpaClient opaClient) {
         return new OpenPolicyAgentPDPClient(opaClient, request -> opaProperties.getQuery());
     }
 
     @Bean
+    @ConditionalOnBean(PolicyDecisionPointClient.class)
     public ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthenticationManager(
             PolicyDecisionPointClient pdpClient) {
         return new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl(pdpClient));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ReactiveAuthorizationManager.class)
+    public ReactiveAuthorizationManager<AuthorizationContext> fallbackReactiveAuthenticationManager() {
+        log.warn("OpenPolicyAgent not configured, authorization disabled");
+        return AuthenticatedReactiveAuthorizationManager.authenticated();
     }
 
     @Bean
