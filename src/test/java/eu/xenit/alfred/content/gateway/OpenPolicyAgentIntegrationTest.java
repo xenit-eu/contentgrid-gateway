@@ -26,8 +26,8 @@ import org.testcontainers.utility.MountableFile;
 
 @Testcontainers
 @Tag("integration")
-public class IntegrationTest {
-    private static final Logger logger = LoggerFactory.getLogger(IntegrationTest.class);
+public class OpenPolicyAgentIntegrationTest {
+    private static final Logger logger = LoggerFactory.getLogger(OpenPolicyAgentIntegrationTest.class);
 
     @Container
     private static final GenericContainer<?> openPolicyAgent = new GenericContainer<>("docker.io/openpolicyagent/opa:0.36.1-debug")

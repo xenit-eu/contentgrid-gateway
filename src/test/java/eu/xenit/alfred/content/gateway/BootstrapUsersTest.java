@@ -23,12 +23,11 @@ import org.springframework.security.test.context.support.WithUserDetails;
         "testing.bootstrap.users.0.username=alice",
         "testing.bootstrap.users.0.authorities={\"employers\": [\"BE0999999999\"]}",
         "testing.bootstrap.users.1.username=bob",
-        "testing.bootstrap.users.1.authorities={\"employers\": [\"BE0999999999\", \"BE0123456789\"], \"customers\": [\"BE9988776655\", \"BE5544332211\", \"BE0987654321\"], \"singlevalue\": \"BE1234567890\"}",
-        "opa.query=data.gateway.example.allow == true",
-        "opa.service.url=http://opa:8181",
+        "testing.bootstrap.users.1.authorities={\"employers\": [\"BE0999999999\", \"BE0123456789\"], \"customers\": [\"BE9988776655\", \"BE5544332211\", \"BE0987654321\"], \"singlevalue\": \"BE1234567890\"}"
 })
 @AutoConfigureMockMvc
-public class BootstrapTest {
+public class BootstrapUsersTest {
+
     @Value("${local.server.port}")
     private int port;
 
