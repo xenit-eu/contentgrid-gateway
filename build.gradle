@@ -41,9 +41,7 @@ tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.Boo
 	classpath = tasks.bootRun.classpath
 	mainClass = tasks.bootRun.mainClass
 
-	configure {
-		systemProperty("spring.profiles.active", "bootRun,keycloak")
-	}
+	systemProperty("spring.profiles.active", "bootRun,keycloak")
 }
 
 dependencies {
