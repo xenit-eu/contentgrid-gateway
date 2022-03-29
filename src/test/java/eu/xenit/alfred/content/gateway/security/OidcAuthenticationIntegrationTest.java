@@ -44,7 +44,7 @@ public class OidcAuthenticationIntegrationTest {
     private static final String CLIENT_ID = "contentcloud-gateway";
 
     @Container
-    private static final GenericContainer<?> keycloak = new GenericContainer<>("quay.io/keycloak/keycloak:latest")
+    private static final GenericContainer<?> keycloak = new GenericContainer<>("quay.io/keycloak/keycloak:13.0.0")
             .withCopyFileToContainer(MountableFile.forClasspathResource(
                             "contentcloud-gateway-realm.json"),
                     "/tmp/keycloak/contentcloud-gateway-realm.json")
