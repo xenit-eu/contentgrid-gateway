@@ -1,0 +1,40 @@
+server:
+  port: 9080
+management:
+  server:
+    port: 9180
+
+opa:
+  service:
+    url: http://localhost:8081
+  query: "data.contentcloud.api.allow == true"
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: architect
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:9083/
+          predicates:
+            - Path=/orgs/**,/projects/**,/users/**,/blueprints/**,/datamodel/**
+
+        - id: console
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:9085/
+          predicates:
+            - Path=/**
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            user-name-attribute: preferred_username
+            issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1:8082}/auth/realms/contentcloud-gateway
+
+        registration:
+          keycloak:
+            client-id: contentcloud-gateway
+            client-secret: d6a59786-ea91-4b7d-892f-eb3426b4d8cb
+            scope:
+              - openid
+              - profile
+              - email
