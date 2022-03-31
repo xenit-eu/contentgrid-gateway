@@ -47,9 +47,6 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.server.ServerWebExchange;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -185,8 +182,6 @@ public class GatewayApplication {
             http.httpBasic();
             http.formLogin();
         }
-
-        http.cors(cors -> cors.configurationSource(exchange -> new CorsConfiguration().applyPermitDefaultValues()));
 
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
