@@ -89,6 +89,7 @@ public class OidcAuthenticationIntegrationTest {
                 .baseUrl(gatewayBaseUri.toString())
                 .build();
 
+        // try to access a protected resource
         var initialResponse = rest.get().uri("/")
                 .accept(MediaType.TEXT_HTML)
                 .exchange()
@@ -98,9 +99,9 @@ public class OidcAuthenticationIntegrationTest {
                 .consumeWith(result -> log.info(result.toString()))
                 .isEmpty();
 
-
+        // follow the initial redirect
+        // result is another redirect to keycloak
         var initialRedirect = initialResponse.getResponseHeaders().getLocation();
-
         var redirectToKeycloakResponse = rest.get()
                 .uri(Objects.requireNonNull(gatewayBaseUri.resolve(initialRedirect)))
                 .exchange()
@@ -117,6 +118,8 @@ public class OidcAuthenticationIntegrationTest {
                 .expectCookie().sameSite("SESSION", "Lax")
                 .expectBody().isEmpty();
 
+        // following the redirect to keycloak
+        // response is an html login form
         var redirectToKeycloakUri = redirectToKeycloakResponse.getResponseHeaders().getLocation();
         var keycloakLoginFormResponse = rest.get()
                 .uri(Objects.requireNonNull(redirectToKeycloakUri))
@@ -125,7 +128,8 @@ public class OidcAuthenticationIntegrationTest {
                 .expectHeader().contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
                 .expectBody().returnResult();
 
-        // submit credentials to keycloak on the action-url
+        // submit credentials to keycloak to the form action-url
+        // reponse is a redirect back to the gateway, which contains a query-param 'code'
         var keycloakLoginResponse = rest.post()
                 .uri(extractFormActionFromHtml(keycloakLoginFormResponse))
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -141,6 +145,8 @@ public class OidcAuthenticationIntegrationTest {
                 .expectHeader().value("location", loc -> assertThat(URI.create(loc)).hasParameter("code"))
                 .expectBody().isEmpty();
 
+        // follow the redirect back to the gateway (sending the 'code')
+        // response is a redirect with a new (authenticated) SESSION cookie
         var sessionCookie = redirectToKeycloakResponse.getResponseCookies().getFirst("SESSION");
         var appCodeResponse = rest.get()
                 .uri(Objects.requireNonNull(keycloakLoginResponse.getResponseHeaders().getLocation()))
@@ -150,13 +156,13 @@ public class OidcAuthenticationIntegrationTest {
                 .expectHeader().location("/")
                 .expectBody().isEmpty();
 
-
+        // extract the new session cookie from the response
         var newSessionCookie = appCodeResponse.getResponseCookies().getFirst("SESSION");
         // session cookie _should_ update after login (avoiding session fixation issues, etc ..)
         assertThat(sessionCookie.getValue()).isNotEqualTo(newSessionCookie.getValue());
         sessionCookie = newSessionCookie;
 
-        // now we can make authenticated requests with the session cookie !!
+        // now we can make authenticated requests with the SESSION cookie !
         rest.get().uri("/me")
                 .cookie("SESSION", sessionCookie.getValue())
                 .exchange()
