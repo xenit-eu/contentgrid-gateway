@@ -83,9 +83,10 @@ public class OidcAuthenticationIntegrationTest {
 
     @Test
     public void keycloakOIDC_redirectFlow() {
+        var gatewayBaseUri = URI.create("http://localhost:" + port);
         var rest = WebTestClient
                 .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
-                .baseUrl(URI.create("http://localhost:" + port).toString())
+                .baseUrl(gatewayBaseUri.toString())
                 .build();
 
         var initialResponse = rest.get().uri("/")
@@ -101,7 +102,7 @@ public class OidcAuthenticationIntegrationTest {
         var initialRedirect = initialResponse.getResponseHeaders().getLocation();
 
         var redirectToKeycloakResponse = rest.get()
-                .uri(Objects.requireNonNull(URI.create("http://localhost:" + port).resolve(initialRedirect)))
+                .uri(Objects.requireNonNull(gatewayBaseUri.resolve(initialRedirect)))
                 .exchange()
                 .expectStatus().is3xxRedirection()
                 .expectHeader().value("location", location -> {
@@ -174,10 +175,11 @@ public class OidcAuthenticationIntegrationTest {
         // (public clients can't hold secrets, like an OAuth2 secret-id)
         // The registered callback URI for the client app
         var clientRedirectURI = URI.create("http://localhost:9085");
+        var gatewayBaseUri = URI.create("http://localhost:" + port);
 
         var http = WebTestClient
                 .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
-                .baseUrl(URI.create("http://localhost:" + port).toString())
+                .baseUrl(gatewayBaseUri.toString())
                 .build();
 
         // fetch oidc metadata
