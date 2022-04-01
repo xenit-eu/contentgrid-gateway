@@ -40,7 +40,7 @@ tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.Boo
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
 	mainClass = tasks.bootRun.mainClass
-
+	
 	systemProperty("spring.profiles.active", "bootRun,keycloak")
 }
 
@@ -56,6 +56,7 @@ tasks.register("consoleBootRun",  org.springframework.boot.gradle.tasks.run.Boot
 dependencies {
 	implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 

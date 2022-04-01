@@ -170,6 +170,10 @@ public class GatewayApplication {
                 .anyExchange().access(authorizationManager)
         );
 
+        if (OAuth2ResourceServerGuard.shouldConfigure(environment)) {
+            http.oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
+        }
+
         if (OAuth2ClientRegistrationsGuard.shouldConfigure(environment)) {
             http.oauth2Login();
             http.oauth2Client();
@@ -210,6 +214,12 @@ public class GatewayApplication {
                     .orElse(Collections.emptyMap());
         }
 
+    }
+
+    private static class OAuth2ResourceServerGuard {
+        public static boolean shouldConfigure(Environment environment) {
+            return environment.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri") != null;
+        }
     }
 
 }
