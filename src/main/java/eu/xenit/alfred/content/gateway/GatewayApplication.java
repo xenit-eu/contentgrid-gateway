@@ -50,8 +50,13 @@ import org.springframework.security.web.server.authentication.logout.RedirectSer
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
+import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -100,7 +105,8 @@ public class GatewayApplication {
 
             public UserDetails convert(ObjectMapper mapper) {
                 try {
-                    TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {};
+                    TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {
+                    };
                     return User
                             .withUsername(username)
                             .password(NOOP_PASSWORD + username)
@@ -164,6 +170,7 @@ public class GatewayApplication {
     public CorsConfigurationSource corsConfigurationSource(CorsResolverProperties corsResolverProperties) {
         return new CorsConfigurationResolver(corsResolverProperties);
     }
+
     @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
@@ -181,6 +188,17 @@ public class GatewayApplication {
         http.authorizeExchange(exchange -> exchange
                 // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
                 .matchers(allowedEndpoints).permitAll()
+
+                // requests FROM localhost to actuator endpoints are all permitted
+                .matchers(new AndServerWebExchangeMatcher(
+                        EndpointRequest.toAnyEndpoint(),
+                        mgmtExchange -> {
+                            if (mgmtExchange.getRequest().getRemoteAddress().getAddress().isLoopbackAddress()) {
+                                return ServerWebExchangeMatcher.MatchResult.match();
+                            }
+                            return ServerWebExchangeMatcher.MatchResult.notMatch();
+                        })).permitAll()
+
                 // other requests must pass through the authorizationManager (opa/keycloak)
                 .anyExchange().access(authorizationManager)
         );
