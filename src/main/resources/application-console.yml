@@ -9,7 +9,7 @@ opa:
     url: http://localhost:8081
   query: "data.contentcloud.api.allow == true"
 
-content-cloud:
+contentcloud:
   gateway:
     cors:
       configurations:
