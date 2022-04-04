@@ -9,6 +9,17 @@ opa:
     url: http://localhost:8081
   query: "data.contentcloud.api.allow == true"
 
+contentcloud:
+  gateway:
+    cors:
+      configurations:
+        'localhost':
+          allowedOrigins:
+            - 'http://localhost:8085'
+            - 'http://localhost:9085'
+        'api.content-cloud.eu':
+          allowedOrigins: 'https://console.content-cloud.eu'
+
 spring:
   cloud:
     gateway:

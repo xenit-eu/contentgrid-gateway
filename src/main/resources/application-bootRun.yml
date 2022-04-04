@@ -9,7 +9,6 @@ testing:
       - username: admin
         authorities: '{"admin": "true"}'
 
-
 spring:
   cloud:
     gateway:
