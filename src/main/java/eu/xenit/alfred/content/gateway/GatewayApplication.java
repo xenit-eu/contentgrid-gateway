@@ -2,6 +2,8 @@ package eu.xenit.alfred.content.gateway;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
+import eu.xenit.alfred.content.gateway.cors.CorsResolverProperties;
 import eu.xenit.contentcloud.opa.client.OpaClient;
 import eu.xenit.contentcloud.opa.client.rest.RestClientConfiguration.LogSpecification;
 import eu.xenit.contentcloud.thunx.pdp.PolicyDecisionComponentImpl;
@@ -47,6 +49,7 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,7 +61,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @SpringBootApplication
-@EnableConfigurationProperties(OpaProperties.class)
+@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class})
 public class GatewayApplication {
 
     public static void main(String[] args) {
@@ -151,11 +154,16 @@ public class GatewayApplication {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource(CorsResolverProperties corsResolverProperties) {
+        return new CorsConfigurationResolver(corsResolverProperties);
+    }
+    @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
             Environment environment,
             ReactiveAuthorizationManager<AuthorizationContext> authorizationManager,
-            ServerLogoutSuccessHandler logoutSuccessHandler
+            ServerLogoutSuccessHandler logoutSuccessHandler,
+            CorsConfigurationSource corsConfig
     ) {
         EndpointServerWebExchangeMatcher allowedEndpoints = EndpointRequest.to(
                 InfoEndpoint.class,
@@ -182,6 +190,8 @@ public class GatewayApplication {
             http.httpBasic();
             http.formLogin();
         }
+
+        http.cors(cors -> cors.configurationSource(corsConfig));
 
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
