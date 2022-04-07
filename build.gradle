@@ -129,7 +129,9 @@ dockerCompose {
 static Set<String> imageTags(ver) {
 	String _version = ver.toString();
 	Set<String> tags = [_version];
-	if (!_version.endsWith("-SNAPSHOT")) {
+	if (_version.endsWith("-SNAPSHOT")) {
+		tags.add("SNAPSHOT")
+	} else {
 		tags.add("latest");
 	}
 	if (System.getenv("CI") != "true") {
