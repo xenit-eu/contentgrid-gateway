@@ -17,7 +17,7 @@ contentcloud:
           allowedOrigins:
             - 'http://localhost:8085'
             - 'http://localhost:9085'
-        'api.content-cloud.eu':
+        '[api.content-cloud.eu]':
           allowedOrigins: 'https://console.content-cloud.eu'
 
 spring:
