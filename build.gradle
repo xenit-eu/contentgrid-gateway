@@ -72,7 +72,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'com.jayway.restassured:rest-assured:2.9.0'
-	testImplementation platform('org.testcontainers:testcontainers-bom:1.16.3')
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.17.0')
 	testImplementation "org.testcontainers:testcontainers"
 	testImplementation "org.testcontainers:junit-jupiter"
 }
