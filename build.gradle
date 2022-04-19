@@ -60,7 +60,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-	implementation 'eu.xenit.contentcloud.thunx:thunx-spring:0.3.2'
+	implementation 'eu.xenit.contentcloud.thunx:thunx-spring:0.3.3'
 	implementation 'eu.xenit.contentcloud.thunx:thunx-pdp-opa:0.3.2'
 
 	compileOnly 'org.projectlombok:lombok'
