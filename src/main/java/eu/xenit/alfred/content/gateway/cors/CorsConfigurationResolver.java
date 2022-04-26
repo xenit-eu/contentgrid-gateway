@@ -15,6 +15,8 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
 
     private final Map<String, CorsConfiguration> configurations = new LinkedHashMap<>();
 
+    private final CorsConfiguration fallback;
+
     public static final List<String> DEFAULT_ALLOWED_METHODS = List.of("*");
     public static final List<String> DEFAULT_ALLOWED_HEADERS = List.of("Authorization", "Content-Type");
     public static final Duration DEFAULT_MAX_AGE = Duration.of(30, ChronoUnit.MINUTES);
@@ -22,8 +24,12 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
 
     public CorsConfigurationResolver(CorsResolverProperties properties) {
         properties.getConfigurations().forEach((host, cors) -> {
-            this.configurations.put(host, applyDefaults(cors));
+            if (!host.equalsIgnoreCase("default")) {
+                this.configurations.put(host, applyDefaults(cors));
+            }
         });
+
+        this.fallback = applyDefaults(properties.getConfigurations().get("default"));
     }
 
     @Override
@@ -34,12 +40,14 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
         }
 
         var hostname = host.getHostName();
-        var cors = configurations.getOrDefault(hostname, null);
-
-        return cors;
+        return configurations.getOrDefault(hostname, this.fallback);
     }
 
     private static CorsConfiguration applyDefaults(CorsConfiguration cors) {
+        if (cors == null) {
+            return null;
+        }
+
         cors = new CorsConfiguration(cors);
         if (cors.getAllowedMethods() == null) {
             cors.setAllowedMethods(DEFAULT_ALLOWED_METHODS);

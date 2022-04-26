@@ -15,8 +15,8 @@ contentcloud:
       configurations:
         'localhost':
           allowedOrigins:
-            - 'http://localhost:8085'
-            - 'http://localhost:9085'
+            - 'http://172.17.0.1:8085'
+            - 'http://172.17.0.1:9085'
         '[api.content-cloud.eu]':
           allowedOrigins: 'https://console.content-cloud.eu'
 
