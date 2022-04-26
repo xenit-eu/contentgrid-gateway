@@ -13,7 +13,7 @@ contentcloud:
   gateway:
     cors:
       configurations:
-        '${DOCKER_HOST_IP:172.17.0.1}':
+        'default':
           allowedOrigins:
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:8085'
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:9085'
