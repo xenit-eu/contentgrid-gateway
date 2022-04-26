@@ -1,11 +1,10 @@
 package eu.xenit.alfred.content.gateway.cors;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.web.cors.CorsConfiguration;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @ConfigurationProperties("contentcloud.gateway.cors")
 public class CorsResolverProperties {
