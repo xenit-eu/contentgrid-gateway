@@ -13,10 +13,10 @@ contentcloud:
   gateway:
     cors:
       configurations:
-        'localhost':
+        '${DOCKER_HOST_IP:172.17.0.1}':
           allowedOrigins:
-            - 'http://172.17.0.1:8085'
-            - 'http://172.17.0.1:9085'
+            - 'http://${DOCKER_HOST_IP:172.17.0.1}:8085'
+            - 'http://${DOCKER_HOST_IP:172.17.0.1}:9085'
         '[api.content-cloud.eu]':
           allowedOrigins: 'https://console.content-cloud.eu'
 
