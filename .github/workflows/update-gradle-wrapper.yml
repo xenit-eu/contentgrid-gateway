@@ -6,6 +6,7 @@ on:
 
 jobs:
   update-gradle-wrapper:
+    name: "Update Gradle Wrapper"
     runs-on: ubuntu-latest
 
     steps:
@@ -14,4 +15,4 @@ jobs:
       - name: Update Gradle Wrapper
         uses: gradle-update/update-gradle-wrapper-action@v1
         with:
-          team-reviewers: @xenit-eu/content-cloud
+          team-reviewers: '@xenit-eu/content-cloud'
