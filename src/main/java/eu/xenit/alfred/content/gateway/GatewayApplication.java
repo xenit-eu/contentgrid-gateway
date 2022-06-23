@@ -11,6 +11,13 @@ import eu.xenit.contentcloud.thunx.pdp.PolicyDecisionPointClient;
 import eu.xenit.contentcloud.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import eu.xenit.contentcloud.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import eu.xenit.contentcloud.thunx.spring.security.ReactivePolicyAuthorizationManager;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
@@ -52,19 +59,8 @@ import org.springframework.security.web.server.authorization.AuthorizationContex
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
-import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @SpringBootApplication
