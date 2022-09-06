@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
 import eu.xenit.alfred.content.gateway.cors.CorsResolverProperties;
+import eu.xenit.alfred.content.gateway.error.ProxyUpstreamUnavailableWebFilter;
 import eu.xenit.contentcloud.opa.client.OpaClient;
 import eu.xenit.contentcloud.opa.client.rest.RestClientConfiguration.LogSpecification;
 import eu.xenit.contentcloud.thunx.pdp.PolicyDecisionComponentImpl;
@@ -39,6 +40,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -223,6 +225,11 @@ public class GatewayApplication {
     @Bean
     public AbacGatewayFilterFactory abacGatewayFilterFactory() {
         return new AbacGatewayFilterFactory();
+    }
+
+    @Bean
+    public GlobalFilter proxyUpstreamUnavailableWebFilter()  {
+        return new ProxyUpstreamUnavailableWebFilter();
     }
 
     private static class OAuth2ClientRegistrationsGuard {
