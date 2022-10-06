@@ -46,7 +46,7 @@ tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.Boo
 }
 
 tasks.register("consoleBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
-	description = "Runs the Spring Boot application with routing config for Content Cloud Console development"
+	description = "Runs the Spring Boot application with routing config for ContentGrid Console development"
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
 	mainClass = tasks.bootRun.mainClass
