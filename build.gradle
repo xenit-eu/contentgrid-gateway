@@ -103,7 +103,7 @@ task writeDockerImageCoords {
 pushDockerImage {
 	dependsOn(writeDockerImageCoords)
 	registryCredentials {
-		url = System.getenv('XENIT_DOCKER_REGISTRY_URL')
+		url = 'docker.xenit.eu'
 		username = System.getenv('XENIT_DOCKER_REGISTRY_USERNAME')
 		password = System.getenv('XENIT_DOCKER_REGISTRY_PASSWORD')
 	}
@@ -117,7 +117,7 @@ createDockerFile {
 }
 
 dockerBuild {
-	repositories = ["hub.xenit.eu/content-cloud/gateway"]
+	repositories = ["docker.xenit.eu/contentgrid/gateway"]
 	tags = imageTags(version)
 }
 
