@@ -14,20 +14,20 @@ class CorsConfigurationResolverTest {
     @Test
     void loadCorsFromHostHeader_hasAppliedDefaults() {
         var config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("console.content-cloud.eu"));
+        config.setAllowedOrigins(List.of("console.contentgrid.com"));
 
         var properties = new CorsResolverProperties();
-        properties.getConfigurations().put("api.content-cloud.eu", config);
+        properties.getConfigurations().put("api.contentgrid.com", config);
 
         var resolver = new CorsConfigurationResolver(properties);
 
         var request = MockServerHttpRequest
                 .get("/me")
-                .header("Host", "api.content-cloud.eu");
+                .header("Host", "api.contentgrid.com");
         var cors = resolver.getCorsConfiguration(MockServerWebExchange.from(request));
 
         assertThat(cors).isNotNull();
-        assertThat(cors.getAllowedOrigins()).singleElement().isEqualTo("console.content-cloud.eu");
+        assertThat(cors.getAllowedOrigins()).singleElement().isEqualTo("console.contentgrid.com");
         assertThat(cors.getAllowedHeaders()).contains("Authorization", "Content-Type");
         assertThat(cors.getAllowedMethods()).singleElement().isEqualTo("*");
         assertThat(cors.getMaxAge()).isEqualTo(1800L);

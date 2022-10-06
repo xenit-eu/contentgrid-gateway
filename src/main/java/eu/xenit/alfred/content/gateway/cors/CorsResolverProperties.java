@@ -6,7 +6,7 @@ import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.web.cors.CorsConfiguration;
 
-@ConfigurationProperties("contentcloud.gateway.cors")
+@ConfigurationProperties("contentgrid.gateway.cors")
 public class CorsResolverProperties {
 
     @Getter
