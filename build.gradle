@@ -16,8 +16,8 @@ repositories {
 	maven {
 		url 'https://oss.sonatype.org/content/repositories/snapshots'
 		content {
-			includeGroup 'eu.xenit.contentcloud'
-			includeGroup 'eu.xenit.contentcloud.thunx'
+			includeGroup 'com.contentgrid'
+			includeGroup 'com.contentgrid.thunx'
 		}
 	}
 }
@@ -29,7 +29,7 @@ reckon {
 
 ext {
 	springCloudVersion = '2021.0.4'
-	thunxVersion = '0.3.3'
+	thunxVersion = '0.4.0'
 }
 
 bootRun {
@@ -61,8 +61,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-	implementation "eu.xenit.contentcloud.thunx:thunx-spring:${thunxVersion}"
-	implementation "eu.xenit.contentcloud.thunx:thunx-pdp-opa:${thunxVersion}"
+	implementation "com.contentgrid.thunx:thunx-spring:${thunxVersion}"
+	implementation "com.contentgrid.thunx:thunx-pdp-opa:${thunxVersion}"
+	implementation "com.contentgrid.opa-java-client:opa-async-java-client:0.4.0"
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
