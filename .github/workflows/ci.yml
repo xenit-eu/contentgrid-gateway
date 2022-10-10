@@ -21,7 +21,6 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
         run: ./gradlew pushDockerImage
         env:
-          XENIT_DOCKER_REGISTRY_URL: ${{ secrets.XENIT_DOCKER_REGISTRY_URL }}
-          XENIT_DOCKER_REGISTRY_USERNAME: ${{ secrets.XENIT_DOCKER_REGISTRY_USERNAME }}
-          XENIT_DOCKER_REGISTRY_PASSWORD: ${{ secrets.XENIT_DOCKER_REGISTRY_PASSWORD }}
+          XENIT_DOCKER_REGISTRY_USERNAME: ${{ secrets.CLOUDSMITH_USER }}
+          XENIT_DOCKER_REGISTRY_PASSWORD: ${{ secrets.CLOUDSMITH_APIKEY }}
 

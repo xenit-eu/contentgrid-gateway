@@ -12,8 +12,8 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 
 @Slf4j
 @SpringBootTest(properties = {
-        "content-cloud.gateway.cors.configurations.'[api.content-cloud.eu]'.allowedOrigins=https://console.content-cloud.eu",
-        "content-cloud.gateway.cors.configurations.default.allowedOrigins=https://other-app.example"
+        "contentgrid.gateway.cors.configurations.'[api.contentgrid.com]'.allowedOrigins=https://console.contentgrid.com",
+        "contentgrid.gateway.cors.configurations.default.allowedOrigins=https://other-app.example"
 })
 class CorsIntegrationTest {
 
@@ -34,12 +34,12 @@ class CorsIntegrationTest {
 
     @Test
     public void corsPreflight_allowedOrigin() {
-        var result = this.preflight("api.content-cloud.eu")
-                .header("Origin", "https://console.content-cloud.eu")
+        var result = this.preflight("api.contentgrid.com")
+                .header("Origin", "https://console.contentgrid.com")
                 .exchange()
                 .expectHeader().valueEquals("Access-Control-Allow-Headers", "authorization")
                 .expectHeader().valueEquals("Access-Control-Allow-Methods", "GET")
-                .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://console.content-cloud.eu")
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://console.contentgrid.com")
                 .expectHeader().doesNotExist("Access-Control-Allow-Credentials")
                 .expectBody().isEmpty();
 
@@ -48,7 +48,7 @@ class CorsIntegrationTest {
 
     @Test
     public void corsPreflight_fallback() {
-        var result = this.preflight("other-service.content-cloud.eu")
+        var result = this.preflight("other-service.contentgrid.com")
                 .header("Origin", "https://other-app.example")
                 .exchange()
                 .expectHeader().valueEquals("Access-Control-Allow-Headers", "authorization")
@@ -62,7 +62,7 @@ class CorsIntegrationTest {
 
     @Test
     public void corsPreflight_forbiddenOrigin() {
-        this.preflight("api.content-cloud.eu")
+        this.preflight("api.contentgrid.com")
                 .header("Origin", "https://evil.overlord.example")
                 .exchange()
                 .expectStatus().isForbidden();
@@ -71,12 +71,12 @@ class CorsIntegrationTest {
 
     @Test
     public void corsPreflight_forbiddenSubdomain() {
-        this.preflight("api.content-cloud.eu")
-                .header("Origin", "https://evil.console.content-cloud.eu")
+        this.preflight("api.contentgrid.com")
+                .header("Origin", "https://evil.console.contentgrid.com")
                 .exchange().expectStatus().isForbidden();
 
-        this.preflight("api.content-cloud.eu")
-                .header("Origin", "https://evil.content-cloud.eu")
+        this.preflight("api.contentgrid.com")
+                .header("Origin", "https://evil.contentgrid.com")
                 .exchange().expectStatus().isForbidden();
     }
 

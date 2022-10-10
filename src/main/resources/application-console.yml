@@ -7,9 +7,9 @@ management:
 opa:
   service:
     url: http://localhost:8081
-  query: "data.contentcloud.api.allow == true"
+  query: "data.contentgrid.api.allow == true"
 
-contentcloud:
+contentgrid:
   gateway:
     cors:
       configurations:
@@ -17,8 +17,8 @@ contentcloud:
           allowedOrigins:
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:8085'
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:9085'
-        '[api.content-cloud.eu]':
-          allowedOrigins: 'https://console.content-cloud.eu'
+        '[api.contentgrid.com]':
+          allowedOrigins: 'https://console.contentgrid.com'
 
 spring:
   cloud:

@@ -1,6 +1,6 @@
 # Content Cloud Gateway
 
-An API Gateway based on [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) with integration with [Open Policy  Agent](https://www.openpolicyagent.org) for Content Cloud projects. You can find a prebuilt image at [content-cloud/gateway](https://hub.xenit.eu/harbor/projects/49/repositories/gateway)
+An API Gateway based on [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) with integration with [Open Policy Agent](https://www.openpolicyagent.org) for Content Cloud projects.
 
 ## Local development
 

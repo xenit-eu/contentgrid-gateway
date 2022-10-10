@@ -16,8 +16,7 @@ repositories {
 	maven {
 		url 'https://oss.sonatype.org/content/repositories/snapshots'
 		content {
-			includeGroup 'eu.xenit.contentcloud'
-			includeGroup 'eu.xenit.contentcloud.thunx'
+			includeGroup 'com.contentgrid.thunx'
 		}
 	}
 }
@@ -29,7 +28,7 @@ reckon {
 
 ext {
 	springCloudVersion = '2021.0.4'
-	thunxVersion = '0.3.3'
+	thunxVersion = '0.4.2'
 }
 
 bootRun {
@@ -46,7 +45,7 @@ tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.Boo
 }
 
 tasks.register("consoleBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
-	description = "Runs the Spring Boot application with routing config for Content Cloud Console development"
+	description = "Runs the Spring Boot application with routing config for ContentGrid Console development"
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
 	mainClass = tasks.bootRun.mainClass
@@ -61,8 +60,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-	implementation "eu.xenit.contentcloud.thunx:thunx-spring:${thunxVersion}"
-	implementation "eu.xenit.contentcloud.thunx:thunx-pdp-opa:${thunxVersion}"
+	implementation platform("com.contentgrid.thunx:thunx-bom:${thunxVersion}")
+	implementation "com.contentgrid.thunx:thunx-spring"
+	implementation "com.contentgrid.thunx:thunx-pdp-opa"
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -102,7 +102,7 @@ task writeDockerImageCoords {
 pushDockerImage {
 	dependsOn(writeDockerImageCoords)
 	registryCredentials {
-		url = System.getenv('XENIT_DOCKER_REGISTRY_URL')
+		url = 'docker.xenit.eu'
 		username = System.getenv('XENIT_DOCKER_REGISTRY_USERNAME')
 		password = System.getenv('XENIT_DOCKER_REGISTRY_PASSWORD')
 	}
@@ -116,7 +116,7 @@ createDockerFile {
 }
 
 dockerBuild {
-	repositories = ["hub.xenit.eu/content-cloud/gateway"]
+	repositories = ["docker.xenit.eu/contentgrid/gateway"]
 	tags = imageTags(version)
 }
 

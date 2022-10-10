@@ -1,6 +1,6 @@
 package eu.xenit.alfred.content.gateway;
 
-import eu.xenit.contentcloud.thunx.spring.security.AuthenticationContextMapper;
+import com.contentgrid.thunx.spring.security.AuthenticationContextMapper;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
