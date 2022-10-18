@@ -116,7 +116,7 @@ createDockerFile {
 }
 
 dockerBuild {
-	repositories = ["docker.xenit.eu/contentgrid/gateway"]
+	repositories = ["docker.xenit.eu/open-source/contentgrid/gateway"]
 	tags = imageTags(version)
 }
 
