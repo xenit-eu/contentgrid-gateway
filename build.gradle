@@ -1,7 +1,7 @@
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '2.7.4'
-	id 'io.spring.dependency-management' version '1.0.14.RELEASE'
+	id 'io.spring.dependency-management' version '1.1.0'
 	id 'eu.xenit.docker' version '5.3.2'
 	id "eu.xenit.docker-compose" version '5.3.2'
 	id 'org.ajoberstar.reckon' version '0.16.1'
