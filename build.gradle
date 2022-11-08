@@ -27,7 +27,7 @@ reckon {
 }
 
 ext {
-	springCloudVersion = '2021.0.4'
+	springCloudVersion = '2021.0.5'
 	thunxVersion = '0.4.2'
 }
 
