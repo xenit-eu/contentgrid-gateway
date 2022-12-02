@@ -12,6 +12,10 @@ import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
+import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
+import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collections;
@@ -21,6 +25,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest.EndpointServerWebExchangeMatcher;
@@ -41,6 +47,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -230,6 +239,23 @@ public class GatewayApplication {
     @Bean
     public GlobalFilter proxyUpstreamUnavailableWebFilter()  {
         return new ProxyUpstreamUnavailableWebFilter();
+    }
+
+    @Bean
+    ApplicationRunner runner(KubernetesServiceDiscovery serviceDiscovery) {
+        return args -> serviceDiscovery.discoverApis();
+    }
+
+    @Bean
+    KubernetesServiceDiscovery serviceDiscovery(@Value("${servicediscovery.namespace:default}") String namespace,
+            ServiceTracker serviceTracker) {
+        KubernetesClient client = new KubernetesClientBuilder().build();
+        return new KubernetesServiceDiscovery(client, namespace, serviceTracker, serviceTracker);
+    }
+
+    @Bean
+    public ServiceTracker serviceTracker(ApplicationEventPublisher publisher, RouteLocatorBuilder builder) {
+        return new ServiceTracker(publisher, builder);
     }
 
     private static class OAuth2ClientRegistrationsGuard {
