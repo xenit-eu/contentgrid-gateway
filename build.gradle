@@ -7,8 +7,6 @@ plugins {
 	id 'org.ajoberstar.reckon' version '0.16.1'
 }
 
-sourceCompatibility = '11'
-
 repositories {
 	mavenCentral()
 	maven { url 'https://repo.spring.io/milestone' }
@@ -33,6 +31,12 @@ ext {
 
 bootRun {
 	systemProperty("spring.profiles.active", "bootRun")
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
 }
 
 tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
