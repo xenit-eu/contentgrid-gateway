@@ -155,8 +155,8 @@ public class GatewayApplication {
 
     @Bean
     @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient pdpClient(OpaProperties opaProperties, OpaClient opaClient) {
-        return new OpenPolicyAgentPDPClient(opaClient, request -> opaProperties.getQuery());
+    public PolicyDecisionPointClient pdpClient(OpaProperties opaProperties, OpaClient opaClient, ServiceTracker serviceTracker) {
+        return new OpenPolicyAgentPDPClient(opaClient, request -> serviceTracker.opaQueryFor(request));
     }
 
     @Bean

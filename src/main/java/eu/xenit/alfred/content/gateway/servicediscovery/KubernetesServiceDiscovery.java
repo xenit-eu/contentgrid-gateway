@@ -50,6 +50,7 @@ public class KubernetesServiceDiscovery {
     private static AppService fromMetadata(ObjectMeta meta) {
         return new AppService(
                 meta.getLabels().get("app.contentgrid.com/app-id"),
+                meta.getLabels().get("app.contentgrid.com/deployment-request-id"),
                 meta.getName(),
                 meta.getNamespace()
         );
