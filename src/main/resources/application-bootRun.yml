@@ -23,4 +23,3 @@ spring:
 opa:
   service:
     url: http://localhost:8181
-  query: "data.gateway.example.allow == true"
