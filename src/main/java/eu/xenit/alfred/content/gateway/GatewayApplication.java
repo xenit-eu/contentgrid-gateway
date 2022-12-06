@@ -13,7 +13,9 @@ import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
+import eu.xenit.alfred.content.gateway.servicediscovery.DisabledServiceDiscovery;
 import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
+import eu.xenit.alfred.content.gateway.servicediscovery.ServiceDiscovery;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.io.IOException;
@@ -75,7 +77,7 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Slf4j
 @SpringBootApplication
-@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class})
+@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class, ServiceDiscoveryProperties.class})
 public class GatewayApplication {
 
     public static void main(String[] args) {
@@ -155,8 +157,16 @@ public class GatewayApplication {
 
     @Bean
     @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient pdpClient(OpaClient opaClient, ServiceTracker serviceTracker) {
-        return new OpenPolicyAgentPDPClient(opaClient, request -> serviceTracker.opaQueryFor(request));
+    public PolicyDecisionPointClient pdpClient(
+            OpaProperties opaProperties,
+            ServiceDiscoveryProperties serviceDiscoveryProperties,
+            OpaClient opaClient,
+            ServiceTracker serviceTracker) {
+        if (serviceDiscoveryProperties.isEnabled()) {
+            return new OpenPolicyAgentPDPClient(opaClient, request -> serviceTracker.opaQueryFor(request));
+        } else {
+            return new OpenPolicyAgentPDPClient(opaClient, request -> opaProperties.getQuery());
+        }
     }
 
     @Bean
@@ -247,10 +257,13 @@ public class GatewayApplication {
     }
 
     @Bean
-    KubernetesServiceDiscovery serviceDiscovery(@Value("${servicediscovery.namespace:default}") String namespace,
-            ServiceTracker serviceTracker) {
-        KubernetesClient client = new KubernetesClientBuilder().build();
-        return new KubernetesServiceDiscovery(client, namespace, serviceTracker, serviceTracker);
+    ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, ServiceTracker serviceTracker) {
+        if (properties.isEnabled()) {
+            KubernetesClient client = new KubernetesClientBuilder().build();
+            return new KubernetesServiceDiscovery(client, properties.getNamespace(), serviceTracker, serviceTracker);
+        } else {
+            return new DisabledServiceDiscovery();
+        }
     }
 
     @Bean

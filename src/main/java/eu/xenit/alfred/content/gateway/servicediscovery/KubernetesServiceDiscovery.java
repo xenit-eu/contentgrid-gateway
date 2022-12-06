@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class KubernetesServiceDiscovery {
+public class KubernetesServiceDiscovery implements ServiceDiscovery {
     private final KubernetesClient client;
     private final String namespace;
 
@@ -25,6 +25,7 @@ public class KubernetesServiceDiscovery {
             .addToMatchLabels("app.contentgrid.com/service-type", "api")
             .build();
 
+    @Override
     public void discoverApis() {
         client.services().inNamespace(namespace).withLabelSelector(selector).watch(new Watcher<Service>() {
             @Override
