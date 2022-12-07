@@ -252,15 +252,19 @@ public class GatewayApplication {
     }
 
     @Bean
-    ApplicationRunner runner(KubernetesServiceDiscovery serviceDiscovery) {
+    ApplicationRunner runner(ServiceDiscovery serviceDiscovery) {
         return args -> serviceDiscovery.discoverApis();
     }
 
     @Bean
-    ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, ServiceTracker serviceTracker) {
+    KubernetesClient kubernetesClient() {
+        return new KubernetesClientBuilder().build();
+    }
+
+    @Bean
+    ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
         if (properties.isEnabled()) {
-            KubernetesClient client = new KubernetesClientBuilder().build();
-            return new KubernetesServiceDiscovery(client, properties.getNamespace(), serviceTracker, serviceTracker);
+            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
         } else {
             return new DisabledServiceDiscovery();
         }
