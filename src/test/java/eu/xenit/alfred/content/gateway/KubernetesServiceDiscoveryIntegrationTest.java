@@ -6,6 +6,7 @@ import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.dajudge.kindcontainer.KindContainer;
 import com.jayway.restassured.RestAssured;
@@ -20,6 +21,7 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -41,6 +43,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 @Tag("integration")
 @Testcontainers
@@ -153,6 +156,10 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             }
 
 
+            await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(() ->
 
             given()
                     .log().path()
@@ -163,7 +170,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .log().body()
                     .assertThat().statusCode(200)
                     .and()
-                    .assertThat().body("[0].uri", equalTo("http://integration-test-dummy-service.default.svc.cluster.local:8080"));
+                    .assertThat().body("[0].uri", equalTo("http://integration-test-dummy-service.default.svc.cluster.local:8080"))
+            );
         }
     }
 
