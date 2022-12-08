@@ -5,6 +5,14 @@ public record AppService(String id, String deploymentId, String name, String nam
         return "http://%s.%s.svc.cluster.local:8080".formatted(name, namespace);
     }
 
+    public String hostname() {
+        return this.id() + ".userapps.contentgrid.com";
+    }
+
+    public String opaPackage() {
+        return "contentgrid.userapps." + this.getSafeDeploymentId();
+    }
+
     public String getSafeDeploymentId() {
         return makeSafeId("deployment", this.deploymentId());
     }

@@ -14,7 +14,6 @@ import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
-import eu.xenit.alfred.content.gateway.servicediscovery.DisabledServiceDiscovery;
 import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
 import eu.xenit.alfred.content.gateway.servicediscovery.ServiceDiscovery;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -28,7 +27,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
@@ -50,7 +48,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -154,7 +151,14 @@ public class GatewayApplication {
 
         @Bean
         OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker) {
-            return request -> serviceTracker.opaQueryFor(request);
+            return request -> serviceTracker
+                    .findServices(s -> s.hostname().equals(request.getURI().getHost()))
+                    .findFirst()
+                    .map(service -> "data.%s.allow == true".formatted(service.opaPackage()))
+                    .orElseGet(() -> {
+                        log.warn("Request for unknown host ({}), perhaps the gateway itself, using tautological opa query", request.getURI().getHost());
+                        return "1 == 1";
+                    });
         }
     }
 
