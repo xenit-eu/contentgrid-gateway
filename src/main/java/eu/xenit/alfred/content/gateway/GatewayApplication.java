@@ -1,5 +1,6 @@
 package eu.xenit.alfred.content.gateway;
 
+import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
@@ -128,6 +129,35 @@ public class GatewayApplication {
         }
     }
 
+    @Configuration
+    @ConditionalOnProperty("servicediscovery.enabled")
+    static class ServiceDiscoveryConfiguration {
+        @Bean
+        ApplicationRunner runner(ServiceDiscovery serviceDiscovery) {
+            return args -> serviceDiscovery.discoverApis();
+        }
+
+        @Bean
+        KubernetesClient kubernetesClient() {
+            return new KubernetesClientBuilder().build();
+        }
+
+        @Bean
+        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
+            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
+        }
+
+        @Bean
+        public ServiceTracker serviceTracker(ApplicationEventPublisher publisher, RouteLocatorBuilder builder) {
+            return new ServiceTracker(publisher, builder);
+        }
+
+        @Bean
+        OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker) {
+            return request -> serviceTracker.opaQueryFor(request);
+        }
+    }
+
     @Bean
     HttpTraceRepository traceRepository() {
         return new InMemoryHttpTraceRepository();
@@ -156,17 +186,15 @@ public class GatewayApplication {
     }
 
     @Bean
+    @ConditionalOnMissingBean(OpaQueryProvider.class)
+    OpaQueryProvider opaQueryProvider(OpaProperties opaProperties) {
+        return request -> opaProperties.getQuery();
+    }
+
+    @Bean
     @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient pdpClient(
-            OpaProperties opaProperties,
-            ServiceDiscoveryProperties serviceDiscoveryProperties,
-            OpaClient opaClient,
-            ServiceTracker serviceTracker) {
-        if (serviceDiscoveryProperties.isEnabled()) {
-            return new OpenPolicyAgentPDPClient(opaClient, request -> serviceTracker.opaQueryFor(request));
-        } else {
-            return new OpenPolicyAgentPDPClient(opaClient, request -> opaProperties.getQuery());
-        }
+    public PolicyDecisionPointClient pdpClient(OpaClient opaClient, OpaQueryProvider opaQueryProvider) {
+        return new OpenPolicyAgentPDPClient(opaClient, opaQueryProvider);
     }
 
     @Bean
@@ -251,29 +279,6 @@ public class GatewayApplication {
         return new ProxyUpstreamUnavailableWebFilter();
     }
 
-    @Bean
-    ApplicationRunner runner(ServiceDiscovery serviceDiscovery) {
-        return args -> serviceDiscovery.discoverApis();
-    }
-
-    @Bean
-    KubernetesClient kubernetesClient() {
-        return new KubernetesClientBuilder().build();
-    }
-
-    @Bean
-    ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
-        if (properties.isEnabled()) {
-            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
-        } else {
-            return new DisabledServiceDiscovery();
-        }
-    }
-
-    @Bean
-    public ServiceTracker serviceTracker(ApplicationEventPublisher publisher, RouteLocatorBuilder builder) {
-        return new ServiceTracker(publisher, builder);
-    }
 
     private static class OAuth2ClientRegistrationsGuard {
 
