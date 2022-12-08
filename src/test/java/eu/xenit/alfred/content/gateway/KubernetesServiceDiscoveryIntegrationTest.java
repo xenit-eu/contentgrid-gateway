@@ -1,49 +1,38 @@
 package eu.xenit.alfred.content.gateway;
 
 
-import static com.jayway.restassured.RestAssured.given;
 import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.dajudge.kindcontainer.KindContainer;
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.http.ContentType;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
-import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeEach;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockSettings;
 import org.mockito.Mockito;
-import org.mockito.internal.creation.MockSettingsImpl;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.event.ApplicationEvents;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 @Tag("integration")
 @Testcontainers
@@ -72,11 +61,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
     }
 
-    @BeforeEach
-    void setup() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
-
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
@@ -91,34 +75,17 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "management.server.port="
     })
     public class HappyPathTest {
-
-        @Value("${local.server.port}")
-        private int port;
+        @Autowired
+        RouteLocator routeLocator;
 
         @Test
         public void testConfiguredServiceDiscoveryHappyPath() {
             String appId = UUID.randomUUID().toString();
             String deploymentId = UUID.randomUUID().toString();
 
-            RestAssured.port = port;
-
-            String sessionCookie = given()
-                    .body("username=alice&password=alice")
-                    .contentType(ContentType.URLENC)
-                    .post("/login")
-                    .then()
-                    .extract().cookie("SESSION");
-
-            given()
-                    .log().path()
-                    .accept(ContentType.JSON)
-                    .cookie(sessionCookie)
-                    .get("/actuator/gateway/routes")
-                    .then()
-                    .log().body()
-                    .assertThat().statusCode(200)
-                    .and()
-                    .assertThat().body(".", hasSize(0));
+            List<Route> routes = routeLocator.getRoutes().collectList().block();
+            Assertions.assertThat(routes).isNotNull();
+            Assertions.assertThat(routes).isEmpty();
 
 //            Deployment deployment = new DeploymentBuilder()
 //                    .withNewMetadata()
@@ -159,19 +126,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
-                    .untilAsserted(() ->
+                    .untilAsserted(() -> Assertions.assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1));
 
-            given()
-                    .log().path()
-                    .accept(ContentType.JSON)
-                    .cookie(sessionCookie)
-                    .get("/actuator/gateway/routes")
-                    .then()
-                    .log().body()
-                    .assertThat().statusCode(200)
-                    .and()
-                    .assertThat().body("[0].uri", equalTo("http://integration-test-dummy-service.default.svc.cluster.local:8080"))
-            );
         }
     }
 
@@ -186,6 +142,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "spring.cloud.gateway.routes.0.predicates.0=Path=/example/**",
             // always succeeds, so we can look at the actuators
             "opa.query=true == true",
+            "opa.service.url=opa.example.com",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=false",
             "management.endpoints.web.exposure.include=*",
@@ -193,31 +150,14 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     })
     public class DisabledHappyPathTest {
 
-        @Value("${local.server.port}")
-        private int port;
+        @Autowired
+        private RouteLocator routeLocator;
 
         @Test
-        public void testConfiguredServiceDiscoveryHappyPath() {
-            RestAssured.port = port;
-
-            String sessionCookie = given()
-                    .body("username=alice&password=alice")
-                    .contentType(ContentType.URLENC)
-                    .post("/login")
-                    .then()
-                    .extract().cookie("SESSION");
-
-            given()
-                    .log().path()
-                    .accept(ContentType.JSON)
-                    .cookie(sessionCookie)
-                    .get("/actuator/gateway/routes")
-                    .then()
-                    .log().body()
-                    .assertThat().statusCode(200)
-                    .and()
-                    .assertThat().body("[0].uri", equalTo("http://example.com:80"));
-
+        public void testDisabledServiceDiscoveryHappyPath() {
+            List<Route> routes = routeLocator.getRoutes().collectList().block();
+            Assertions.assertThat(routes).isNotNull();
+            Assertions.assertThat(routes.get(0).getUri().toString()).isEqualTo("http://example.com:80");
         }
     }
 
