@@ -97,55 +97,16 @@ test {
 	useJUnitPlatform()
 }
 
-task writeDockerImageCoords {
-	doLast {
-		def image = buildDockerImage.getImages().get().find()
-		assert image: "Docker Image has no tags ?!"
-		println "Using image: ${image}"
-		file("build/docker.image").newWriter().withWriter {
-			it.write image
+bootBuildImage {
+	def dockerImageRepo = "docker.xenit.eu/open-source/contentgrid/gateway"
+	imageName = "${dockerImageRepo}:${project.version}"
+	tags = "${project.version}".endsWith('SNAPSHOT') ? [ "${dockerImageRepo}:SNAPSHOT" ] : null
+
+	docker {
+		publishRegistry {
+			url = project.findProperty('DOCKER_PUBLISH_REGISTRY_URL')
+			username = project.findProperty('DOCKER_PUBLISH_REGISTRY_USERNAME')
+			password = project.findProperty('DOCKER_PUBLISH_REGISTRY_PASSWORD')
 		}
 	}
-}
-
-pushDockerImage {
-	dependsOn(writeDockerImageCoords)
-	registryCredentials {
-		url = 'docker.xenit.eu'
-		username = System.getenv('XENIT_DOCKER_REGISTRY_USERNAME')
-		password = System.getenv('XENIT_DOCKER_REGISTRY_PASSWORD')
-	}
-}
-
-createDockerFile {
-	from 'docker.io/xenit/openjdk:jdk-11-bionic'
-	smartCopy(bootJar.getArchiveFile().map({it.asFile}), "/app.jar")
-	defaultCommand("java", '$JAVA_OPTS',"-jar","/app.jar")
-	instruction 'HEALTHCHECK --interval=10s --timeout=2s CMD curl --fail --silent --max-time 1 http://localhost:8081/actuator/health'
-}
-
-dockerBuild {
-	repositories = ["docker.xenit.eu/open-source/contentgrid/gateway"]
-	tags = imageTags(version)
-}
-
-dockerCompose {
-	dockerComposeWorkingDirectory = 'docker-compose/'
-	keycloak {
-		useComposeFiles = dockerCompose.useComposeFiles + ['docker-compose-keycloak.yml']
-	}
-}
-
-static Set<String> imageTags(ver) {
-	String _version = ver.toString();
-	Set<String> tags = [_version];
-	if (_version.endsWith("-SNAPSHOT")) {
-		tags.add("SNAPSHOT")
-	} else {
-		tags.add("latest");
-	}
-	if (System.getenv("CI") != "true") {
-		tags.add("local");
-	}
-	return tags;
 }

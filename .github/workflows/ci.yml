@@ -15,12 +15,10 @@ jobs:
           java-version: 17
       - name: Test with Gradle
         run: ./gradlew check --info --stacktrace
-      - name: Build docker image
-        run: ./gradlew buildDockerImage
       - name: Publish docker image
         if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
-        run: ./gradlew pushDockerImage
+        run: ./gradlew bootBuildImage --publishImage
         env:
-          XENIT_DOCKER_REGISTRY_USERNAME: ${{ secrets.CLOUDSMITH_USER }}
-          XENIT_DOCKER_REGISTRY_PASSWORD: ${{ secrets.CLOUDSMITH_APIKEY }}
-
+          ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_URL: docker.xenit.eu
+          ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_USERNAME: ${{ secrets.CLOUDSMITH_USER }}
+          ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_PASSWORD: ${{ secrets.CLOUDSMITH_APIKEY }}
