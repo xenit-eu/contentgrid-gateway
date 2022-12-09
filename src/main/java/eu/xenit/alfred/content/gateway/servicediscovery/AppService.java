@@ -9,6 +9,13 @@ public record AppService(String name, String appId, String deploymentId, String 
     public String serviceUrl() {
         return "http://%s.%s.svc.cluster.local:8080".formatted(name, namespace);
     }
+    public String policyPackage() {
+        if (this.policyPackage != null) {
+            return this.policyPackage;
+        }
+        return "contentgrid.userapps.deployment" + this.deploymentId().replace("-", "");
+    }
+
 
     public String hostname() {
         return this.appId() + ".userapps.contentgrid.com";

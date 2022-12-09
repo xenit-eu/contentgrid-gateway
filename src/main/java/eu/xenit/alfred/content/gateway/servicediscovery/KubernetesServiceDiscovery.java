@@ -53,7 +53,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery {
                 meta.getName(),
                 meta.getLabels().get("app.contentgrid.com/app-id"),
                 meta.getLabels().get("app.contentgrid.com/deployment-request-id"),
-                meta.getAnnotations().get("authz.contentgrid.com/policy-package"),
+                meta.getAnnotations() == null ? null : meta.getAnnotations().get("authz.contentgrid.com/policy-package"),
                 meta.getNamespace()
         );
     }
