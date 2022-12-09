@@ -4,12 +4,15 @@ package eu.xenit.alfred.content.gateway;
 import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
+import com.contentgrid.thunx.pdp.RequestContext;
+import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.dajudge.kindcontainer.KindContainer;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,7 +33,6 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.event.ApplicationEvents;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -61,6 +63,18 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
     }
 
+    private record SimpleGetRequest(URI uri) implements RequestContext {
+        @Override public String getHttpMethod() {
+            return "GET";
+        }
+        @Override public URI getURI() {
+            return this.uri;
+        }
+        @Override public Map<String, List<String>> getQueryParams() {
+            return Map.of();
+        }
+    }
+
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
@@ -71,6 +85,9 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         @Autowired
         RouteLocator routeLocator;
 
+        @Autowired
+        OpaQueryProvider opaQueryProvider;
+
         @Test
         public void testConfiguredServiceDiscoveryHappyPath() {
             String appId = UUID.randomUUID().toString();
@@ -79,6 +96,9 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             List<Route> routes = routeLocator.getRoutes().collectList().block();
             Assertions.assertThat(routes).isNotNull();
             Assertions.assertThat(routes).isEmpty();
+
+            SimpleGetRequest request = new SimpleGetRequest(URI.create("https://" + appId + ".userapps.contentgrid.com"));
+            Assertions.assertThat(opaQueryProvider.createQuery(request)).isEqualTo("1 == 1");
 
 //            Deployment deployment = new DeploymentBuilder()
 //                    .withNewMetadata()
@@ -119,7 +139,12 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
-                    .untilAsserted(() -> Assertions.assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1));
+                    .untilAsserted(() -> {
+                        Assertions.assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
+                        Assertions.assertThat(opaQueryProvider.createQuery(request))
+                                .isEqualTo("data.contentgrid.userapps.deployment%s.allow == true"
+                                        .formatted(deploymentId.replace("-", "")));
+                    });
 
         }
     }
