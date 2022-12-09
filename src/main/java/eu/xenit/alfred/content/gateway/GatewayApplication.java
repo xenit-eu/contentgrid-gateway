@@ -190,7 +190,7 @@ public class GatewayApplication {
     }
 
     @Bean
-    @ConditionalOnMissingBean(OpaQueryProvider.class)
+    @ConditionalOnProperty(value = "servicediscovery.enabled", havingValue = "false", matchIfMissing = true)
     OpaQueryProvider opaQueryProvider(OpaProperties opaProperties) {
         return request -> opaProperties.getQuery();
     }
