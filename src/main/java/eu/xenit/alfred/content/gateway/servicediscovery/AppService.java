@@ -1,27 +1,17 @@
 package eu.xenit.alfred.content.gateway.servicediscovery;
 
-public record AppService(String id, String deploymentId, String name, String namespace) {
-    public String getServiceUrl() {
+public record AppService(String name, String appId, String deploymentId, String policyPackage, String namespace) {
+    // Since this is a kubernetes service, the name is guaranteed to be unique and thereby suitable as id
+    public String id() {
+        return name();
+    }
+
+    public String serviceUrl() {
         return "http://%s.%s.svc.cluster.local:8080".formatted(name, namespace);
     }
 
     public String hostname() {
-        return this.id() + ".userapps.contentgrid.com";
+        return this.appId() + ".userapps.contentgrid.com";
     }
 
-    public String opaPackage() {
-        return "contentgrid.userapps." + this.getSafeDeploymentId();
-    }
-
-    public String getSafeDeploymentId() {
-        return makeSafeId("deployment", this.deploymentId());
-    }
-
-    public String getSafeApplicationId() {
-        return makeSafeId("application", this.id());
-    }
-
-    private String makeSafeId(String prefix, String id) {
-        return prefix + id.replaceAll("[^A-Za-z\\d]", "");
-    }
 }

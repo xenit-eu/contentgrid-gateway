@@ -154,7 +154,7 @@ public class GatewayApplication {
             return request -> serviceTracker
                     .findServices(s -> s.hostname().equals(request.getURI().getHost()))
                     .findFirst()
-                    .map(service -> "data.%s.allow == true".formatted(service.opaPackage()))
+                    .map(service -> "data.%s.allow == true".formatted(service.policyPackage()))
                     .orElseGet(() -> {
                         log.warn("Request for unknown host ({}), perhaps the gateway itself, using tautological opa query", request.getURI().getHost());
                         return "1 == 1";

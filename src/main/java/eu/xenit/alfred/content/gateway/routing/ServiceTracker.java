@@ -30,7 +30,7 @@ public class ServiceTracker implements ServiceAddedHandler, ServiceDeletedHandle
         for (AppService service : services.values()) {
             builder.route(service.id(), p -> p
                     .host(service.hostname())
-                    .uri(service.getServiceUrl())
+                    .uri(service.serviceUrl())
             );
         }
 

@@ -50,9 +50,10 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery {
 
     private static AppService fromMetadata(ObjectMeta meta) {
         return new AppService(
+                meta.getName(),
                 meta.getLabels().get("app.contentgrid.com/app-id"),
                 meta.getLabels().get("app.contentgrid.com/deployment-request-id"),
-                meta.getName(),
+                meta.getAnnotations().get("authz.contentgrid.com/policy-package"),
                 meta.getNamespace()
         );
     }
