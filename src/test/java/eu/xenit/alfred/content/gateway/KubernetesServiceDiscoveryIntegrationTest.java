@@ -64,15 +64,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
-            "testing.bootstrap.enable=true",
-            "testing.bootstrap.users.0.username=alice",
-            "testing.bootstrap.users.0.authorities={\"employers\": [\"BE0999999999\"]}",
-            // always succeeds, so we can look at the actuators
-            "opa.query=true == true",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
-            "management.endpoints.web.exposure.include=*",
-            "management.server.port="
     })
     public class HappyPathTest {
         @Autowired
@@ -134,19 +127,12 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     @Nested
     @Import(NoK8sAvailableClient.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
-            "testing.bootstrap.enable=true",
-            "testing.bootstrap.users.0.username=alice",
-            "testing.bootstrap.users.0.authorities={\"employers\": [\"BE0999999999\"]}",
             "spring.cloud.gateway.routes.0.id=example",
             "spring.cloud.gateway.routes.0.uri=http://example.com",
             "spring.cloud.gateway.routes.0.predicates.0=Path=/example/**",
-            // always succeeds, so we can look at the actuators
-            "opa.query=true == true",
             "opa.service.url=opa.example.com",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=false",
-            "management.endpoints.web.exposure.include=*",
-            "management.server.port="
     })
     public class DisabledHappyPathTest {
 
