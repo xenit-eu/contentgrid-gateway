@@ -1,5 +1,6 @@
 package eu.xenit.alfred.content.gateway;
 
+import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
@@ -12,6 +13,11 @@ import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
+import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
+import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
+import eu.xenit.alfred.content.gateway.servicediscovery.ServiceDiscovery;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collections;
@@ -21,6 +27,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest.EndpointServerWebExchangeMatcher;
@@ -41,6 +48,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -66,7 +75,7 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Slf4j
 @SpringBootApplication
-@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class})
+@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class, ServiceDiscoveryProperties.class})
 public class GatewayApplication {
 
     public static void main(String[] args) {
@@ -117,6 +126,42 @@ public class GatewayApplication {
         }
     }
 
+    @Configuration
+    @ConditionalOnProperty("servicediscovery.enabled")
+    static class ServiceDiscoveryConfiguration {
+        @Bean
+        ApplicationRunner runner(ServiceDiscovery serviceDiscovery) {
+            return args -> serviceDiscovery.discoverApis();
+        }
+
+        @Bean
+        KubernetesClient kubernetesClient() {
+            return new KubernetesClientBuilder().build();
+        }
+
+        @Bean
+        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
+            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
+        }
+
+        @Bean
+        public ServiceTracker serviceTracker(ApplicationEventPublisher publisher, RouteLocatorBuilder builder) {
+            return new ServiceTracker(publisher, builder);
+        }
+
+        @Bean
+        OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker) {
+            return request -> serviceTracker
+                    .findServices(s -> s.hostname().equals(request.getURI().getHost()))
+                    .findFirst()
+                    .map(service -> "data.%s.allow == true".formatted(service.policyPackage()))
+                    .orElseGet(() -> {
+                        log.warn("Request for unknown host ({}), perhaps the gateway itself, using tautological opa query", request.getURI().getHost());
+                        return "1 == 1";
+                    });
+        }
+    }
+
     @Bean
     HttpTraceRepository traceRepository() {
         return new InMemoryHttpTraceRepository();
@@ -145,9 +190,15 @@ public class GatewayApplication {
     }
 
     @Bean
+    @ConditionalOnProperty(value = "servicediscovery.enabled", havingValue = "false", matchIfMissing = true)
+    OpaQueryProvider opaQueryProvider(OpaProperties opaProperties) {
+        return request -> opaProperties.getQuery();
+    }
+
+    @Bean
     @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient pdpClient(OpaProperties opaProperties, OpaClient opaClient) {
-        return new OpenPolicyAgentPDPClient(opaClient, request -> opaProperties.getQuery());
+    public PolicyDecisionPointClient pdpClient(OpaClient opaClient, OpaQueryProvider opaQueryProvider) {
+        return new OpenPolicyAgentPDPClient(opaClient, opaQueryProvider);
     }
 
     @Bean
@@ -231,6 +282,7 @@ public class GatewayApplication {
     public GlobalFilter proxyUpstreamUnavailableWebFilter()  {
         return new ProxyUpstreamUnavailableWebFilter();
     }
+
 
     private static class OAuth2ClientRegistrationsGuard {
 
