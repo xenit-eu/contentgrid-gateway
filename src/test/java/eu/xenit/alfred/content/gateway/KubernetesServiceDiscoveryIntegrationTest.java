@@ -2,6 +2,7 @@ package eu.xenit.alfred.content.gateway;
 
 
 import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.contentgrid.thunx.pdp.RequestContext;
@@ -28,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.cloud.gateway.filter.OrderedGatewayFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.context.annotation.Bean;
@@ -94,11 +96,11 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             String deploymentId = UUID.randomUUID().toString();
 
             List<Route> routes = routeLocator.getRoutes().collectList().block();
-            Assertions.assertThat(routes).isNotNull();
-            Assertions.assertThat(routes).isEmpty();
+            assertThat(routes).isNotNull();
+            assertThat(routes).isEmpty();
 
             SimpleGetRequest request = new SimpleGetRequest(URI.create("https://" + appId + ".userapps.contentgrid.com"));
-            Assertions.assertThat(opaQueryProvider.createQuery(request)).isEqualTo("1 == 1");
+            assertThat(opaQueryProvider.createQuery(request)).isEqualTo("1 == 1");
 
 //            Deployment deployment = new DeploymentBuilder()
 //                    .withNewMetadata()
@@ -140,12 +142,15 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(() -> {
-                        Assertions.assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
-                        Assertions.assertThat(opaQueryProvider.createQuery(request))
+                        assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
+                        assertThat(opaQueryProvider.createQuery(request))
                                 .isEqualTo("data.contentgrid.userapps.deployment%s.allow == true"
                                         .formatted(deploymentId.replace("-", "")));
                     });
 
+            var newRoutes = routeLocator.getRoutes().collectList().block();
+
+            assertThat(newRoutes.get(0).getFilters()).isNotEmpty();
         }
     }
 
@@ -167,8 +172,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         @Test
         public void testDisabledServiceDiscoveryHappyPath() {
             List<Route> routes = routeLocator.getRoutes().collectList().block();
-            Assertions.assertThat(routes).isNotNull();
-            Assertions.assertThat(routes.get(0).getUri().toString()).isEqualTo("http://example.com:80");
+            assertThat(routes).isNotNull();
+            assertThat(routes.get(0).getUri().toString()).isEqualTo("http://example.com:80");
         }
     }
 
