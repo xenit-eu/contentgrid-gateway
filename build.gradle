@@ -67,7 +67,7 @@ dependencies {
 	implementation "com.contentgrid.thunx:thunx-pdp-opa"
 
 	implementation 'io.fabric8:kubernetes-client:6.2.0'
-	implementation 'io.fabric8:kubernetes-model-common:6.2.0'
+	implementation 'io.fabric8:kubernetes-model-common:6.3.1'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
