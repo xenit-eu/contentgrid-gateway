@@ -159,6 +159,7 @@ public class GatewayApplication {
                     });
         }
     }
+
     @Bean
     public ServerLogoutSuccessHandler logoutSuccessHandler(
             Optional<ReactiveClientRegistrationRepository> clientRegistrationRepository) {

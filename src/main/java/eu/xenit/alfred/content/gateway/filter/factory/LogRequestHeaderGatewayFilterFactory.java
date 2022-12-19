@@ -35,7 +35,7 @@ public class LogRequestHeaderGatewayFilterFactory
                 final HttpHeaders requestHeaders = exchange.getRequest().getHeaders();
                 final List<String> headerValues = requestHeaders.getOrEmpty(config.getName());
 
-                log.info("{} {} - {}: {}", exchange.getRequest().getMethodValue(), exchange.getRequest().getPath().toString(), config.getName(), String.join(",", headerValues));
+                log.info("{} {} - {}: {}", exchange.getRequest().getMethod().name(), exchange.getRequest().getPath().toString(), config.getName(), String.join(",", headerValues));
 
                 return chain.filter(exchange);
             }

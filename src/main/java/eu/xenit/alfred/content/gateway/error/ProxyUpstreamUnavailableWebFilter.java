@@ -28,7 +28,7 @@ public class ProxyUpstreamUnavailableWebFilter implements GlobalFilter, Ordered 
             newException.initCause(e);
             var request = exchange.getRequest();
             var routeName = exchange.getAttributeOrDefault(ServerWebExchangeUtils.GATEWAY_PREDICATE_MATCHED_PATH_ROUTE_ID_ATTR, "null");
-            log.error(String.format("Upstream service '%s' unavailable: '%s %s' failed", routeName, request.getMethodValue(), request.getURI().toASCIIString()), e);
+            log.error(String.format("Upstream service '%s' unavailable: '%s %s' failed", routeName, request.getMethod().name(), request.getURI().toASCIIString()), e);
             return newException;
         }).checkpoint();
     }
