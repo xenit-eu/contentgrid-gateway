@@ -1,11 +1,11 @@
 package eu.xenit.alfred.content.gateway;
 
-import static com.jayway.restassured.RestAssured.given;
+import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.oneOf;
 
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.http.ContentType;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +44,6 @@ public class BootstrapUsersTest {
     public void testLogin() {
 
         given()
-                .log().path()
                 .accept(ContentType.JSON)
                 .body("username=bob&password=bob")
                 .contentType(ContentType.URLENC)
