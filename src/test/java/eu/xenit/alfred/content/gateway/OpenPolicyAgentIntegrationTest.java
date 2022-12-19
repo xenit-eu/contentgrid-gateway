@@ -1,12 +1,11 @@
 package eu.xenit.alfred.content.gateway;
 
-
-import static com.jayway.restassured.RestAssured.given;
+import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.matchesRegex;
 
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.http.ContentType;
-import com.jayway.restassured.response.ValidatableResponse;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -63,7 +62,6 @@ public class OpenPolicyAgentIntegrationTest {
                 .extract().cookie("SESSION");
 
         return given()
-                .log().path()
                 .accept(ContentType.JSON)
                 .cookie("SESSION", sessionCookie)
                 .get("/me")
