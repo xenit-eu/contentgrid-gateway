@@ -35,8 +35,6 @@ import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.info.InfoEndpoint;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
 import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
-import org.springframework.boot.actuate.trace.http.HttpTraceRepository;
-import org.springframework.boot.actuate.trace.http.InMemoryHttpTraceRepository;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -161,12 +159,6 @@ public class GatewayApplication {
                     });
         }
     }
-
-    @Bean
-    HttpTraceRepository traceRepository() {
-        return new InMemoryHttpTraceRepository();
-    }
-
     @Bean
     public ServerLogoutSuccessHandler logoutSuccessHandler(
             Optional<ReactiveClientRegistrationRepository> clientRegistrationRepository) {
