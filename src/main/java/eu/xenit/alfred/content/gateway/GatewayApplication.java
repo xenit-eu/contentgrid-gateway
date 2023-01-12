@@ -47,6 +47,7 @@ import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -138,8 +139,10 @@ public class GatewayApplication {
         }
 
         @Bean
-        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
-            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
+        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
+                ServiceTracker serviceTracker, Fabric8ServiceInstanceMapper instanceMapper) {
+            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker,
+                    serviceTracker, instanceMapper);
         }
 
         @Bean
@@ -149,12 +152,23 @@ public class GatewayApplication {
 
         @Bean
         OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker) {
+            // TARGET ARCH: get application-id from request attributes, not from the service-tracker
             return request -> serviceTracker
-                    .findServices(s -> s.hostname().equals(request.getURI().getHost()))
+                    .findServices(s -> {
+                        var appId = s.getMetadata().get("app.contentgrid.com/application-id");
+                        var serviceHost = "%s.userapps.contentgrid.com".formatted(appId);
+                        return request.getURI().getHost().equals(serviceHost);
+                    })
                     .findFirst()
-                    .map(service -> "data.%s.allow == true".formatted(service.policyPackage()))
+                    .map(service -> {
+                        var policyPackage = service.getMetadata().get("authz.contentgrid.com/policy-package");
+                        return "data.%s.allow == true".formatted(policyPackage);
+                    })
                     .orElseGet(() -> {
-                        log.warn("Request for unknown host ({}), perhaps the gateway itself, using tautological opa query", request.getURI().getHost());
+                        // TODO this should fail !?
+                        log.warn(
+                                "Request for unknown host ({}), perhaps the gateway itself, using tautological opa query",
+                                request.getURI().getHost());
                         return "1 == 1";
                     });
         }
