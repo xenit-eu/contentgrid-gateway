@@ -1,5 +1,7 @@
 package eu.xenit.alfred.content.gateway;
 
+import static eu.xenit.alfred.content.gateway.filter.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
+
 import com.contentgrid.opa.client.OpaClient;
 import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
 import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
@@ -13,6 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
 import eu.xenit.alfred.content.gateway.cors.CorsResolverProperties;
 import eu.xenit.alfred.content.gateway.error.ProxyUpstreamUnavailableWebFilter;
+import eu.xenit.alfred.content.gateway.filter.web.ContentGridAppRequestWebFilter;
+import eu.xenit.alfred.content.gateway.filter.web.ContentGridResponseHeadersWebFilter;
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridApplicationMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridDeploymentMetadata;
@@ -55,6 +59,7 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
@@ -140,6 +145,11 @@ public class GatewayApplication {
             }
 
             @Override
+            public Optional<String> getDeploymentId(ServiceInstance service) {
+                return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/deployment-id"));
+            }
+
+            @Override
             public Optional<String> getPolicyPackage(ServiceInstance service) {
                 return Optional.ofNullable(service.getMetadata().get("authz.contentgrid.com/policy-package"));
             }
@@ -164,6 +174,21 @@ public class GatewayApplication {
                         .collect(Collectors.toSet());
             }
         };
+    }
+
+    @Bean
+    @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER)
+    @ConditionalOnBean(ServiceTracker.class)
+    ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(ServiceTracker tracker,
+            ContentGridDeploymentMetadata deploymentMetadata,
+            ContentGridApplicationMetadata applicationMetadata) {
+        return new ContentGridAppRequestWebFilter(tracker, deploymentMetadata, applicationMetadata);
+    }
+
+    @Bean
+    @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER + 10)
+    ContentGridResponseHeadersWebFilter contentGridResponseHeadersWebFilter() {
+        return new ContentGridResponseHeadersWebFilter();
     }
 
     @Configuration
@@ -200,7 +225,8 @@ public class GatewayApplication {
 
             // TARGET ARCH: get application-id from request attributes, not from the service-tracker
             return request -> serviceTracker
-                    .findServices(service -> {
+                    .services()
+                    .filter(service -> {
                         var domainNames = applicationMetadata.getDomainNames(service);
                         return domainNames.contains(request.getURI().getHost());
                     })

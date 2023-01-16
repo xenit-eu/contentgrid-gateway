@@ -16,5 +16,4 @@ public interface ContentGridApplicationMetadata {
      */
     @Deprecated
     Set<String> getDomainNames(@NonNull ServiceInstance service);
-
 }
