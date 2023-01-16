@@ -25,9 +25,8 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     /**
      * This {@link WebFilter} needs to be registered before the Spring Security WebFilter, so that authentication
      * and authorization infrastructure can use request attributes set by this WebFilter. The Spring Security
-     * WebFilter is registered by {@code WebFluxSecurityConfiguration}
+     * WebFilter is registered by {@code WebFluxSecurityConfiguration}.
      *
-     * @
      * @see <a href="https://github.com/spring-projects/spring-boot/issues/33551">Spring Boot issue 33551</a>
      *
      */
