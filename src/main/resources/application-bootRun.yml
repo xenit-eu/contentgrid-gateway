@@ -10,6 +10,8 @@ testing:
         authorities: '{"admin": "true"}'
 
 spring:
+  main:
+    cloud-platform: kubernetes # bypass detection this is running on K8S
   cloud:
     gateway:
       routes:
@@ -28,3 +30,6 @@ opa:
 servicediscovery:
   namespace: default
   enabled: true
+
+server:
+  port: 9080

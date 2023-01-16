@@ -1,19 +1,21 @@
 package eu.xenit.alfred.content.gateway;
 
+import com.contentgrid.opa.client.OpaClient;
+import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
+import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
+import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
+import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
+import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
+import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.xenit.alfred.content.gateway.cors.CorsConfigurationResolver;
 import eu.xenit.alfred.content.gateway.cors.CorsResolverProperties;
 import eu.xenit.alfred.content.gateway.error.ProxyUpstreamUnavailableWebFilter;
-import com.contentgrid.opa.client.OpaClient;
-import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
-import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
-import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
-import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
-import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
-import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
+import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridApplicationMetadata;
+import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridDeploymentMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
 import eu.xenit.alfred.content.gateway.servicediscovery.ServiceDiscovery;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -24,8 +26,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Data;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -45,8 +49,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -89,7 +94,8 @@ public class GatewayApplication {
         @Bean
         public MapReactiveUserDetailsService userDetailsService(BootstrapProperties bootstrapProperties) {
             List<BootstrapUser> users = bootstrapProperties.getUsers();
-            users.forEach(user -> log.info("Bootstrapping user '{}' with authorities {}", user.getUsername(), user.getAuthorities()));
+            users.forEach(user -> log.info("Bootstrapping user '{}' with authorities {}", user.getUsername(),
+                    user.getAuthorities()));
             ObjectMapper mapper = new ObjectMapper();
             return new MapReactiveUserDetailsService(users.stream()
                     .map(user -> user.convert(mapper))
@@ -100,11 +106,13 @@ public class GatewayApplication {
         @ConfigurationProperties(prefix = "testing.bootstrap")
         @Component
         private static class BootstrapProperties {
+
             List<BootstrapUser> users;
         }
 
         @Data
         private static class BootstrapUser {
+
             String username;
             String authorities;
 
@@ -124,9 +132,44 @@ public class GatewayApplication {
         }
     }
 
+    @Bean
+    ContentGridDeploymentMetadata deploymentMetadata() {
+        return new ContentGridDeploymentMetadata() {
+            public Optional<String> getApplicationId(@NonNull ServiceInstance service) {
+                return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/application-id"));
+            }
+
+            @Override
+            public Optional<String> getPolicyPackage(ServiceInstance service) {
+                return Optional.ofNullable(service.getMetadata().get("authz.contentgrid.com/policy-package"));
+            }
+        };
+    }
+
+    @Bean
+    ContentGridApplicationMetadata applicationMetadata(ContentGridDeploymentMetadata deploymentMetadata) {
+        return new ContentGridApplicationMetadata() {
+
+            @Override
+            public Optional<String> getApplicationId(ServiceInstance service) {
+                return deploymentMetadata.getApplicationId(service);
+            }
+
+            @Override
+            @Deprecated
+            public Set<String> getDomainNames(@NonNull ServiceInstance service) {
+                return this.getApplicationId(service)
+                        .stream()
+                        .map("%s.userapps.contentgrid.com"::formatted)
+                        .collect(Collectors.toSet());
+            }
+        };
+    }
+
     @Configuration
     @ConditionalOnProperty("servicediscovery.enabled")
     static class ServiceDiscoveryConfiguration {
+
         @Bean
         ApplicationRunner runner(ServiceDiscovery serviceDiscovery) {
             return args -> serviceDiscovery.discoverApis();
@@ -138,23 +181,38 @@ public class GatewayApplication {
         }
 
         @Bean
-        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient, ServiceTracker serviceTracker) {
-            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker, serviceTracker);
+        ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
+                ServiceTracker serviceTracker, Fabric8ServiceInstanceMapper instanceMapper) {
+            return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker,
+                    serviceTracker, instanceMapper);
         }
 
         @Bean
-        public ServiceTracker serviceTracker(ApplicationEventPublisher publisher, RouteLocatorBuilder builder) {
-            return new ServiceTracker(publisher, builder);
+        public ServiceTracker serviceTracker(ApplicationEventPublisher publisher,
+                ContentGridApplicationMetadata applicationMetadata) {
+            return new ServiceTracker(publisher, applicationMetadata);
         }
 
         @Bean
-        OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker) {
+        OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker,
+                ContentGridDeploymentMetadata deploymentMetadata,
+                ContentGridApplicationMetadata applicationMetadata) {
+
+            // TARGET ARCH: get application-id from request attributes, not from the service-tracker
             return request -> serviceTracker
-                    .findServices(s -> s.hostname().equals(request.getURI().getHost()))
+                    .findServices(service -> {
+                        var domainNames = applicationMetadata.getDomainNames(service);
+                        return domainNames.contains(request.getURI().getHost());
+                    })
+                    .flatMap(service -> deploymentMetadata.getPolicyPackage(service)
+                            .stream()
+                            .map("data.%s.allow == true"::formatted))
                     .findFirst()
-                    .map(service -> "data.%s.allow == true".formatted(service.policyPackage()))
                     .orElseGet(() -> {
-                        log.warn("Request for unknown host ({}), perhaps the gateway itself, using tautological opa query", request.getURI().getHost());
+                        // TODO this should fail !?
+                        log.warn(
+                                "Request for unknown host ({}), perhaps the gateway itself, using tautological opa query",
+                                request.getURI().getHost());
                         return "1 == 1";
                     });
         }
@@ -272,7 +330,7 @@ public class GatewayApplication {
     }
 
     @Bean
-    public GlobalFilter proxyUpstreamUnavailableWebFilter()  {
+    public GlobalFilter proxyUpstreamUnavailableWebFilter() {
         return new ProxyUpstreamUnavailableWebFilter();
     }
 
@@ -300,6 +358,7 @@ public class GatewayApplication {
     }
 
     private static class OAuth2ResourceServerGuard {
+
         public static boolean shouldConfigure(Environment environment) {
             return environment.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri") != null;
         }

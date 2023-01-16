@@ -80,6 +80,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
     })
@@ -124,19 +125,20 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                         .withLabels(Map.of(
                                 "app.kubernetes.io/managed-by", "contentgrid",
                                 "app.contentgrid.com/service-type", "api",
-                                "app.contentgrid.com/app-id", appId,
-                                "app.contentgrid.com/deployment-request-id", deploymentId
+                                "app.contentgrid.com/application-id", appId,
+                                "app.contentgrid.com/deployment-id", deploymentId,
+                                "authz.contentgrid.com/policy-package", "contentgrid.userapps.deployment%s"
+                                        .formatted(deploymentId.replace("-", ""))
                         ))
                     .endMetadata()
                     .withNewSpec()
                         .withPorts(new ServicePortBuilder().withPort(8080).withName("http").build())
-//                        .withSelector(Map.of("app.contentgrid.com/deployment-request-id", deploymentId))
+                        .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId))
                     .endSpec()
                     .build();
             try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig())).build()) {
                 client.resource(service).inNamespace("default").createOrReplace();
             }
-
 
             await()
                     .atMost(30, TimeUnit.SECONDS)
