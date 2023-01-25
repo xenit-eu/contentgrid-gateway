@@ -1,5 +1,3 @@
-#debug: true
-
 server:
   forward-headers-strategy: native
 

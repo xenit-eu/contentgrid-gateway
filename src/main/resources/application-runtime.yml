@@ -1,0 +1,31 @@
+debug: true
+
+contentgrid:
+  gateway:
+    runtime-platform:
+      enabled: true
+
+testing:
+  bootstrap:
+    enable: false
+
+spring:
+  main:
+    cloud-platform: kubernetes # bypass detection this is running on K8S
+  cloud:
+    gateway:
+      routes:
+        - id: root
+          uri: https://ignored
+          predicates:
+            - Path=/
+          filters:
+            - RedirectTo=302, /me
+
+opa:
+  service:
+    url: http://localhost:8081
+
+servicediscovery:
+  namespace: default
+  enabled: true
