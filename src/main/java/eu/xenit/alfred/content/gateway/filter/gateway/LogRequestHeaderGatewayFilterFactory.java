@@ -1,4 +1,4 @@
-package eu.xenit.alfred.content.gateway.filter.factory;
+package eu.xenit.alfred.content.gateway.filter.gateway;
 
 import static org.springframework.cloud.gateway.support.GatewayToStringStyler.filterToStringCreator;
 

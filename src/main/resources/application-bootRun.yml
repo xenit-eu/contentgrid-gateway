@@ -33,3 +33,7 @@ servicediscovery:
 
 server:
   port: 9080
+
+management:
+  server:
+    port: 9081

@@ -67,7 +67,7 @@ public class ServiceTracker implements
         publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
-    public Stream<ServiceInstance> findServices(Predicate<ServiceInstance> predicate) {
-        return services.values().stream().filter(predicate);
+    public Stream<ServiceInstance> services() {
+        return services.values().stream();
     }
 }

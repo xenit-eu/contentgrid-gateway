@@ -7,6 +7,10 @@ public interface ContentGridDeploymentMetadata {
 
     Optional<String> getApplicationId(ServiceInstance service);
 
+    Optional<String> getDeploymentId(ServiceInstance service);
+
+
+
     Optional<String> getPolicyPackage(ServiceInstance service);
 
 
