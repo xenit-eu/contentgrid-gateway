@@ -104,17 +104,6 @@ class OAuth2ClientConfiguration {
                 entryPoints.add(0, new DelegateEntry(oauth2loginMatcher, entryPoint));
             };
         }
-
-
-        // When there is a static OAuth2 client registration, use that by default
-
-//        @Bean
-//        InMemoryReactiveClientRegistrationRepository clientRegistrationRepository(OAuth2ClientProperties properties) {
-//            List<ClientRegistration> registrations = new ArrayList<>(
-//                    OAuth2ClientPropertiesRegistrationAdapter.getClientRegistrations(properties).values());
-//            return new InMemoryReactiveClientRegistrationRepository(registrations);
-//        }
-
     }
 
     @Bean
