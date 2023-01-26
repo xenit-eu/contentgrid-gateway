@@ -34,6 +34,7 @@ import org.springframework.security.web.server.util.matcher.OrServerWebExchangeM
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 
@@ -89,9 +90,13 @@ class OAuth2ClientConfiguration {
         @Bean
         @ConditionalOnBean(ReactiveClientRegistrationIdResolver.class)
         Customizer<List<DelegateEntry>> customizerDynamicOAuth2Entrypoint(
-                ReactiveClientRegistrationIdResolver clientRegistrationIdResolver) {
+                ReactiveClientRegistrationIdResolver clientRegistrationIdResolver, RuntimeRequestResolver runtimeRequestResolver) {
             return entryPoints -> {
-                var oauth2loginMatcher = oauth2loginMatcher();
+                var matcher = new AndServerWebExchangeMatcher(
+                        runtimeRequestResolver.matcher(),
+                        oauth2loginMatcher()
+                );
+
                 var entryPoint = new DynamicRedirectServerAuthenticationEntryPoint(exchange -> {
                     // Dynamically look up the registration-id
                     // Note: the actual registration-id is strictly cosmetic at this stage,
@@ -101,7 +106,7 @@ class OAuth2ClientConfiguration {
                             .map(URI::create);
                 });
 
-                entryPoints.add(0, new DelegateEntry(oauth2loginMatcher, entryPoint));
+                entryPoints.add(0, new DelegateEntry(matcher, entryPoint));
             };
         }
     }
