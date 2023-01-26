@@ -4,11 +4,6 @@ management:
   server:
     port: 9180
 
-opa:
-  service:
-    url: http://localhost:8081
-  query: "data.contentgrid.api.allow == true"
-
 contentgrid:
   gateway:
     cors:
@@ -38,7 +33,7 @@ spring:
         provider:
           keycloak:
             user-name-attribute: preferred_username
-            issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8082/auth/realms/contentcloud-api
+            issuer-uri: https://auth.content-cloud.eu/auth/realms/contentcloud-dev
         registration:
           keycloak:
             client-id: contentcloud-gateway
@@ -50,4 +45,4 @@ spring:
 
       resourceserver:
         jwt:
-          issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8082/auth/realms/contentcloud-api
+          issuer-uri: https://auth.content-cloud.eu/auth/realms/contentcloud-dev

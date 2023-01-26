@@ -18,6 +18,9 @@ import eu.xenit.alfred.content.gateway.error.ProxyUpstreamUnavailableWebFilter;
 import eu.xenit.alfred.content.gateway.filter.web.ContentGridAppRequestWebFilter;
 import eu.xenit.alfred.content.gateway.filter.web.ContentGridResponseHeadersWebFilter;
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
+import eu.xenit.alfred.content.gateway.runtime.DefaultRuntimeRequestResolver;
+import eu.xenit.alfred.content.gateway.runtime.RuntimeRequestResolver;
+import eu.xenit.alfred.content.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridApplicationMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridDeploymentMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
@@ -26,6 +29,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +39,7 @@ import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
@@ -63,14 +68,18 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
+import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
+import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint;
+import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
@@ -298,22 +307,30 @@ public class GatewayApplication {
     }
 
     @Bean
+    @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
+    RuntimeRequestResolver runtimeRequestResolver() {
+        return new DefaultRuntimeRequestResolver();
+    }
+
+
+    @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
             Environment environment,
             ReactiveAuthorizationManager<AuthorizationContext> authorizationManager,
             ServerLogoutSuccessHandler logoutSuccessHandler,
-            CorsConfigurationSource corsConfig
+            CorsConfigurationSource corsConfig,
+            List<Customizer<OAuth2LoginSpec>> oauth2loginCustomizer,
+            List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer
     ) {
-        EndpointServerWebExchangeMatcher allowedEndpoints = EndpointRequest.to(
-                InfoEndpoint.class,
-                HealthEndpoint.class,
-                MetricsEndpoint.class,
-                PrometheusScrapeEndpoint.class
-        );
         http.authorizeExchange(exchange -> exchange
                 // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
-                .matchers(allowedEndpoints).permitAll()
+                .matchers(EndpointRequest.to(
+                        InfoEndpoint.class,
+                        HealthEndpoint.class,
+                        MetricsEndpoint.class,
+                        PrometheusScrapeEndpoint.class
+                )).permitAll()
 
                 // requests FROM localhost to actuator endpoints are all permitted
                 .matchers(new AndServerWebExchangeMatcher(
@@ -323,24 +340,43 @@ public class GatewayApplication {
                                 return ServerWebExchangeMatcher.MatchResult.match();
                             }
                             return ServerWebExchangeMatcher.MatchResult.notMatch();
-                        })).permitAll()
+                        })
+                ).permitAll()
 
                 // other requests must pass through the authorizationManager (opa/keycloak)
                 .anyExchange().access(authorizationManager)
         );
 
+        // Bearer token auth
         if (OAuth2ResourceServerGuard.shouldConfigure(environment)) {
             http.oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
         }
 
-        if (OAuth2ClientRegistrationsGuard.shouldConfigure(environment)) {
-            http.oauth2Login();
-            http.oauth2Client();
-            http.logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler));
-        } else {
+        // OAuth2 login
+        oauth2loginCustomizer.forEach(http::oauth2Login);
+
+        // if there are no authentication customizers, fallback to http-basic
+        if (oauth2loginCustomizer.isEmpty()) {
             http.httpBasic();
             http.formLogin();
+
+            if (!authenticationEntryPointCustomizer.isEmpty()) {
+                // assuming if there is no oauth2/jwt login, there won't be custom auth-entrypoints either
+                log.warn("Missing authentication entrypoint for basic-auth and form-login");
+            }
         }
+
+        // authentication entrypoints, if there are customizers available
+        if (!authenticationEntryPointCustomizer.isEmpty()) {
+            http.exceptionHandling(spec -> {
+                List<DelegateEntry> entryPoints = new ArrayList<>();
+                authenticationEntryPointCustomizer.forEach(customizer -> customizer.customize(entryPoints));
+                spec.authenticationEntryPoint(new DelegatingServerAuthenticationEntryPoint(entryPoints));
+            });
+        }
+
+        // do we need to do anything special for logout ?
+        http.logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler));
 
         http.cors(cors -> cors.configurationSource(corsConfig));
 
@@ -349,6 +385,7 @@ public class GatewayApplication {
 
         return http.build();
     }
+
 
     @Bean
     public AbacGatewayFilterFactory abacGatewayFilterFactory() {
@@ -360,28 +397,6 @@ public class GatewayApplication {
         return new ProxyUpstreamUnavailableWebFilter();
     }
 
-
-    private static class OAuth2ClientRegistrationsGuard {
-
-        private static final Bindable<Map<String, Registration>> STRING_REGISTRATION_MAP = Bindable
-                .mapOf(String.class, OAuth2ClientProperties.Registration.class);
-
-        /**
-         * Checks if any {@code spring.security.oauth2.client.registration} properties are defined.
-         *
-         * @return {@code true} if any {@code spring.security.oauth2.client.registration} properties are defined.
-         */
-        static boolean shouldConfigure(Environment environment) {
-            Map<String, Registration> registrations = getRegistrations(environment);
-            return !registrations.isEmpty();
-        }
-
-        private static Map<String, OAuth2ClientProperties.Registration> getRegistrations(Environment environment) {
-            return Binder.get(environment).bind("spring.security.oauth2.client.registration", STRING_REGISTRATION_MAP)
-                    .orElse(Collections.emptyMap());
-        }
-
-    }
 
     private static class OAuth2ResourceServerGuard {
 
