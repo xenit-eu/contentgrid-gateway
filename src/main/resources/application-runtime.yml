@@ -20,10 +20,6 @@ spring:
           filters:
             - RedirectTo=302, /me
 
-#opa:
-#  service:
-#    url: http://localhost:8081
-
 servicediscovery:
   namespace: default
   enabled: true

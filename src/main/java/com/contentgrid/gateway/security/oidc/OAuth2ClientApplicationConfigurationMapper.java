@@ -1,7 +1,6 @@
-package com.contentgrid.gateway.security.oauth2client;
+package com.contentgrid.gateway.security.oidc;
 
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;

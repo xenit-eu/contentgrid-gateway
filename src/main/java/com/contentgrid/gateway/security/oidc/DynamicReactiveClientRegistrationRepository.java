@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security.oauth2client;
+package com.contentgrid.gateway.security.oidc;
 
 import java.util.HashMap;
 import java.util.Map;

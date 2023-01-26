@@ -1,12 +1,8 @@
-package com.contentgrid.gateway.security;
+package com.contentgrid.gateway.security.oidc;
 
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
-import com.contentgrid.gateway.security.oauth2client.OAuth2ClientApplicationConfigurationMapper;
-import com.contentgrid.gateway.security.oidc.ContentGridApplicationOAuth2AuthorizationRequestResolver;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
-import com.contentgrid.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository;
-import com.contentgrid.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
+import com.contentgrid.gateway.security.oidc.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -34,8 +30,8 @@ import reactor.core.publisher.Mono;
 
 
 @Slf4j
-@Configuration
-class OAuth2ClientConfiguration {
+@Configuration(proxyBeanMethods = false)
+class OidcClientConfiguration {
 
 
     @Configuration(proxyBeanMethods = false)

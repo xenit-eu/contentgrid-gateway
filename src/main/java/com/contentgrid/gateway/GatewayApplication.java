@@ -58,12 +58,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.ReactiveAuthenticationManager;
+import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
+import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -81,6 +84,8 @@ import org.springframework.security.web.server.util.matcher.AndServerWebExchange
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringBootApplication
@@ -204,6 +209,7 @@ public class GatewayApplication {
         @Bean
         ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
                 ServiceTracker serviceTracker, Fabric8ServiceInstanceMapper instanceMapper) {
+            log.info("Enabled k8s service discovery (namespace:{})", properties.getNamespace());
             return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker,
                     serviceTracker, instanceMapper);
         }
@@ -319,6 +325,7 @@ public class GatewayApplication {
             ServerLogoutSuccessHandler logoutSuccessHandler,
             CorsConfigurationSource corsConfig,
             List<Customizer<OAuth2LoginSpec>> oauth2loginCustomizer,
+            List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer
     ) {
         http.authorizeExchange(exchange -> exchange
@@ -346,15 +353,13 @@ public class GatewayApplication {
         );
 
         // Bearer token auth
-        if (OAuth2ResourceServerGuard.shouldConfigure(environment)) {
-            http.oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
-        }
+        oauth2resourceServerCustomizer.forEach(http::oauth2ResourceServer);
 
         // OAuth2 login
         oauth2loginCustomizer.forEach(http::oauth2Login);
 
         // if there are no authentication customizers, fallback to http-basic
-        if (oauth2loginCustomizer.isEmpty()) {
+        if (oauth2resourceServerCustomizer.isEmpty() && oauth2loginCustomizer.isEmpty()) {
             http.httpBasic();
             http.formLogin();
 
