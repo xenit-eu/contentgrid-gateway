@@ -36,13 +36,7 @@ public class ComposedApplicationConfiguration implements ApplicationConfiguratio
         this.applicationId = applicationId;
         this.fragments = Collections.unmodifiableMap(fragments.stream()
                 .map(Objects::requireNonNull)
-                .peek(fragment -> {
-                    if (!applicationId.equals(fragment.getApplicationId())) {
-                        String msg = "Fragment app-id is %s; expected %s"
-                                .formatted(fragment.getApplicationId(), applicationId);
-                        throw new IllegalArgumentException(msg);
-                    }
-                })
+                .map(this::verifyApplicationIdMatches)
                 .collect(Collectors.toMap(ApplicationConfiguration::getConfigurationId, Function.identity())));
     }
 
@@ -110,5 +104,22 @@ public class ComposedApplicationConfiguration implements ApplicationConfiguratio
 
     public boolean isEmpty() {
         return this.fragments.isEmpty();
+    }
+
+    /**
+     * Verifies that the {@link ApplicationId} of the {@link ApplicationConfiguration} argument, matches the
+     * Applicationid of this {@link ComposedApplicationConfiguration}.
+     *
+     * @param applicationConfiguration the configuration to verify
+     * @return the validated argument
+     */
+    private ApplicationConfiguration verifyApplicationIdMatches(ApplicationConfiguration applicationConfiguration) {
+        if (!this.applicationId.equals(applicationConfiguration.getApplicationId())) {
+            String msg = "Fragment app-id is %s; expected %s"
+                    .formatted(applicationConfiguration.getApplicationId(), this.applicationId);
+            throw new IllegalArgumentException(msg);
+        }
+
+        return applicationConfiguration;
     }
 }

@@ -1,9 +1,9 @@
 package eu.xenit.alfred.content.gateway.security.oidc;
 
-import org.springframework.web.server.ServerWebExchange;
+import eu.xenit.alfred.content.gateway.runtime.ApplicationId;
 import reactor.core.publisher.Mono;
 
 public interface ReactiveClientRegistrationIdResolver {
 
-    Mono<String> resolveRegistrationId(ServerWebExchange exchange);
+    Mono<String> resolveRegistrationId(ApplicationId applicationId);
 }

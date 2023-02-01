@@ -1,5 +1,6 @@
 package eu.xenit.alfred.content.gateway.security.oidc;
 
+import eu.xenit.alfred.content.gateway.runtime.RuntimeRequestResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.server.DefaultServerOAuth2AuthorizationRequestResolver;
@@ -16,28 +17,30 @@ public class ContentGridApplicationOAuth2AuthorizationRequestResolver
         extends DefaultServerOAuth2AuthorizationRequestResolver
         implements ServerOAuth2AuthorizationRequestResolver {
 
+    private final RuntimeRequestResolver runtimeRequestResolver;
     private final ReactiveClientRegistrationIdResolver clientRegistrationIdResolver;
     private final ServerWebExchangeMatcher authorizationRequestMatcher;
 
     public ContentGridApplicationOAuth2AuthorizationRequestResolver(
+            RuntimeRequestResolver runtimeRequestResolver,
             ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
             ReactiveClientRegistrationRepository clientRegistrationRepository) {
-        this(clientRegistrationIdResolver, clientRegistrationRepository,
+        this(runtimeRequestResolver, clientRegistrationIdResolver, clientRegistrationRepository,
                 new PathPatternParserServerWebExchangeMatcher(DEFAULT_AUTHORIZATION_REQUEST_PATTERN));
 
     }
 
     public ContentGridApplicationOAuth2AuthorizationRequestResolver(
+            RuntimeRequestResolver runtimeRequestResolver,
             ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
             ReactiveClientRegistrationRepository clientRegistrationRepository,
             ServerWebExchangeMatcher matcher) {
         super(clientRegistrationRepository, matcher);
 
+        this.runtimeRequestResolver = runtimeRequestResolver;
         this.clientRegistrationIdResolver = clientRegistrationIdResolver;
         this.authorizationRequestMatcher = matcher;
     }
-
-    // resolve the request that is going to redirect us to keycloak
 
     @Override
     public Mono<OAuth2AuthorizationRequest> resolve(ServerWebExchange exchange) {
@@ -46,7 +49,8 @@ public class ContentGridApplicationOAuth2AuthorizationRequestResolver
         return this.authorizationRequestMatcher
                 .matches(exchange)
                 .filter(MatchResult::isMatch)
-                .flatMap((match) -> this.clientRegistrationIdResolver.resolveRegistrationId(exchange))
+                .flatMap((match) -> Mono.justOrEmpty(this.runtimeRequestResolver.resolveApplicationId(exchange)))
+                .flatMap(this.clientRegistrationIdResolver::resolveRegistrationId)
                 .flatMap((clientRegistrationId) -> resolve(exchange, clientRegistrationId));
     }
 }
