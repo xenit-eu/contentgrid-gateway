@@ -9,12 +9,16 @@ import org.springframework.web.server.ServerWebExchange;
 public class DefaultRuntimeRequestResolver implements RuntimeRequestResolver {
 
     @Override
-    public Optional<String> resolveApplicationId(ServerWebExchange exchange) {
-        return Optional.ofNullable(exchange.getAttribute(CONTENTGRID_APP_ID_ATTR));
+    public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
+        return Optional.ofNullable(exchange.getAttribute(CONTENTGRID_APP_ID_ATTR))
+                .map(Object::toString)
+                .flatMap(ApplicationId::from);
     }
 
     @Override
-    public Optional<String> resolveDeploymentId(ServerWebExchange exchange) {
-        return Optional.ofNullable(exchange.getAttribute(CONTENTGRID_DEPLOY_ID_ATTR));
+    public Optional<DeploymentId> resolveDeploymentId(ServerWebExchange exchange) {
+        return Optional.ofNullable(exchange.getAttribute(CONTENTGRID_DEPLOY_ID_ATTR))
+                .map(Object::toString)
+                .flatMap(DeploymentId::from);
     }
 }
