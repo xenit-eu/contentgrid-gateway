@@ -86,6 +86,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'io.rest-assured:rest-assured'
+	testImplementation 'io.projectreactor:reactor-test'
+
 	testImplementation platform('org.testcontainers:testcontainers-bom:1.17.6')
 	testImplementation "org.testcontainers:testcontainers"
 	testImplementation "org.testcontainers:junit-jupiter"
