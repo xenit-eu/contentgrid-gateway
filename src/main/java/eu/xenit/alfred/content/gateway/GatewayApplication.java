@@ -20,6 +20,7 @@ import eu.xenit.alfred.content.gateway.filter.web.ContentGridResponseHeadersWebF
 import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
 import eu.xenit.alfred.content.gateway.runtime.DefaultRuntimeRequestResolver;
 import eu.xenit.alfred.content.gateway.runtime.RuntimeRequestResolver;
+import eu.xenit.alfred.content.gateway.runtime.config.kubernetes.KubernetesApplicationConfigurationRepository;
 import eu.xenit.alfred.content.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridApplicationMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridDeploymentMetadata;
@@ -226,6 +227,18 @@ public class GatewayApplication {
                 ContentGridApplicationMetadata applicationMetadata) {
             return new ServiceTracker(publisher, applicationMetadata);
         }
+
+        @Bean
+        KubernetesApplicationConfigurationRepository kubernetesApplicationConfigurationRepository(
+                KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
+            return new KubernetesApplicationConfigurationRepository(kubernetesClient, properties.getNamespace());
+        }
+
+        @Bean
+        ApplicationRunner k8sWatchSecrets(KubernetesApplicationConfigurationRepository k8sAppConfig) {
+            return args -> k8sAppConfig.watchSecrets();
+        }
+
 
         @Bean
         OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker,
