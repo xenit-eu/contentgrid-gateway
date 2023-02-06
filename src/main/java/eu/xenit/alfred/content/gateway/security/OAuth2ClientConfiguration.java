@@ -105,7 +105,7 @@ class OAuth2ClientConfiguration {
 
                 var entryPoint = new DynamicRedirectServerAuthenticationEntryPoint(exchange -> {
                     // Dynamically look up the registration-id, so the user gets an
-                    // HTTP 302 to /oauth2/authorization/{registrationId}
+                    // HTTP 302 to /oauth2/authorization/<registrationId>
                     // Note: the actual registration-id is cosmetic at this stage, because when handling
                     // the request to the above URI, the `authorizationRequestResolver` will resolve
                     // application-id to registration-id again

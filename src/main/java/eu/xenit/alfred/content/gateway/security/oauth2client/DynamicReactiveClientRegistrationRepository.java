@@ -25,8 +25,12 @@ public class DynamicReactiveClientRegistrationRepository
     private void onClientRegistrationEvent(ClientRegistrationEvent event) {
         log.debug("onClientRegistrationEvent: {}", event);
         switch (event.getType()) {
-            case PUT -> this.clientIdToClientRegistration.put(event.getRegistrationId(),
-                    event.getClientRegistration().cache());
+            case PUT -> {
+                // Note: the Mono<ClientRegistration> gets cached here, so it will be lazily evaluated and cached
+                // 1. when called for the first time, it will do some HTTP call to .well-known/openid-configuration
+                // 2. all subsequent calls will reuse the cached value, without cache expiration
+                this.clientIdToClientRegistration.put(event.getRegistrationId(), event.getClientRegistration().cache());
+            }
             case DELETE -> this.clientIdToClientRegistration.remove(event.getRegistrationId());
             case CLEAR -> this.clientIdToClientRegistration.clear();
         }
