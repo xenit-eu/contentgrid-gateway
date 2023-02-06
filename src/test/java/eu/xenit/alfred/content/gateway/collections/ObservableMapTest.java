@@ -49,6 +49,9 @@ class ObservableMapTest {
         map.put("bar", "baz");
         map.put("foo", "baz");
         map.remove("bar");
+
+        map.remove("bar"); // does not exists
+
         map.put("bar", "foo");
 
         map.observe().subscribe(update -> {

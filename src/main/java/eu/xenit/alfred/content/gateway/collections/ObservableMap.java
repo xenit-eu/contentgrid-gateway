@@ -44,7 +44,9 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
     @Override
     public V remove(Object key) {
         V removedValue = map.remove(key);
-        updates.emitNext(MapUpdate.remove(key, removedValue), FAIL_FAST);
+        if (removedValue != null) {
+            updates.emitNext(MapUpdate.remove(key, removedValue), FAIL_FAST);
+        }
         return removedValue;
     }
 
