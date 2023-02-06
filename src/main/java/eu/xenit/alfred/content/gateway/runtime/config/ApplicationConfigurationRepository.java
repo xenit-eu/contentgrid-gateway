@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 
 public interface ApplicationConfigurationRepository {
 
-    Mono<ApplicationConfiguration> getApplicationConfiguration(String appId);
+    Mono<ApplicationConfiguration> getApplicationConfiguration(ApplicationId appId);
 
     Flux<MapUpdate<ApplicationId, ApplicationConfiguration>> observe();
 
