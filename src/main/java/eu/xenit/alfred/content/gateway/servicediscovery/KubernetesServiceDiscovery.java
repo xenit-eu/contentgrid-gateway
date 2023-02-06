@@ -61,7 +61,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, Closeable {
 
             @Override
             public void onClose(WatcherException cause) {
-
+                log.info("Closing watcher", cause);
             }
         });
     }

@@ -1,30 +1,26 @@
 package eu.xenit.alfred.content.gateway.security;
 
 import eu.xenit.alfred.content.gateway.runtime.RuntimeRequestResolver;
+import eu.xenit.alfred.content.gateway.runtime.config.ApplicationConfigurationRepository;
+import eu.xenit.alfred.content.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository;
+import eu.xenit.alfred.content.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
+import eu.xenit.alfred.content.gateway.security.oauth2client.OAuth2ClientApplicationConfigurationMapper;
 import eu.xenit.alfred.content.gateway.security.oidc.ContentGridApplicationOAuth2AuthorizationRequestResolver;
-import eu.xenit.alfred.content.gateway.security.oidc.DynamicReactiveClientRegistrationRepository;
 import eu.xenit.alfred.content.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.security.oauth2.client.ClientsConfiguredCondition;
 import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties;
-import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties.Registration;
-import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientPropertiesRegistrationAdapter;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
 import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
@@ -34,10 +30,10 @@ import org.springframework.security.web.server.util.matcher.OrServerWebExchangeM
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
-import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 
+@Slf4j
 @Configuration
 class OAuth2ClientConfiguration {
 
@@ -47,34 +43,44 @@ class OAuth2ClientConfiguration {
     static class RuntimePlatformOAuth2ClientConfiguration {
 
         @Bean
-        ReactiveClientRegistrationIdResolver clientRegistrationIdResolver(RuntimeRequestResolver runtimeRequestResolver,
+        ReactiveClientRegistrationIdResolver clientRegistrationIdResolver(
+                RuntimeRequestResolver runtimeRequestResolver,
                 OAuth2ClientProperties oauth2ClientProperties) {
 
-            return exchange -> runtimeRequestResolver
-                    .resolveApplicationId(exchange)
-
-                    // temporary implementation, defaulting to the first client-registration
-                    .flatMap(appId -> OAuth2ClientPropertiesRegistrationAdapter
-                            .getClientRegistrations(oauth2ClientProperties)
-                            .values().stream()
-                            .map(ClientRegistration::getRegistrationId)
-                            .findFirst())
-                    .map(Mono::just)
-                    .orElse(Mono.empty());
+            // uses the app-id as registration-id !!
+            return applicationId -> Mono
+                    .just(applicationId.toString())
+                    .map("client-%s"::formatted);
         }
 
         @Bean
-        ReactiveClientRegistrationRepository clientRegistrationRepository(OAuth2ClientProperties properties) {
-            var registrations = OAuth2ClientPropertiesRegistrationAdapter.getClientRegistrations(properties).values();
-            return new DynamicReactiveClientRegistrationRepository(registrations);
+        ReactiveClientRegistrationRepository clientRegistrationRepository(
+                ReactiveClientRegistrationIdResolver registrationIdResolver,
+                ApplicationConfigurationRepository applicationConfigurationRepository,
+                OAuth2ClientProperties properties) {
+
+            var mapper = new OAuth2ClientApplicationConfigurationMapper(registrationIdResolver);
+            return new DynamicReactiveClientRegistrationRepository(applicationConfigurationRepository
+                    .observe()
+                    .flatMap(update -> registrationIdResolver
+                            .resolveRegistrationId(update.getKey())
+                            .map(registrationId -> switch (update.getType()) {
+                                case PUT -> ClientRegistrationEvent.put(registrationId, mapper.getClientRegistration(update.getValue()));
+                                case REMOVE -> ClientRegistrationEvent.delete(registrationId);
+                                case CLEAR -> ClientRegistrationEvent.clear();
+                            }))
+                    .doOnNext(event -> log.debug("ReactiveClientRegistrationRepository -> {}", event))
+            );
         }
 
         @Bean
         @ConditionalOnBean(ReactiveClientRegistrationIdResolver.class)
         ContentGridApplicationOAuth2AuthorizationRequestResolver runtimePlatformOAuth2AuthorizationRequestResolver(
+                RuntimeRequestResolver runtimeRequestResolver,
                 ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
                 ReactiveClientRegistrationRepository clientRegistrationRepository) {
-            return new ContentGridApplicationOAuth2AuthorizationRequestResolver(clientRegistrationIdResolver,
+            return new ContentGridApplicationOAuth2AuthorizationRequestResolver(
+                    runtimeRequestResolver, clientRegistrationIdResolver,
                     clientRegistrationRepository);
         }
 
@@ -83,14 +89,14 @@ class OAuth2ClientConfiguration {
         Customizer<OAuth2LoginSpec> runtimePlatformOAuth2LoginCustomizer(
                 ContentGridApplicationOAuth2AuthorizationRequestResolver authorizationRequestResolver) {
             // responsible to construct AuthorizationRequest from ServerWebExchange
-            return spec -> spec
-                    .authorizationRequestResolver(authorizationRequestResolver);
+            return spec -> spec.authorizationRequestResolver(authorizationRequestResolver);
         }
 
         @Bean
         @ConditionalOnBean(ReactiveClientRegistrationIdResolver.class)
         Customizer<List<DelegateEntry>> customizerDynamicOAuth2Entrypoint(
-                ReactiveClientRegistrationIdResolver clientRegistrationIdResolver, RuntimeRequestResolver runtimeRequestResolver) {
+                ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
+                RuntimeRequestResolver runtimeRequestResolver) {
             return entryPoints -> {
                 var matcher = new AndServerWebExchangeMatcher(
                         runtimeRequestResolver.matcher(),
@@ -98,10 +104,16 @@ class OAuth2ClientConfiguration {
                 );
 
                 var entryPoint = new DynamicRedirectServerAuthenticationEntryPoint(exchange -> {
-                    // Dynamically look up the registration-id
-                    // Note: the actual registration-id is strictly cosmetic at this stage,
-                    // because `authorizationRequestResolver` will resolve app-id -> registration-id again
-                    return clientRegistrationIdResolver.resolveRegistrationId(exchange)
+                    // Dynamically look up the registration-id, so the user gets an
+                    // HTTP 302 to /oauth2/authorization/<registrationId>
+                    // Note: the actual registration-id is cosmetic at this stage, because when handling
+                    // the request to the above URI, the `authorizationRequestResolver` will resolve
+                    // application-id to registration-id again
+                    return Mono.justOrEmpty(runtimeRequestResolver.resolveApplicationId(exchange))
+                            .switchIfEmpty(Mono.fromRunnable(() -> log.warn(
+                                    "Entered oauth2login entrypoint, but could not resolve app-id for request {} {}",
+                                    exchange.getRequest().getMethod(), exchange.getRequest().getURI())))
+                            .flatMap(clientRegistrationIdResolver::resolveRegistrationId)
                             .map("/oauth2/authorization/%s"::formatted)
                             .map(URI::create);
                 });
@@ -143,11 +155,10 @@ class OAuth2ClientConfiguration {
                 new OrServerWebExchangeMatcher(loginPageMatcher, faviconMatcher),
                 defaultEntryPointMatcher);
 
-        var oauth2loginMatcher = new AndServerWebExchangeMatcher(
+        return new AndServerWebExchangeMatcher(
                 notXhrMatcher,
                 new NegatedServerWebExchangeMatcher(defaultLoginPageMatcher)
         );
-        return oauth2loginMatcher;
     }
 
 }

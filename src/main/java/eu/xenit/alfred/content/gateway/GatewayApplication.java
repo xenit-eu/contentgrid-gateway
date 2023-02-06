@@ -21,17 +21,14 @@ import eu.xenit.alfred.content.gateway.routing.ServiceTracker;
 import eu.xenit.alfred.content.gateway.runtime.DefaultRuntimeRequestResolver;
 import eu.xenit.alfred.content.gateway.runtime.RuntimeRequestResolver;
 import eu.xenit.alfred.content.gateway.runtime.config.kubernetes.KubernetesApplicationConfigurationRepository;
-import eu.xenit.alfred.content.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridApplicationMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.ContentGridDeploymentMetadata;
 import eu.xenit.alfred.content.gateway.servicediscovery.KubernetesServiceDiscovery;
 import eu.xenit.alfred.content.gateway.servicediscovery.ServiceDiscovery;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,11 +37,9 @@ import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
-import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest.EndpointServerWebExchangeMatcher;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.info.InfoEndpoint;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
@@ -53,12 +48,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties;
-import org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientProperties.Registration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
@@ -211,11 +202,6 @@ public class GatewayApplication {
         }
 
         @Bean
-        KubernetesClient kubernetesClient() {
-            return new KubernetesClientBuilder().build();
-        }
-
-        @Bean
         ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
                 ServiceTracker serviceTracker, Fabric8ServiceInstanceMapper instanceMapper) {
             return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker,
@@ -238,7 +224,6 @@ public class GatewayApplication {
         ApplicationRunner k8sWatchSecrets(KubernetesApplicationConfigurationRepository k8sAppConfig) {
             return args -> k8sAppConfig.watchSecrets();
         }
-
 
         @Bean
         OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker,

@@ -15,7 +15,8 @@ import reactor.core.publisher.Sinks;
 public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
 
     @Delegate(types = MapReadOperations.class)
-    private Map<K, V> map = new LinkedHashMap<>();
+    private final Map<K, V> map = new LinkedHashMap<>();
+
     private final Sinks.Many<MapUpdate<K, V>> updates = Sinks.many().multicast().onBackpressureBuffer();
 
 
@@ -51,7 +52,7 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         return removedValue;
     }
 
-    public Flux<MapUpdate<K, ? extends V>> observe() {
+    public Flux<MapUpdate<K, V>> observe() {
         return Flux.concat(
                 Flux.fromIterable(map.entrySet()).map(entry -> MapUpdate.put(entry.getKey(), entry.getValue())),
                 updates.asFlux()
@@ -105,6 +106,7 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         }
     }
 
+    @SuppressWarnings("unused")
     private interface MapReadOperations<K, V> {
 
         int size();
