@@ -24,6 +24,7 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         return this.map.get(key);
     }
 
+    @Override
     public V put(K key, V value) {
         V previousValue = map.put(key, value);
         updates.emitNext(MapUpdate.put(key, value), FAIL_FAST);
@@ -52,8 +53,7 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
 
     public Flux<MapUpdate<K, ? extends V>> observe() {
         return Flux.concat(
-                Flux.fromIterable(map.entrySet())
-                        .map(entry -> new MapUpdate<>(UpdateType.PUT, entry.getKey(), entry.getValue())),
+                Flux.fromIterable(map.entrySet()).map(entry -> MapUpdate.put(entry.getKey(), entry.getValue())),
                 updates.asFlux()
         );
     }
