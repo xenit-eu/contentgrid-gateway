@@ -27,7 +27,6 @@ public class ContentGridApplicationOAuth2AuthorizationRequestResolver
             ReactiveClientRegistrationRepository clientRegistrationRepository) {
         this(runtimeRequestResolver, clientRegistrationIdResolver, clientRegistrationRepository,
                 new PathPatternParserServerWebExchangeMatcher(DEFAULT_AUTHORIZATION_REQUEST_PATTERN));
-
     }
 
     public ContentGridApplicationOAuth2AuthorizationRequestResolver(
