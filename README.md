@@ -1,13 +1,14 @@
-# Content Cloud Gateway
+# ContentGrid Gateway
 
-An API Gateway based on [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) with integration with [Open Policy Agent](https://www.openpolicyagent.org) for Content Cloud projects.
+An API Gateway based on [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) with integration with [Open Policy Agent](https://www.openpolicyagent.org) for ContentGrid projects.
 
 ## Local development
 
 You can run the gateway locally using the following Gradle tasks:
 
-* `./gradlew bootRun` will start the gateway locally with the `bootRun` profile.
-* `./gradlew keycloakBootRun` will start the gateway locally with the `bootRun` + `keycloak` profile.
+* `./gradlew bootRun` will start the gateway locally with a minimal `bootRun` profile.
+* `./gradlew runtimeBootRun` will start the gateway locally with the `bootRun` + `runtime` profiles.
+* `./gradlew keycloakBootRun` will start the gateway locally with the `bootRun` + `keycloak` profiles.
 
 ### bootRun profile
 
@@ -23,6 +24,17 @@ It applies the following changes:
   - `admin`/`admin` with the `admin` authority
 
 * sets up a redirect from `/` to `/me`, displaying profile information.
+
+### runtime profile
+
+This profile is intended to configure the gateway as a ContentGrid Runtime Platform Gateway:
+
+* enables Kubernetes API discovery for:
+  - discovering ContentGrid applications from Kubernetes services
+  - discovering ContentGrid application configuration (hostnames, cors, ...) from Kubernetes ConfigMaps
+  - discovering ContentGrid application secrets (Keycloak) from Kubernetes Secrets
+* dynamic routing to ContentGrid application deployments
+* configures Thunx to with a dynamic authorization query
 
 ### keycloak profile
 
@@ -43,15 +55,15 @@ This profile applies the following changes:
 
 ## Configuration
 
-Content Cloud Gateway is driven by a number of Spring properties. Examples of how to set these properties can be found in `docker-compose.yml` and `application-bootRun.yml`.
+ContentGrid Gateway is driven by a number of Spring properties. Examples of how to set these properties can be found in `docker-compose.yml` and `application-bootRun.yml`.
 
 Example for bootstrapping users:
 
 ```yaml
 testing:
   bootstrap:
-    enable: true
-    users:
+    enable: true
+    users:
     - username: alice
       authorities: '{"someGroups": ["a", "b"], someValue: "foobar"}'
     - username: admin
@@ -65,7 +77,7 @@ Example integration with Open Policy Agent:
 ```yaml
 opa:
   service:
-    url: http://opa:8181
+    url: http://opa:8181
   query: "data.gateway.example.allow == true"
 ```
 
