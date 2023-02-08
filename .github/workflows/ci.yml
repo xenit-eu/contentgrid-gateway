@@ -19,6 +19,7 @@ jobs:
         run: ./gradlew check --info
       - name: Sonar Analysis
         run: ./gradlew sonar --info
+        if: env.SONAR_TOKEN != null
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
