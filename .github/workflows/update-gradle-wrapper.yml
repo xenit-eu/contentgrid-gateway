@@ -22,4 +22,4 @@ jobs:
       - name: Update Gradle Wrapper
         uses: gradle-update/update-gradle-wrapper-action@v1
         with:
-          team-reviewers: '@xenit-eu/contentgrid'
+          team-reviewers: 'xenit-eu/contentgrid'
