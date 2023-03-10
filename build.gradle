@@ -25,7 +25,7 @@ reckon {
 
 ext {
 	springCloudVersion = '2022.0.1'
-	thunxVersion = '0.5.0'
+	thunxVersion = '0.6.0'
 }
 
 bootRun {
