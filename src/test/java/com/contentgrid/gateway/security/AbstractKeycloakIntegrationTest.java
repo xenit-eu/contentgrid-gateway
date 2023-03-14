@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
+import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
@@ -11,6 +12,7 @@ import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,7 +64,7 @@ public class AbstractKeycloakIntegrationTest {
 
     private final WebTestClient http = WebTestClient
             .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
-//            .responseTimeout(Duration.ofHours(1)) // for interactive debugging
+            .responseTimeout(Duration.ofHours(1)) // for interactive debugging
             .build();
 
     @NonNull
@@ -86,14 +88,22 @@ public class AbstractKeycloakIntegrationTest {
         String getIssuerUrl() {
             return keycloakServerUrl().resolve("realms/").resolve(name).toString();
         }
+
+        Issuer getIssuer() {
+            return new Issuer(this.getIssuerUrl());
+        }
     }
 
     static ConfidentialCientRegistration createConfidentialClient(@NonNull Realm realm, @NonNull String clientId,
             @NonNull String redirectUri) {
+        return createConfidentialClient(realm, clientId, UUID.randomUUID().toString(), redirectUri);
+    }
 
+    static ConfidentialCientRegistration createConfidentialClient(@NonNull Realm realm, @NonNull String clientId,
+            String clientSecret, @NonNull String redirectUri) {
         var clientRepresentation = new ClientRepresentation();
         clientRepresentation.setClientId(clientId);
-        clientRepresentation.setSecret(UUID.randomUUID().toString());
+        clientRepresentation.setSecret(clientSecret);
         clientRepresentation.setStandardFlowEnabled(true);
         clientRepresentation.setPublicClient(false);
 
@@ -204,10 +214,14 @@ public class AbstractKeycloakIntegrationTest {
             ConfidentialCientRegistration client, ApplicationId appId) {
         // try to access a protected resource
         var protectedUri = URI.create(client.redirectUri()).resolve("/me");
-        var authorizationRequestInitUri = this.http.get().uri(protectedUri)
-                .header("Test-ApplicationId", appId.getValue())
-                .accept(MediaType.TEXT_HTML)
-                .exchange()
+        var request = this.http.get().uri(protectedUri)
+                .accept(MediaType.TEXT_HTML);
+
+        if (appId != null) {
+            request.header("Test-ApplicationId", appId.getValue());
+        }
+
+        var authorizationRequestInitUri = request.exchange()
                 .expectStatus().is3xxRedirection()
                 .expectHeader().value("location", loc ->
                         assertThat(new UriTemplate("/oauth2/authorization/{registrationId}").matches(loc)).isTrue())
@@ -217,10 +231,14 @@ public class AbstractKeycloakIntegrationTest {
         // TODO try to fiddle with this authorizationRedirectLocation redirectURI (registrationId)
         // follow the authz code request init redirectURI redirect
         // this is handled by the Gateway OAuth2AuthorizationRequestRedirectWebFilter
-        var authzCodeRequestRedirect = this.http.get()
-                .uri(URI.create(client.redirectUri).resolve(Objects.requireNonNull(authorizationRequestInitUri)))
-                .header("Test-ApplicationId", appId.getValue())
-                .exchange()
+        var authzCodeRequest = this.http.get()
+                .uri(URI.create(client.redirectUri).resolve(Objects.requireNonNull(authorizationRequestInitUri)));
+
+        if (appId != null) {
+            authzCodeRequest.header("Test-ApplicationId", appId.getValue());
+        }
+
+        var authzCodeRequestRedirect = authzCodeRequest.exchange()
                 .expectStatus().is3xxRedirection()
                 .expectHeader().value("location", location -> {
                     assertThat(URI.create(location))

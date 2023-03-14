@@ -110,6 +110,8 @@ public class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIn
                 Keys.ISSUER_URI, realm.getIssuerUrl()
         )));
 
+        log.info("Starting confidential OIDC authz code flow");
+
         // Initialize OIDC flow with the gateway
         var authzCodeRequest = this.getConfidentialAuthorizationCodeRequest(client, appId);
         // Get the Authorization Code from Keycloak
@@ -143,6 +145,8 @@ public class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIn
                 Keys.CLIENT_ID, client.clientId(),
                 Keys.ISSUER_URI, realm.getIssuerUrl()
         )));
+
+        log.info("Starting public OIDC authz code flow");
 
         // fetch OIDC metadata
         var metadata = OIDCProviderMetadata.resolve(Issuer.parse(realm.getIssuerUrl()));
