@@ -42,7 +42,7 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 // if it really is a BearerTokenAuthenticationToken - we should return an
                 // always failing ReactiveAuthenticationManager
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.warn("resolving authentication manager for {} failed", exchange.getRequest().getURI());
+                    log.warn("Resolving authentication manager for {} failed", exchange.getRequest().getURI());
                     return Mono.just(authentication -> Mono.error(new InvalidBearerTokenException("no jwt auth manager found")));
                 }));
     }

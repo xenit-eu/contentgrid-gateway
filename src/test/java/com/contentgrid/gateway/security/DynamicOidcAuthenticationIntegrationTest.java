@@ -164,15 +164,20 @@ public class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIn
 
         // validate what we can do with the access token
         assertRequest_withBearer(appId, tokenResponse.getAccessToken()).is2xxSuccessful();
-        assertRequest_withBearer(appId, "").is4xxClientError();
-        // FIXME now receiving HTTP 302, expecting HTTP 401
-        // assertRequest_withBearer(appId, null).is4xxClientError();
-        assertRequest_withBearer(null, null).is4xxClientError();
-        assertRequest_withBearer(ApplicationId.from("invalid").orElseThrow(), tokenResponse.getAccessToken()).is4xxClientError();
+
+        // HTTP 401 - because bearer token is invalid
+        assertRequest_withBearer(appId, "").isUnauthorized();
+        // HTTP 401 - no redirect expected, because Accept header is not compatible with HTML
+        assertRequest_withBearer(appId, null).isUnauthorized();
+        // HTTP 401 - request not associated with an app-id
+        assertRequest_withBearer(null, tokenResponse.getAccessToken()).isUnauthorized();
+        // HTTP 401 - access token cannot be associated with app-id
+        assertRequest_withBearer(ApplicationId.from("invalid").orElseThrow(), tokenResponse.getAccessToken()).isUnauthorized();
 
         // revoke app-id configuration
         applicationConfigurationRepository.remove(appId);
-        assertRequest_withBearer(appId, tokenResponse.getAccessToken()).is4xxClientError();
+        // HTTP 401 - no client-registration associated with app-id anymore
+        assertRequest_withBearer(appId, tokenResponse.getAccessToken()).isUnauthorized();
 
     }
 

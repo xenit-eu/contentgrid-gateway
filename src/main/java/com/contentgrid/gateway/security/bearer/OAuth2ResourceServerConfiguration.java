@@ -45,7 +45,7 @@ public class OAuth2ResourceServerConfiguration {
                 var converter = new ServerBearerTokenAuthenticationConverter();
                 var matcher = new AuthenticationConverterServerWebExchangeMatcher(converter);
 
-                entries.add(new DelegateEntry(matcher, new BearerTokenServerAuthenticationEntryPoint()));
+                entries.add(0, new DelegateEntry(matcher, new BearerTokenServerAuthenticationEntryPoint()));
             };
         };
 

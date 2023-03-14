@@ -114,7 +114,7 @@ class OidcClientConfiguration {
                             .map(URI::create);
                 });
 
-                entryPoints.add(0, new DelegateEntry(matcher, entryPoint));
+                entryPoints.add(new DelegateEntry(matcher, entryPoint));
             };
         }
     }
@@ -134,15 +134,18 @@ class OidcClientConfiguration {
                 MediaType.TEXT_HTML,
                 MediaType.TEXT_PLAIN);
         htmlMatcher.setIgnoredMediaTypes(Collections.singleton(MediaType.ALL));
+
         ServerWebExchangeMatcher xhrMatcher = exchange -> {
             if (exchange.getRequest().getHeaders().getOrEmpty("X-Requested-With")
                     .contains("XMLHttpRequest")) {
                 return MatchResult.match();
             }
+
             return MatchResult.notMatch();
         };
 
         var notXhrMatcher = new NegatedServerWebExchangeMatcher(xhrMatcher);
+
         var defaultEntryPointMatcher = new AndServerWebExchangeMatcher(notXhrMatcher, htmlMatcher);
 
         var loginPageMatcher = new PathPatternParserServerWebExchangeMatcher("/login");
@@ -153,6 +156,7 @@ class OidcClientConfiguration {
 
         return new AndServerWebExchangeMatcher(
                 notXhrMatcher,
+                htmlMatcher,
                 new NegatedServerWebExchangeMatcher(defaultLoginPageMatcher)
         );
     }
