@@ -55,7 +55,7 @@ public class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIn
             .responseTimeout(Duration.ofHours(1)) // for interactive debugging
             .build();
 
-    @TestConfiguration
+    @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
 
         @Bean
