@@ -1,10 +1,5 @@
 package com.contentgrid.gateway.runtime.config.kubernetes;
 
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.collections.ObservableMap;
-import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ComposedApplicationConfiguration;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
@@ -12,21 +7,16 @@ import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 @Slf4j
 @RequiredArgsConstructor
-public class KubernetesApplicationConfigurationRepository implements ApplicationConfigurationRepository {
+public class KubernetesApplicationConfigurationRepository extends BaseApplicationConfigurationRepository<ComposedApplicationConfiguration> {
 
     private final KubernetesClient client;
 
     private final String namespace;
-
-    private final ObservableMap<ApplicationId, ComposedApplicationConfiguration> configs = new ObservableMap<>();
 
     private final SecretMapper<Secret> secretMapper = new Fabric8SecretMapper();
 
@@ -35,17 +25,7 @@ public class KubernetesApplicationConfigurationRepository implements Application
             .addToMatchLabels("app.contentgrid.com/service-type", "gateway")
             .build();
 
-    @Override
-    public Mono<ApplicationConfiguration> getApplicationConfiguration(@NonNull ApplicationId appId) {
-        return Mono.fromSupplier(() -> configs.get(appId));
-    }
-
-    @Override
-    public Flux<MapUpdate<ApplicationId, ApplicationConfiguration>> observe() {
-        return this.configs.observe()
-                .map(update -> new MapUpdate<>(update.getType(), update.getKey(), update.getValue()));
-    }
-
+    // TODO dispose watch
     public void watchSecrets() {
         client.secrets()
                 .inNamespace(namespace)

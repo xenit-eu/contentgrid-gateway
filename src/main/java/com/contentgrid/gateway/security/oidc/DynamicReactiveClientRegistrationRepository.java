@@ -39,9 +39,9 @@ public class DynamicReactiveClientRegistrationRepository
     @Override
     public Mono<ClientRegistration> findByRegistrationId(String registrationId) {
 
-        return this.clientIdToClientRegistration.get(registrationId)
+        return this.clientIdToClientRegistration.getOrDefault(registrationId, Mono.empty())
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.warn("ClientRegistration with id {} not found", registrationId);
+                    log.warn("ClientRegistration with id '{}' not found", registrationId);
                     return Mono.empty();
                 }))
                 .doOnNext(clientRegistration -> {

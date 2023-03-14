@@ -6,15 +6,20 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+@Slf4j
 @RequiredArgsConstructor
 public class DynamicJwtAuthenticationManagerResolver implements
         ReactiveAuthenticationManagerResolver<ServerWebExchange> {
@@ -32,7 +37,14 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 .flatMap(this.clientRegistrationRepository::findByRegistrationId)
                 .map(clientRegistration -> clientRegistration.getProviderDetails().getIssuerUri())
                 .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(issuer,
-                        DynamicJwtAuthenticationManagerResolver::createJwtAuthenticationManager));
+                        DynamicJwtAuthenticationManagerResolver::createJwtAuthenticationManager))
+
+                // if it really is a BearerTokenAuthenticationToken - we should return an
+                // always failing ReactiveAuthenticationManager
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("resolving authentication manager for {} failed", exchange.getRequest().getURI());
+                    return Mono.just(authentication -> Mono.error(new InvalidBearerTokenException("no jwt auth manager found")));
+                }));
     }
 
     // Note: this is copied from Spring Security TrustedIssuerJwtAuthenticationManagerResolver

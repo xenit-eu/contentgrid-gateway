@@ -16,11 +16,11 @@ public class OAuth2ClientApplicationConfigurationMapper {
 
     public static final List<String> DEFAULT_SCOPES = List.of("openid", "profile", "email");
 
-    private static class Keys {
+    public static class Keys {
 
-        private static final String CLIENT_ID = "contentgrid.idp.client-id";
-        private static final String CLIENT_SECRET = "contentgrid.idp.client-secret";
-        private static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
+        public static final String CLIENT_ID = "contentgrid.idp.client-id";
+        public static final String CLIENT_SECRET = "contentgrid.idp.client-secret";
+        public static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
     }
 
     public String getClientId(@NonNull ApplicationConfiguration applicationConfiguration) {
