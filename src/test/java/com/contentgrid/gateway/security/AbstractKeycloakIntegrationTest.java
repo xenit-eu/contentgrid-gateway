@@ -48,7 +48,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.netty.http.client.HttpClient;
 
 @Testcontainers
-public class AbstractKeycloakIntegrationTest {
+abstract class AbstractKeycloakIntegrationTest {
 
     @Container
     private static final KeycloakContainer KEYCLOAK = new KeycloakContainer().withContextPath("/");
@@ -391,7 +391,7 @@ public class AbstractKeycloakIntegrationTest {
             int formEndIdx = html.indexOf("</form>");
 
             // sanity check: expecting a SINGLE <form /> on this page
-            assertThat(formStartIdx).isGreaterThan(0);
+            assertThat(formStartIdx).isPositive();
             assertThat(formEndIdx).isGreaterThan(formStartIdx);
             assertThat(formStartIdx).isEqualTo(html.lastIndexOf("<form"));
 

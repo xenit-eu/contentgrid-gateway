@@ -42,7 +42,7 @@ import reactor.netty.http.client.HttpClient;
                 "contentgrid.gateway.runtime-platform.enabled=true"
         }
 )
-public class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrationTest {
+class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrationTest {
 
     @Value("${local.server.port}")
     private int port;

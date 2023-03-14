@@ -25,12 +25,12 @@ public class DynamicReactiveClientRegistrationRepository
     private void onClientRegistrationEvent(ClientRegistrationEvent event) {
         log.debug("onClientRegistrationEvent: {}", event);
         switch (event.getType()) {
-            case PUT -> {
+            case PUT ->
                 // Note: the Mono<ClientRegistration> gets cached here, so it will be lazily evaluated and cached
                 // 1. when called for the first time, it will do some HTTP call to .well-known/openid-configuration
                 // 2. all subsequent calls will reuse the cached value, without cache expiration
-                this.clientIdToClientRegistration.put(event.getRegistrationId(), event.getClientRegistration().cache());
-            }
+                    this.clientIdToClientRegistration.put(event.getRegistrationId(),
+                            event.getClientRegistration().cache());
             case DELETE -> this.clientIdToClientRegistration.remove(event.getRegistrationId());
             case CLEAR -> this.clientIdToClientRegistration.clear();
         }
@@ -44,10 +44,10 @@ public class DynamicReactiveClientRegistrationRepository
                     log.warn("ClientRegistration with id '{}' not found", registrationId);
                     return Mono.empty();
                 }))
-                .doOnNext(clientRegistration -> {
-                    log.info("findByRegistrationId({}) -> clientId:{} issuer-uri:{}", registrationId,
-                            clientRegistration.getClientId(), clientRegistration.getProviderDetails().getIssuerUri());
-                });
+                .doOnNext(clientRegistration -> log.debug("findByRegistrationId({}) -> clientId:{} issuer-uri:{}",
+                        registrationId, clientRegistration.getClientId(),
+                        clientRegistration.getProviderDetails().getIssuerUri())
+                );
     }
 
 
@@ -63,7 +63,8 @@ public class DynamicReactiveClientRegistrationRepository
             PUT, DELETE, CLEAR
         }
 
-        public static ClientRegistrationEvent put(@NonNull String registrationId, @NonNull Mono<ClientRegistration> clientRegistration) {
+        public static ClientRegistrationEvent put(@NonNull String registrationId,
+                @NonNull Mono<ClientRegistration> clientRegistration) {
             return new ClientRegistrationEvent(EventType.PUT, registrationId, clientRegistration);
         }
 

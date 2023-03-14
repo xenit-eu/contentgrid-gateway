@@ -29,7 +29,7 @@ import reactor.netty.http.client.HttpClient;
 @Testcontainers
 @Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrationTest {
+class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrationTest {
 
     @Value("${local.server.port}")
     private int port;
@@ -65,7 +65,7 @@ public class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakInt
     }
 
     @Test
-    public void keycloakOIDC_redirectFlow() {
+    void keycloakOIDC_redirectFlow() {
 
         var client = createConfidentialClient(REALM, CLIENT_ID, CLIENT_SECRET, "http://localhost:" + port + "/*");
 
@@ -81,7 +81,7 @@ public class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakInt
 
 
     @Test
-    public void keycloakOIDCwithPKCE_bearerAuth() throws GeneralException, IOException {
+    void keycloakOIDCwithPKCE_bearerAuth() throws GeneralException, IOException {
 
         var client = createPublicClient(REALM, "public-client", "http://localhost:9999");
 

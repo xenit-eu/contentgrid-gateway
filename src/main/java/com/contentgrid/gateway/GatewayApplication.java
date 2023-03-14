@@ -369,7 +369,7 @@ public class GatewayApplication {
             }
         }
 
-        // authentication entrypoints, if there are customizers available
+        // authentication entry-points, if there are customizers available
         if (!authenticationEntryPointCustomizer.isEmpty()) {
             http.exceptionHandling(spec -> {
                 List<DelegateEntry> entryPoints = new ArrayList<>();
@@ -388,24 +388,12 @@ public class GatewayApplication {
 
         return http.build();
     }
-
-
     @Bean
     public AbacGatewayFilterFactory abacGatewayFilterFactory() {
         return new AbacGatewayFilterFactory();
     }
-
     @Bean
     public GlobalFilter proxyUpstreamUnavailableWebFilter() {
         return new ProxyUpstreamUnavailableWebFilter();
     }
-
-
-    private static class OAuth2ResourceServerGuard {
-
-        public static boolean shouldConfigure(Environment environment) {
-            return environment.getProperty("spring.security.oauth2.resourceserver.jwt.issuer-uri") != null;
-        }
-    }
-
 }

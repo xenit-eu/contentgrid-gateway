@@ -5,7 +5,6 @@ import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.config.ComposedApplicationConfiguration;
 import lombok.NonNull;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;

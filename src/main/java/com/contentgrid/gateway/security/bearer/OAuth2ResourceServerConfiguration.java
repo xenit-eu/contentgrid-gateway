@@ -1,7 +1,6 @@
 package com.contentgrid.gateway.security.bearer;
 
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
-import com.contentgrid.gateway.security.bearer.DynamicJwtAuthenticationManagerResolver;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -47,7 +46,7 @@ public class OAuth2ResourceServerConfiguration {
 
                 entries.add(0, new DelegateEntry(matcher, new BearerTokenServerAuthenticationEntryPoint()));
             };
-        };
+        }
 
     }
 

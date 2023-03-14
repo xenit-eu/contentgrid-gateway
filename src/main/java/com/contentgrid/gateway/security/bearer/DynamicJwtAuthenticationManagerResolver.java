@@ -9,8 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
@@ -39,8 +37,7 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(issuer,
                         DynamicJwtAuthenticationManagerResolver::createJwtAuthenticationManager))
 
-                // if it really is a BearerTokenAuthenticationToken - we should return an
-                // always failing ReactiveAuthenticationManager
+                // could not resolve request to an app-id or related client-registration
                 .switchIfEmpty(Mono.defer(() -> {
                     log.warn("Resolving authentication manager for {} failed", exchange.getRequest().getURI());
                     return Mono.just(authentication -> Mono.error(new InvalidBearerTokenException("no jwt auth manager found")));
@@ -52,6 +49,6 @@ public class DynamicJwtAuthenticationManagerResolver implements
         return Mono.<ReactiveAuthenticationManager>fromCallable(
                         () -> new JwtReactiveAuthenticationManager(ReactiveJwtDecoders.fromIssuerLocation(issuer)))
                 .subscribeOn(Schedulers.boundedElastic())
-                .cache((manager) -> Duration.ofMillis(Long.MAX_VALUE), (ex) -> Duration.ZERO, () -> Duration.ZERO);
+                .cache(manager -> Duration.ofMillis(Long.MAX_VALUE), ex -> Duration.ZERO, () -> Duration.ZERO);
     }
 }
