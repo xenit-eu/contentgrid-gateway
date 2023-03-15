@@ -18,7 +18,7 @@ jobs:
       - name: Build and Test
         run: ./gradlew check --info
       - name: Sonar Analysis
-        run: ./gradlew sonar --info
+        run: ./gradlew jacocoTestReport sonar --info
         if: env.SONAR_TOKEN != null
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
