@@ -10,6 +10,7 @@
     </root>
 
     <logger name="org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint" level="INFO"/>
+    <logger name="org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository" level="INFO"/>
 
     <logger name="org.testcontainers" level="INFO"/>
     <logger name="com.github.dockerjava" level="WARN"/>

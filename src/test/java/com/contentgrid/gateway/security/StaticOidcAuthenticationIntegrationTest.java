@@ -74,7 +74,7 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
         // Get the Authorization Code from Keycloak
         var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), USER);
         // Complete the OAuth2 Login with the gateway
-        var sessionCookie = this.completeOAuth2Login(authzCodeRequest.getSessionCookie(), authzCodeResponse);
+        var sessionCookie = this.completeOAuth2Login(authzCodeRequest.getSessionCookie(), authzCodeResponse, null);
 
         this.assertRequest_withSessionCookie(sessionCookie.getValue()).is2xxSuccessful();
     }
