@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security;
+package com.contentgrid.gateway.security.oidc;
 
 import java.net.URI;
 import java.util.function.Function;

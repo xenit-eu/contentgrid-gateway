@@ -64,6 +64,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, Closeable {
                 log.info("Closing watcher", cause);
             }
         });
+        log.info("Watching k8s namespace '{}' with selector {}", namespace, selector);
     }
 
     @Override

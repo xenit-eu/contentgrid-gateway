@@ -1,10 +1,10 @@
-package com.contentgrid.gateway.security.oauth2client;
+package com.contentgrid.gateway.security.oidc;
 
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.UtilityClass;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import reactor.core.publisher.Mono;
@@ -17,11 +17,12 @@ public class OAuth2ClientApplicationConfigurationMapper {
 
     public static final List<String> DEFAULT_SCOPES = List.of("openid", "profile", "email");
 
-    private static class Keys {
+    @UtilityClass
+    public static class Keys {
 
-        private static final String CLIENT_ID = "contentgrid.idp.client-id";
-        private static final String CLIENT_SECRET = "contentgrid.idp.client-secret";
-        private static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
+        public static final String CLIENT_ID = "contentgrid.idp.client-id";
+        public static final String CLIENT_SECRET = "contentgrid.idp.client-secret";
+        public static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
     }
 
     public String getClientId(@NonNull ApplicationConfiguration applicationConfiguration) {

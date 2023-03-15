@@ -1,12 +1,8 @@
-package com.contentgrid.gateway.security;
+package com.contentgrid.gateway.security.oidc;
 
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
-import com.contentgrid.gateway.security.oauth2client.OAuth2ClientApplicationConfigurationMapper;
-import com.contentgrid.gateway.security.oidc.ContentGridApplicationOAuth2AuthorizationRequestResolver;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
-import com.contentgrid.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository;
-import com.contentgrid.gateway.security.oauth2client.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
+import com.contentgrid.gateway.security.oidc.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -34,8 +30,8 @@ import reactor.core.publisher.Mono;
 
 
 @Slf4j
-@Configuration
-class OAuth2ClientConfiguration {
+@Configuration(proxyBeanMethods = false)
+class OidcClientConfiguration {
 
 
     @Configuration(proxyBeanMethods = false)
@@ -118,7 +114,7 @@ class OAuth2ClientConfiguration {
                             .map(URI::create);
                 });
 
-                entryPoints.add(0, new DelegateEntry(matcher, entryPoint));
+                entryPoints.add(new DelegateEntry(matcher, entryPoint));
             };
         }
     }
@@ -138,15 +134,18 @@ class OAuth2ClientConfiguration {
                 MediaType.TEXT_HTML,
                 MediaType.TEXT_PLAIN);
         htmlMatcher.setIgnoredMediaTypes(Collections.singleton(MediaType.ALL));
+
         ServerWebExchangeMatcher xhrMatcher = exchange -> {
             if (exchange.getRequest().getHeaders().getOrEmpty("X-Requested-With")
                     .contains("XMLHttpRequest")) {
                 return MatchResult.match();
             }
+
             return MatchResult.notMatch();
         };
 
         var notXhrMatcher = new NegatedServerWebExchangeMatcher(xhrMatcher);
+
         var defaultEntryPointMatcher = new AndServerWebExchangeMatcher(notXhrMatcher, htmlMatcher);
 
         var loginPageMatcher = new PathPatternParserServerWebExchangeMatcher("/login");
@@ -157,6 +156,7 @@ class OAuth2ClientConfiguration {
 
         return new AndServerWebExchangeMatcher(
                 notXhrMatcher,
+                htmlMatcher,
                 new NegatedServerWebExchangeMatcher(defaultLoginPageMatcher)
         );
     }
