@@ -85,13 +85,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         public static class TestApplicationConfigurationRepository extends
                 BaseApplicationConfigurationRepository<ApplicationConfiguration> {
 
-            public void put(ApplicationConfiguration applicationConfig) {
-                this.configs.put(applicationConfig.getApplicationId(), applicationConfig);
-            }
-
-            public void remove(ApplicationId applicationId) {
-                this.configs.remove(applicationId);
-            }
         }
     }
 
@@ -99,7 +92,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     void confidentialClient_oidcLogin() {
         // keycloak setup
         var realm = createRealm("test-confidential-client");
-        var client = createConfidentialClient(realm, "confidential", "http://localhost:" + port+"/*");
+        var client = createConfidentialClient(realm, "confidential", "http://localhost:" + port + "/*");
         var user = createUser(realm, "test");
 
         // create gateway app configuration
@@ -125,7 +118,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         this.assertRequest_withSessionCookie(appId, authzCodeRequest.getSessionCookie())
                 .is3xxRedirection()
                 .expectHeader().value("location", loc -> assertThat(loc).startsWith("/oauth2/authorization/"));
-
 
         // FIXME we need to associate the SESSION with a fixed AppId
         // There requests will currently return HTTP 200
@@ -158,7 +150,8 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), user);
 
         // exchange the Authorization Code (+ PKCE code verifier) for an Access Token with the Keycloak token endpoint
-        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse, authzCodeRequest.getCodeVerifier());
+        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse,
+                authzCodeRequest.getCodeVerifier());
         assertThat(tokenResponse.isSuccess()).isTrue();
         assertThat(tokenResponse.getAccessToken()).isNotNull();
 
@@ -172,7 +165,8 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         // HTTP 401 - request not associated with an app-id
         assertRequest_withBearer(null, tokenResponse.getAccessToken()).isUnauthorized();
         // HTTP 401 - access token cannot be associated with app-id
-        assertRequest_withBearer(ApplicationId.from("invalid").orElseThrow(), tokenResponse.getAccessToken()).isUnauthorized();
+        assertRequest_withBearer(ApplicationId.from("invalid").orElseThrow(),
+                tokenResponse.getAccessToken()).isUnauthorized();
 
         // revoke app-id configuration
         applicationConfigurationRepository.remove(appId);
@@ -215,8 +209,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     @NonNull
     private StatusAssertions assertRequest(Consumer<RequestHeadersSpec<? extends RequestHeadersSpec<?>>> customizer) {
         var request = httpClient.get()
-                .uri("http://localhost:%s/me".formatted(this.port))
-                ;
+                .uri("http://localhost:%s/me".formatted(this.port));
 
         customizer.accept(request);
 
