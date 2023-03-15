@@ -13,8 +13,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
-public class DynamicReactiveClientRegistrationRepository
-        implements ReactiveClientRegistrationRepository {
+public class DynamicReactiveClientRegistrationRepository implements ReactiveClientRegistrationRepository {
 
     private final Map<String, Mono<ClientRegistration>> clientIdToClientRegistration = new HashMap<>();
 
