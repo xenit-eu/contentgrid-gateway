@@ -25,17 +25,20 @@ public class RuntimeWebSessionConfiguration {
 
     private final ServerProperties serverProperties;
 
+
     @Bean(name = WEB_SESSION_MANAGER_BEAN_NAME)
     public RuntimeWebSessionManager runtimeWebSessionManager(RuntimeRequestResolver runtimeRequestResolver,
             ObjectProvider<WebSessionIdResolver> webSessionIdResolver) {
         var webSessionManager = new RuntimeWebSessionManager(runtimeRequestResolver);
+
+        // See WebFluxAutoConfiguration
         var timeout = this.serverProperties.getReactive().getSession().getTimeout();
         webSessionManager.setSessionStore(new MaxIdleTimeInMemoryWebSessionStore(timeout));
         webSessionIdResolver.ifAvailable(webSessionManager::setSessionIdResolver);
+
         return webSessionManager;
     }
 
-    // Copied from WebFluxAutoConfiguration
     static final class MaxIdleTimeInMemoryWebSessionStore extends InMemoryWebSessionStore {
 
         private final Duration timeout;
