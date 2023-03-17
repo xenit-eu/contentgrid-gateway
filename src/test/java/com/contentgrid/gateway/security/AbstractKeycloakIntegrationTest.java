@@ -342,12 +342,17 @@ abstract class AbstractKeycloakIntegrationTest {
         return new TokenResponse(tokenResponse);
     }
 
-    ResponseCookie completeOAuth2Login(String session, AuthorizationCodeResponse authzCodeResponse) {
+    ResponseCookie completeOAuth2Login(String session, AuthorizationCodeResponse authzCodeResponse, ApplicationId appId) {
         // follow the authzCodeResponse redirectURI  back to the gateway + SESSION cookie from the authzCodeRequest
-        var authorizationCodeResponse = this.http.get()
+        var request = this.http.get()
                 .uri(authzCodeResponse.redirectURI())
-                .cookie("SESSION", session)
-                .exchange()
+                .cookie("SESSION", session);
+
+        if (appId != null) {
+            request.header("Test-ApplicationId", appId.getValue());
+        }
+
+        var authorizationCodeResponse = request.exchange()
                 .expectStatus().is3xxRedirection()
                 .expectHeader().location("/")
                 .expectCookie().exists("SESSION")

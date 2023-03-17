@@ -110,7 +110,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         // Get the Authorization Code from Keycloak
         var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), user);
         // Complete the OAuth2 Login with the gateway
-        var sessionCookie = this.completeOAuth2Login(authzCodeRequest.getSessionCookie(), authzCodeResponse);
+        var sessionCookie = this.completeOAuth2Login(authzCodeRequest.getSessionCookie(), authzCodeResponse, appId);
 
         this.assertRequest_withSessionCookie(appId, sessionCookie.getValue()).is2xxSuccessful();
 
@@ -119,10 +119,11 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                 .is3xxRedirection()
                 .expectHeader().value("location", loc -> assertThat(loc).startsWith("/oauth2/authorization/"));
 
-        // FIXME we need to associate the SESSION with a fixed AppId
-        // There requests will currently return HTTP 200
-        // this.assertRequest_withSessionCookie(ApplicationId.random(), sessionCookie.getValue()).is4xxClientError();
-        // this.assertRequest_withSessionCookie(null, sessionCookie.getValue()).is4xxClientError();
+        // requesting data with a given session cookie to a different app-id,
+        // should result in the session cookie being invalidated and the user directed to login again
+         this.assertRequest_withSessionCookie(ApplicationId.random(), sessionCookie.getValue())
+                 .is3xxRedirection()
+                 .expectHeader().value("Set-Cookie", value -> assertThat(value).startsWith("SESSION="));
     }
 
     @Test
