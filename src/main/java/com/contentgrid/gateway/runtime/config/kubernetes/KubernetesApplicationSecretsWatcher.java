@@ -20,11 +20,18 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
     private final KubernetesClient client;
     private final String namespace;
 
-    private final SecretMapper<Secret> secretMapper = new Fabric8SecretMapper();
+
+    interface KubernetesLabels {
+
+        String K8S_MANAGEDBY = "app.kubernetes.io/managed-by";
+        String CONTENTGRID_SERVICETYPE = "app.contentgrid.com/service-type";
+
+        String CONTENTGRID_APPID = "app.contentgrid.com/application-id";
+    }
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
-            .addToMatchLabels("app.kubernetes.io/managed-by", "contentgrid")
-            .addToMatchLabels("app.contentgrid.com/service-type", "gateway")
+            .addToMatchLabels(KubernetesLabels.K8S_MANAGEDBY, "contentgrid")
+            .addToMatchLabels(KubernetesLabels.CONTENTGRID_SERVICETYPE, "gateway")
             .build();
     private Watch watch;
 
@@ -33,7 +40,7 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
         this.watch = client.secrets()
                 .inNamespace(namespace)
                 .withLabelSelector(selector)
-                .watch(new GatewaySecretWatcher());
+                .watch(new GatewaySecretWatcher(this.appConfigRepository));
     }
 
     @Override
@@ -45,15 +52,20 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
         }
     }
 
+    @RequiredArgsConstructor
+    static
+    class GatewaySecretWatcher implements Watcher<Secret> {
 
-    private class GatewaySecretWatcher implements Watcher<Secret> {
+        private final ComposableApplicationConfigurationRepository appConfigRepository;
+        private final SecretMapper<Secret> secretMapper = new Fabric8SecretMapper();
 
         @Override
         public void eventReceived(Action action, Secret resource) {
             secretMapper.apply(resource).ifPresent(fragment -> {
-                var appConfig = appConfigRepository.getOrDefault(fragment.getApplicationId());
 
-                log.info("secret {} {} [app-id:{}] # kubectl get secrets {} -o yaml", action, resource.getMetadata().getName(), fragment.getApplicationId(), resource.getMetadata().getName());
+                log.info("secret {} {} [app-id:{}] # kubectl get secrets {} -o yaml", action,
+                        resource.getMetadata().getName(), fragment.getApplicationId(),
+                        resource.getMetadata().getName());
 
                 switch (action) {
                     case ADDED, MODIFIED -> appConfigRepository.merge(fragment);
