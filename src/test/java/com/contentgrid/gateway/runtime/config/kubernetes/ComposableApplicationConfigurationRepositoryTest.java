@@ -6,15 +6,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
+import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-class BaseApplicationConfigurationRepositoryTest {
+class ComposableApplicationConfigurationRepositoryTest {
 
     @Test
     void getApplicationConfiguration() {
-        var configs = new BaseApplicationConfigurationRepository<>();
+        var configs = new ComposableApplicationConfigurationRepository<>();
         var appId = ApplicationId.random();
 
         configs.put(new ApplicationConfigurationFragment("config-id", appId, Map.of("foo", "bar")));
@@ -28,7 +29,7 @@ class BaseApplicationConfigurationRepositoryTest {
 
     @Test
     void observe() {
-        var configs = new BaseApplicationConfigurationRepository<>();
+        var configs = new ComposableApplicationConfigurationRepository<>();
         var appConfig1 = new ApplicationConfigurationFragment("config-id", ApplicationId.random(), Map.of("foo", "bar"));
         var appConfig2 = new ApplicationConfigurationFragment("config-id", ApplicationId.random(), Map.of("foo", "bar"));
 

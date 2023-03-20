@@ -1,26 +1,29 @@
-package com.contentgrid.gateway.runtime.config.kubernetes;
+package com.contentgrid.gateway.runtime.config;
 
 import com.contentgrid.gateway.collections.ObservableMap;
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
 import com.contentgrid.gateway.runtime.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import lombok.NonNull;
 import org.springframework.lang.Nullable;
 import reactor.core.publisher.Flux;
 
-public class BaseApplicationConfigurationRepository<T extends ApplicationConfiguration> implements
+public class ComposableApplicationConfigurationRepository implements
         ApplicationConfigurationRepository {
 
-    protected final ObservableMap<ApplicationId, T> configs = new ObservableMap<>();
+    protected final ObservableMap<ApplicationId, ComposedApplicationConfiguration> configs = new ObservableMap<>();
 
     @Override
     @Nullable
-    public T getApplicationConfiguration(@NonNull ApplicationId appId) {
+    public ComposedApplicationConfiguration getApplicationConfiguration(@NonNull ApplicationId appId) {
         return configs.get(appId);
     }
 
-    public void put(T applicationConfig) {
+    public ComposedApplicationConfiguration getOrDefault(@NonNull ApplicationId applicationId) {
+        return this.configs.getOrDefault(applicationId, new ComposedApplicationConfiguration(applicationId));
+    }
+
+
+    public void put(ComposedApplicationConfiguration applicationConfig) {
         this.configs.put(applicationConfig.getApplicationId(), applicationConfig);
     }
 

@@ -7,7 +7,7 @@ import com.contentgrid.gateway.runtime.DeploymentId;
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
-import com.contentgrid.gateway.runtime.config.kubernetes.BaseApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.DynamicOidcAuthenticationIntegrationTest.IntegrationTestConfiguration.TestApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.oidc.OAuth2ClientApplicationConfigurationMapper.Keys;
 import com.nimbusds.oauth2.sdk.GeneralException;
@@ -83,7 +83,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         }
 
         public static class TestApplicationConfigurationRepository extends
-                BaseApplicationConfigurationRepository<ApplicationConfiguration> {
+                ComposableApplicationConfigurationRepository<ApplicationConfiguration> {
 
         }
     }
