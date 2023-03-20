@@ -11,6 +11,7 @@ import com.contentgrid.gateway.routing.ServiceTracker;
 import com.contentgrid.gateway.runtime.DefaultRuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationConfigMapWatcher;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher;
 import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
@@ -232,6 +233,18 @@ public class GatewayApplication {
         @Bean
         ApplicationRunner k8sWatchSecrets(KubernetesApplicationSecretsWatcher k8sSecretWatcher) {
             return args -> k8sSecretWatcher.watchSecrets();
+        }
+
+        @Bean
+        KubernetesApplicationConfigMapWatcher kubernetesApplicationConfigMapWatcher(
+                ComposableApplicationConfigurationRepository appConfigRepository,
+                KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
+            return new KubernetesApplicationConfigMapWatcher(appConfigRepository, kubernetesClient, properties.getNamespace());
+        }
+
+        @Bean
+        ApplicationRunner k8sWatchConfigMaps(KubernetesApplicationConfigMapWatcher k8sConfigMapsWatcher) {
+            return args -> k8sConfigMapsWatcher.watchConfigMaps();
         }
 
         @Bean

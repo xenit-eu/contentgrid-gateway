@@ -7,7 +7,6 @@ import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher.GatewaySecretWatcher;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher.KubernetesLabels;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Watcher.Action;

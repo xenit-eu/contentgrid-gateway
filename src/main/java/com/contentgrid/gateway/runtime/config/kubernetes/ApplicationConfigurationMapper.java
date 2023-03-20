@@ -5,6 +5,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 @FunctionalInterface
-public interface SecretMapper<T> extends Function<T, Optional<ApplicationConfigurationFragment>> {
+public interface ApplicationConfigurationMapper<T> extends Function<T, Optional<ApplicationConfigurationFragment>> {
 
 }

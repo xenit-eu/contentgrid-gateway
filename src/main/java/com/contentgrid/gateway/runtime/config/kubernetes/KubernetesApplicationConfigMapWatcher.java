@@ -1,9 +1,9 @@
 package com.contentgrid.gateway.runtime.config.kubernetes;
 
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
-import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
@@ -13,12 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
+public class KubernetesApplicationConfigMapWatcher implements AutoCloseable {
 
     private final ComposableApplicationConfigurationRepository appConfigRepository;
     private final KubernetesClient client;
     private final String namespace;
-
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
             .addToMatchLabels(KubernetesLabels.K8S_MANAGEDBY, "contentgrid")
@@ -26,11 +25,11 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
             .build();
     private Watch watch;
 
-    public void watchSecrets() {
-        this.watch = client.secrets()
+    public void watchConfigMaps() {
+        this.watch = client.configMaps()
                 .inNamespace(namespace)
                 .withLabelSelector(selector)
-                .watch(new GatewaySecretWatcher(this.appConfigRepository));
+                .watch(new GatewayConfigMapWatcher(this.appConfigRepository));
     }
 
     @Override
@@ -43,18 +42,17 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
     }
 
     @RequiredArgsConstructor
-    static
-    class GatewaySecretWatcher implements Watcher<Secret> {
+    static class GatewayConfigMapWatcher implements Watcher<ConfigMap> {
 
         private final ComposableApplicationConfigurationRepository appConfigRepository;
-        private final ApplicationConfigurationMapper<Secret> secretMapper = new Fabric8SecretMapper();
+
+        private final ApplicationConfigurationMapper<ConfigMap> resourceMapper = new Fabric8ConfigMapMapper();
 
         @Override
-        public void eventReceived(Action action, Secret resource) {
-            secretMapper.apply(resource).ifPresent(fragment -> {
-
-                log.info("secret {} {} [app-id:{}] # kubectl get secrets {} -o yaml", action,
-                        resource.getMetadata().getName(), fragment.getApplicationId(),
+        public void eventReceived(Action action, ConfigMap resource) {
+            resourceMapper.apply(resource).ifPresent(fragment -> {
+                log.info("configmap {} {} [app-id:{}] # kubectl get configmap {} -o yaml",
+                        action, resource.getMetadata().getName(), fragment.getApplicationId(),
                         resource.getMetadata().getName());
 
                 switch (action) {
@@ -67,7 +65,7 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
 
         @Override
         public void onClose(WatcherException cause) {
-            log.info("Closed secret watcher", cause);
+            log.info("Closed configmap watcher", cause);
         }
     }
 
