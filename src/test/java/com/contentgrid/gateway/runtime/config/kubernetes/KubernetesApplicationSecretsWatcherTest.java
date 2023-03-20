@@ -11,10 +11,13 @@ import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSe
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Watcher.Action;
+import io.fabric8.kubernetes.client.WatcherException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
+import lombok.NonNull;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class KubernetesApplicationSecretsWatcherTest {
 
@@ -24,20 +27,7 @@ class KubernetesApplicationSecretsWatcherTest {
         var watcher = new GatewaySecretWatcher(configs);
 
         var appId = ApplicationId.random();
-
-        var encoder = Base64.getEncoder();
-        var metadata = new ObjectMeta();
-        metadata.setName("my-secret-name");
-        metadata.setUid(UUID.randomUUID().toString());
-        metadata.setLabels(Map.of(
-                KubernetesLabels.CONTENTGRID_APPID, appId.toString(),
-                KubernetesLabels.CONTENTGRID_SERVICETYPE, "gateway",
-                KubernetesLabels.K8S_MANAGEDBY, "contentgrid"
-        ));
-
-        var secret = new Secret();
-        secret.setMetadata(metadata);
-        secret.setData(Map.of("foo", encoder.encodeToString("bar".getBytes())));
+        var secret = createSecret(appId, UUID.randomUUID().toString());
 
         watcher.eventReceived(Action.ADDED, secret);
 
@@ -59,6 +49,38 @@ class KubernetesApplicationSecretsWatcherTest {
 
         configs.merge(new ApplicationConfigurationFragment(fragmentId, appId, Map.of("foo", "bar")));
 
+        var secret = createSecret(appId, fragmentId);
+
+        // verify the starting condition
+        assertThat(configs.getApplicationConfiguration(appId)).isNotNull();
+
+        // process DELETED event of secret with UUID='fragmentId'
+        watcher.eventReceived(Action.DELETED, secret);
+
+        // verify config has been deleted
+        assertThat(configs.getApplicationConfiguration(appId)).isNull();
+    }
+
+    @Test
+    void secret_unknown_operation() {
+        var configs = Mockito.mock(ComposableApplicationConfigurationRepository.class);
+        var watcher = new GatewaySecretWatcher(configs);
+
+        // unknown events should be ignored
+        watcher.eventReceived(Action.BOOKMARK, createSecret(ApplicationId.random(), UUID.randomUUID().toString()));
+
+        Mockito.verifyNoMoreInteractions(configs);
+    }
+
+    @Test
+    void onClose() {
+        var configs = new ComposableApplicationConfigurationRepository();
+        var watcher = new GatewaySecretWatcher(configs);
+        watcher.onClose(new WatcherException("making sonatype happy"));
+    }
+
+    @NonNull
+    private static Secret createSecret(ApplicationId appId, String fragmentId) {
         var encoder = Base64.getEncoder();
         var metadata = new ObjectMeta();
         metadata.setName("my-secret-name");
@@ -72,14 +94,6 @@ class KubernetesApplicationSecretsWatcherTest {
         var secret = new Secret();
         secret.setMetadata(metadata);
         secret.setData(Map.of("foo", encoder.encodeToString("bar".getBytes())));
-
-        // verify the starting condition
-        assertThat(configs.getApplicationConfiguration(appId)).isNotNull();
-
-        // process DELETED event of secret with UUID='fragmentId'
-        watcher.eventReceived(Action.DELETED, secret);
-
-        // verify config has been deleted
-        assertThat(configs.getApplicationConfiguration(appId)).isNull();
+        return secret;
     }
 }

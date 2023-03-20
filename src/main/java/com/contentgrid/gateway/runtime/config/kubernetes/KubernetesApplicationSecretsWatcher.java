@@ -10,6 +10,7 @@ import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -21,11 +22,11 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
     private final String namespace;
 
 
-    interface KubernetesLabels {
+    @UtilityClass
+    static class KubernetesLabels {
 
         String K8S_MANAGEDBY = "app.kubernetes.io/managed-by";
         String CONTENTGRID_SERVICETYPE = "app.contentgrid.com/service-type";
-
         String CONTENTGRID_APPID = "app.contentgrid.com/application-id";
     }
 
@@ -35,7 +36,6 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
             .build();
     private Watch watch;
 
-    // TODO dispose watch
     public void watchSecrets() {
         this.watch = client.secrets()
                 .inNamespace(namespace)
@@ -44,7 +44,7 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         var closure = this.watch;
         if (closure != null) {
             this.watch = null;
