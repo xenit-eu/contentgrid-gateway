@@ -4,6 +4,7 @@ import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
+import com.contentgrid.gateway.collections.ObservableMap.UpdateType;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -15,10 +16,10 @@ class ComposableApplicationConfigurationRepositoryTest {
 
     @Test
     void getApplicationConfiguration() {
-        var configs = new ComposableApplicationConfigurationRepository<>();
+        var configs = new ComposableApplicationConfigurationRepository();
         var appId = ApplicationId.random();
 
-        configs.put(new ApplicationConfigurationFragment("config-id", appId, Map.of("foo", "bar")));
+        configs.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of("foo", "bar")));
 
         var appConfig = configs.getApplicationConfiguration(appId);
         assertThat(appConfig).isNotNull();
@@ -29,23 +30,34 @@ class ComposableApplicationConfigurationRepositoryTest {
 
     @Test
     void observe() {
-        var configs = new ComposableApplicationConfigurationRepository<>();
+        var configs = new ComposableApplicationConfigurationRepository();
         var appConfig1 = new ApplicationConfigurationFragment("config-id", ApplicationId.random(), Map.of("foo", "bar"));
-        var appConfig2 = new ApplicationConfigurationFragment("config-id", ApplicationId.random(), Map.of("foo", "bar"));
+        var appConfig2 = new ApplicationConfigurationFragment("config-id", ApplicationId.random(), Map.of("bar", "baz"));
 
         StepVerifier.create(configs.observe())
 
                 // test put()
                 .then(() -> {
-                    configs.put(appConfig1);
-                    configs.put(appConfig2);
+                    configs.merge(appConfig1);
+                    configs.merge(appConfig2);
                 })
-                .expectNext(MapUpdate.put(appConfig1.getApplicationId(), appConfig1))
-                .expectNext(MapUpdate.put(appConfig2.getApplicationId(), appConfig2))
+                .assertNext(next -> {
+                    assertThat(next.getKey()).isEqualTo(appConfig1.getApplicationId());
+                    assertThat(next.getType()).isEqualTo(UpdateType.PUT);
+                    assertThat(next.getValue().stream()).singleElement().isEqualTo(entry("foo", "bar"));
+                })
+                .assertNext(next -> {
+                    assertThat(next.getKey()).isEqualTo(appConfig2.getApplicationId());
+                    assertThat(next.getType()).isEqualTo(UpdateType.PUT);
+                    assertThat(next.getValue().stream()).singleElement().isEqualTo(entry("bar", "baz"));
+                })
 
                 // test remove();
                 .then(() -> configs.remove(appConfig2.getApplicationId()))
-                .expectNext(MapUpdate.remove(appConfig2.getApplicationId(), appConfig2))
+                .assertNext(next -> {
+                    assertThat(next.getType()).isEqualTo(UpdateType.REMOVE);
+                    assertThat(next.getKey()).isEqualTo(appConfig2.getApplicationId());
+                })
 
                 // test clear()
                 .then(configs::clear)

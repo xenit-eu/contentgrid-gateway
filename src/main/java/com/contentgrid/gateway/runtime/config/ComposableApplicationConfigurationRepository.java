@@ -27,12 +27,28 @@ public class ComposableApplicationConfigurationRepository implements
         this.configs.put(applicationConfig.getApplicationId(), applicationConfig);
     }
 
-    public void remove(ApplicationId applicationId) {
+    public void remove(@NonNull ApplicationId applicationId) {
         this.configs.remove(applicationId);
     }
 
     public void clear() {
         this.configs.clear();
+    }
+
+    public void merge(@NonNull ApplicationConfiguration fragment) {
+        var merged = this.getOrDefault(fragment.getApplicationId()).withAdditionalConfiguration(fragment);
+        this.put(merged);
+    }
+
+    public void revoke(@NonNull ApplicationConfiguration fragment) {
+        var appConfig = this.getOrDefault(fragment.getApplicationId())
+                .withoutConfiguration(fragment.getConfigurationId());
+
+        if (appConfig.isEmpty()) {
+            this.remove(fragment.getApplicationId());
+        } else {
+            this.put(appConfig);
+        }
     }
 
     @Override

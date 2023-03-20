@@ -56,18 +56,8 @@ public class KubernetesApplicationSecretsWatcher implements AutoCloseable {
                 log.info("secret {} {} [app-id:{}] # kubectl get secrets {} -o yaml", action, resource.getMetadata().getName(), fragment.getApplicationId(), resource.getMetadata().getName());
 
                 switch (action) {
-                    case ADDED, MODIFIED -> {
-                        appConfig = appConfig.withAdditionalConfiguration(fragment);
-                        appConfigRepository.put(appConfig);
-                    }
-                    case DELETED -> {
-                        appConfig = appConfig.withoutConfiguration(fragment.getConfigurationId());
-                        if (appConfig.isEmpty()) {
-                            appConfigRepository.remove(appConfig.getApplicationId());
-                        } else {
-                            appConfigRepository.put(appConfig);
-                        }
-                    }
+                    case ADDED, MODIFIED -> appConfigRepository.merge(fragment);
+                    case DELETED -> appConfigRepository.revoke(fragment);
                     default -> log.warn("Unknown action {} on secret {}", action, resource);
                 }
             });
