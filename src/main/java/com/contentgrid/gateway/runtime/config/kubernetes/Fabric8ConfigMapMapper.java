@@ -31,13 +31,4 @@ public class Fabric8ConfigMapMapper implements ApplicationConfigurationMapper<Co
 
         return fragment;
     }
-
-    private Map<String, String> base64decode(Map<String, String> data) {
-        var decoder = Base64.getDecoder();
-        var result = new HashMap<String, String>();
-        data.forEach((key, value) -> result.put(key, new String(decoder.decode(value))));
-
-        return result;
-    }
-
 }
