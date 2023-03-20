@@ -5,10 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.DeploymentId;
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
-import com.contentgrid.gateway.runtime.config.kubernetes.BaseApplicationConfigurationRepository;
-import com.contentgrid.gateway.security.DynamicOidcAuthenticationIntegrationTest.IntegrationTestConfiguration.TestApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.oidc.OAuth2ClientApplicationConfigurationMapper.Keys;
 import com.nimbusds.oauth2.sdk.GeneralException;
 import com.nimbusds.oauth2.sdk.id.Issuer;
@@ -48,7 +46,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     private int port;
 
     @Autowired
-    TestApplicationConfigurationRepository applicationConfigurationRepository;
+    ComposableApplicationConfigurationRepository applicationConfigurationRepository;
 
     private final WebTestClient httpClient = WebTestClient
             .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
@@ -58,10 +56,14 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
 
+        //        @Bean
+//        @Primary
+//        TestApplicationConfigurationRepository applicationConfigurationRepository() {
+//            return new TestApplicationConfigurationRepository();
+//        }
         @Bean
-        @Primary
-        TestApplicationConfigurationRepository applicationConfigurationRepository() {
-            return new TestApplicationConfigurationRepository();
+        ComposableApplicationConfigurationRepository applicationConfigurationRepository() {
+            return new ComposableApplicationConfigurationRepository();
         }
 
         @Bean
@@ -81,11 +83,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                 }
             };
         }
-
-        public static class TestApplicationConfigurationRepository extends
-                BaseApplicationConfigurationRepository<ApplicationConfiguration> {
-
-        }
     }
 
     @Test
@@ -97,7 +94,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.put(new ApplicationConfigurationFragment("config-id", appId, Map.of(
+        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
                 Keys.CLIENT_ID, client.clientId(),
                 Keys.CLIENT_SECRET, client.clientSecret(),
                 Keys.ISSUER_URI, realm.getIssuerUrl()
@@ -121,9 +118,9 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
         // requesting data with a given session cookie to a different app-id,
         // should result in the session cookie being invalidated and the user directed to login again
-         this.assertRequest_withSessionCookie(ApplicationId.random(), sessionCookie.getValue())
-                 .is3xxRedirection()
-                 .expectHeader().value("Set-Cookie", value -> assertThat(value).startsWith("SESSION="));
+        this.assertRequest_withSessionCookie(ApplicationId.random(), sessionCookie.getValue())
+                .is3xxRedirection()
+                .expectHeader().value("Set-Cookie", value -> assertThat(value).startsWith("SESSION="));
     }
 
     @Test
@@ -134,7 +131,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         var user = createUser(realm, "test");
 
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.put(new ApplicationConfigurationFragment("config-id", appId, Map.of(
+        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
                 Keys.CLIENT_ID, client.clientId(),
                 Keys.ISSUER_URI, realm.getIssuerUrl()
         )));

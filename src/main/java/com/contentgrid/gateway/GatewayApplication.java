@@ -2,6 +2,20 @@ package com.contentgrid.gateway;
 
 import static com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
+import com.contentgrid.gateway.cors.CorsConfigurationResolver;
+import com.contentgrid.gateway.cors.CorsResolverProperties;
+import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
+import com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.filter.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.routing.ServiceTracker;
+import com.contentgrid.gateway.runtime.DefaultRuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher;
+import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
+import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.servicediscovery.KubernetesServiceDiscovery;
+import com.contentgrid.gateway.servicediscovery.ServiceDiscovery;
 import com.contentgrid.opa.client.OpaClient;
 import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
 import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
@@ -12,19 +26,6 @@ import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.contentgrid.gateway.cors.CorsConfigurationResolver;
-import com.contentgrid.gateway.cors.CorsResolverProperties;
-import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
-import com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter;
-import com.contentgrid.gateway.filter.web.ContentGridResponseHeadersWebFilter;
-import com.contentgrid.gateway.routing.ServiceTracker;
-import com.contentgrid.gateway.runtime.DefaultRuntimeRequestResolver;
-import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationConfigurationRepository;
-import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
-import com.contentgrid.gateway.servicediscovery.KubernetesServiceDiscovery;
-import com.contentgrid.gateway.servicediscovery.ServiceDiscovery;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,8 +59,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
-import org.springframework.security.authentication.ReactiveAuthenticationManager;
-import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
@@ -84,8 +83,6 @@ import org.springframework.security.web.server.util.matcher.AndServerWebExchange
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringBootApplication
@@ -221,14 +218,20 @@ public class GatewayApplication {
         }
 
         @Bean
-        KubernetesApplicationConfigurationRepository kubernetesApplicationConfigurationRepository(
-                KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
-            return new KubernetesApplicationConfigurationRepository(kubernetesClient, properties.getNamespace());
+        ComposableApplicationConfigurationRepository applicationConfigurationRepository() {
+            return new ComposableApplicationConfigurationRepository();
         }
 
         @Bean
-        ApplicationRunner k8sWatchSecrets(KubernetesApplicationConfigurationRepository k8sAppConfig) {
-            return args -> k8sAppConfig.watchSecrets();
+        KubernetesApplicationSecretsWatcher kubernetesApplicationSecretsWatcher(
+                ComposableApplicationConfigurationRepository appConfigRepository,
+                KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
+            return new KubernetesApplicationSecretsWatcher(appConfigRepository, kubernetesClient, properties.getNamespace());
+        }
+
+        @Bean
+        ApplicationRunner k8sWatchSecrets(KubernetesApplicationSecretsWatcher k8sSecretWatcher) {
+            return args -> k8sSecretWatcher.watchSecrets();
         }
 
         @Bean
