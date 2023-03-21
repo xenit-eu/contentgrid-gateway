@@ -1,7 +1,7 @@
 package com.contentgrid.gateway.runtime.web;
 
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     private final ContentGridDeploymentMetadata serviceMetadata;
 
     @NonNull
-    private final ContentGridRequestRouter requestRouter;
+    private final RuntimeRequestRouter requestRouter;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {

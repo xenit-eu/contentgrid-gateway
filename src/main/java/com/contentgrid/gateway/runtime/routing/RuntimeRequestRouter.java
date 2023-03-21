@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 /**
  * Strategy interface to select an appropriate {@link ServiceInstance} for a given {@link ServerWebExchange}.
  */
-public interface ContentGridRequestRouter {
+public interface RuntimeRequestRouter {
 
     Mono<ServiceInstance> route(ServerWebExchange serverWebExchange);
 

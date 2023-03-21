@@ -17,34 +17,15 @@ public class OAuth2ClientApplicationConfigurationMapper {
 
     public static final List<String> DEFAULT_SCOPES = List.of("openid", "profile", "email");
 
-    @UtilityClass
-    public static class Keys {
-
-        public static final String CLIENT_ID = "contentgrid.idp.client-id";
-        public static final String CLIENT_SECRET = "contentgrid.idp.client-secret";
-        public static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
-    }
-
-    public String getClientId(@NonNull ApplicationConfiguration applicationConfiguration) {
-        return applicationConfiguration.getProperty(Keys.CLIENT_ID).orElse(null);
-    }
-
-    public String getClientSecret(@NonNull ApplicationConfiguration applicationConfiguration) {
-        return applicationConfiguration.getProperty(Keys.CLIENT_SECRET).orElse(null);
-    }
-
-    public String getIssuerUri(@NonNull ApplicationConfiguration applicationConfiguration) {
-        return applicationConfiguration.getProperty(Keys.ISSUER_URI).orElse(null);
-    }
 
     public Mono<ClientRegistration> getClientRegistration(@NonNull ApplicationConfiguration applicationConfiguration) {
 
         return this.clientRegistrationIdResolver.resolveRegistrationId(applicationConfiguration.getApplicationId())
                 .map(clientRegistrationId -> ClientRegistrations
-                        .fromIssuerLocation(this.getIssuerUri(applicationConfiguration))
+                        .fromIssuerLocation(applicationConfiguration.getIssuerUri())
                         .registrationId(clientRegistrationId)
-                        .clientId(this.getClientId(applicationConfiguration))
-                        .clientSecret(this.getClientSecret(applicationConfiguration))
+                        .clientId(applicationConfiguration.getClientId())
+                        .clientSecret(applicationConfiguration.getClientSecret())
                         .scope(DEFAULT_SCOPES)
                         .build());
     }

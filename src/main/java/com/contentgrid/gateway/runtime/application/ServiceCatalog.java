@@ -2,10 +2,13 @@ package com.contentgrid.gateway.runtime.application;
 
 import com.contentgrid.gateway.collections.ConcurrentLookup;
 import com.contentgrid.gateway.collections.ConcurrentLookup.Lookup;
+import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 import lombok.NonNull;
@@ -31,17 +34,19 @@ public class ServiceCatalog implements
     private final ContentGridDeploymentMetadata deploymentMetadata;
 
     @NonNull
-    private final ContentGridApplicationMetadata applicationMetadata;
+    private final ApplicationConfigurationRepository appConfigRepository;
 
     private final ConcurrentLookup<String, ServiceInstance> services;
     private final Lookup<ApplicationId, ServiceInstance> lookupByApplicationId;
 
+
+
     public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
             @NonNull ContentGridDeploymentMetadata deploymentMetadata,
-            @NonNull ContentGridApplicationMetadata applicationMetadata) {
+            @NonNull ApplicationConfigurationRepository appConfigRepository) {
         this.publisher = publisher;
         this.deploymentMetadata = deploymentMetadata;
-        this.applicationMetadata = applicationMetadata;
+        this.appConfigRepository = appConfigRepository;
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
         this.lookupByApplicationId = this.services.createLookup(service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
@@ -54,7 +59,10 @@ public class ServiceCatalog implements
         routeDef.setUri(service.getUri());
 
         var hostnamePredicate = new PredicateDefinition();
-        var domainNames = applicationMetadata.getDomainNames(service);
+        var domainNames = this.deploymentMetadata.getApplicationId(service)
+                .map(this.appConfigRepository::getApplicationConfiguration)
+                .map(ApplicationConfiguration::getDomains)
+                .orElse(Set.of());
         hostnamePredicate.setName("Host");
         hostnamePredicate.addArg("patterns", String.join(",", domainNames));
 
@@ -64,13 +72,13 @@ public class ServiceCatalog implements
 
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
-        return Flux.fromStream(() -> services.stream().map(this::createRouteDefinition))
+        return Flux.fromStream(() -> this.services().map(this::createRouteDefinition))
                 .log(Loggers.getLogger(ServiceCatalog.class), Level.FINE, false);
     }
 
     @Override
     public void handleServiceAdded(ServiceInstance service) {
-        services.add(service);
+        services.put(service);
         publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 

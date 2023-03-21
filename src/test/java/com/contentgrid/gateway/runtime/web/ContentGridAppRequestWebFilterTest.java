@@ -9,7 +9,7 @@ import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,12 +24,12 @@ import reactor.test.StepVerifier;
 class ContentGridAppRequestWebFilterTest {
 
     private SimpleContentGridDeploymentMetadata serviceMetadata = new SimpleContentGridDeploymentMetadata();
-    private ContentGridRequestRouter requestRouter;
+    private RuntimeRequestRouter requestRouter;
     private WebFilterChain chain;
 
     @BeforeEach
     void setup() {
-        this.requestRouter = Mockito.mock(ContentGridRequestRouter.class);
+        this.requestRouter = Mockito.mock(RuntimeRequestRouter.class);
         this.chain = Mockito.mock(WebFilterChain.class);
 
         Mockito.when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());

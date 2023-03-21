@@ -41,7 +41,7 @@ public class ConcurrentLookup<K, V> {
     private final Map<K, V> data = new HashMap<>();
 
     public final V add(@NonNull V item) {
-
+//    public final V put(@NonNull V item) {
         var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
         var writeLock = this.readWriteLock.writeLock();
 
@@ -97,6 +97,7 @@ public class ConcurrentLookup<K, V> {
             writeLock.unlock();
         }
     }
+
 
     public void clear() {
         var writeLock = this.readWriteLock.writeLock();
@@ -158,6 +159,18 @@ public class ConcurrentLookup<K, V> {
         }
     }
 
+    public final <L> Lookup<L, V> addMultiIndex(Function<V, Stream<L>> indexFunction) {
+        var index = new MultiIndex<>(indexFunction);
+        this.indices.add(index);
+
+        // rebuild the index
+        for (var item : this.data.values()) {
+            index.store(item);
+        }
+
+        return index::get;
+    }
+
     public Stream<V> stream() {
         return this.data.values().stream();
     }
@@ -214,7 +227,6 @@ public class ConcurrentLookup<K, V> {
     }
 
     private static class MultiIndex<L, T> implements Index<L, T> {
-
         private final Map<L, Set<T>> data = new HashMap<>();
         private final Function<T, Stream<L>> indexFunction;
 
