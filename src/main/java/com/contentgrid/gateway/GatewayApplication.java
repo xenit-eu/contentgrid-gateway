@@ -11,8 +11,9 @@ import com.contentgrid.gateway.routing.ServiceTracker;
 import com.contentgrid.gateway.runtime.DefaultRuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationConfigMapWatcher;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher;
+import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
+import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
+import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.servicediscovery.KubernetesServiceDiscovery;
@@ -224,27 +225,20 @@ public class GatewayApplication {
         }
 
         @Bean
-        KubernetesApplicationSecretsWatcher kubernetesApplicationSecretsWatcher(
+        ApplicationRunner k8sWatchSecrets(KubernetesResourceWatcherBinding watcherBinding) {
+            return args -> watcherBinding.watch(KubernetesClient::secrets, new Fabric8SecretMapper());
+        }
+
+        @Bean
+        KubernetesResourceWatcherBinding kubernetesApplicationConfigMapWatcher(
                 ComposableApplicationConfigurationRepository appConfigRepository,
                 KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
-            return new KubernetesApplicationSecretsWatcher(appConfigRepository, kubernetesClient, properties.getNamespace());
+            return new KubernetesResourceWatcherBinding(appConfigRepository, kubernetesClient, properties.getNamespace());
         }
 
         @Bean
-        ApplicationRunner k8sWatchSecrets(KubernetesApplicationSecretsWatcher k8sSecretWatcher) {
-            return args -> k8sSecretWatcher.watchSecrets();
-        }
-
-        @Bean
-        KubernetesApplicationConfigMapWatcher kubernetesApplicationConfigMapWatcher(
-                ComposableApplicationConfigurationRepository appConfigRepository,
-                KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
-            return new KubernetesApplicationConfigMapWatcher(appConfigRepository, kubernetesClient, properties.getNamespace());
-        }
-
-        @Bean
-        ApplicationRunner k8sWatchConfigMaps(KubernetesApplicationConfigMapWatcher k8sConfigMapsWatcher) {
-            return args -> k8sConfigMapsWatcher.watchConfigMaps();
+        ApplicationRunner k8sWatchConfigMaps(KubernetesResourceWatcherBinding watcherBinding) {
+            return args -> watcherBinding.watch(KubernetesClient::configMaps, new Fabric8ConfigMapMapper());
         }
 
         @Bean

@@ -3,15 +3,11 @@ package com.contentgrid.gateway.runtime.config.kubernetes;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.fabric8.kubernetes.api.model.Secret;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class Fabric8ConfigMapMapper implements ApplicationConfigurationMapper<ConfigMap> {
+public class Fabric8ConfigMapMapper implements KubernetesResourceMapper<ConfigMap> {
 
     private static final String APP_ID_LABEL = "app.contentgrid.com/application-id";
 

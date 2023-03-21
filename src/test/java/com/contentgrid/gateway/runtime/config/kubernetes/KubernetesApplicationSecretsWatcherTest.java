@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.contentgrid.gateway.runtime.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesApplicationSecretsWatcher.GatewaySecretWatcher;
+import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding.ApplicationConfigResourceWatcher;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.Watcher.Action;
@@ -23,7 +23,7 @@ class KubernetesApplicationSecretsWatcherTest {
     @Test
     void secret_added() {
         var configs = new ComposableApplicationConfigurationRepository();
-        var watcher = new GatewaySecretWatcher(configs);
+        var watcher = new ApplicationConfigResourceWatcher<>(configs, new Fabric8SecretMapper());
 
         var appId = ApplicationId.random();
         var secret = createSecret(appId, UUID.randomUUID().toString());
@@ -41,7 +41,7 @@ class KubernetesApplicationSecretsWatcherTest {
     @Test
     void secret_removed() {
         var configs = new ComposableApplicationConfigurationRepository();
-        var watcher = new GatewaySecretWatcher(configs);
+        var watcher = new ApplicationConfigResourceWatcher<>(configs, new Fabric8SecretMapper());
 
         var appId = ApplicationId.random();
         var fragmentId = UUID.randomUUID().toString();
@@ -63,7 +63,7 @@ class KubernetesApplicationSecretsWatcherTest {
     @Test
     void secret_unknown_operation() {
         var configs = Mockito.mock(ComposableApplicationConfigurationRepository.class);
-        var watcher = new GatewaySecretWatcher(configs);
+        var watcher = new ApplicationConfigResourceWatcher<>(configs, new Fabric8SecretMapper());
 
         // unknown events should be ignored
         watcher.eventReceived(Action.BOOKMARK, createSecret(ApplicationId.random(), UUID.randomUUID().toString()));
@@ -74,7 +74,7 @@ class KubernetesApplicationSecretsWatcherTest {
     @Test
     void onClose() {
         var configs = new ComposableApplicationConfigurationRepository();
-        var watcher = new GatewaySecretWatcher(configs);
+        var watcher = new ApplicationConfigResourceWatcher<>(configs, new Fabric8SecretMapper());
         watcher.onClose(new WatcherException("making sonatype happy"));
     }
 
