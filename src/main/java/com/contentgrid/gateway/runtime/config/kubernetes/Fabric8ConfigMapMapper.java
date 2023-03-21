@@ -9,22 +9,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Fabric8ConfigMapMapper implements KubernetesResourceMapper<ConfigMap> {
 
-    private static final String APP_ID_LABEL = "app.contentgrid.com/application-id";
-
     @Override
     public Optional<ApplicationConfigurationFragment> apply(ConfigMap configMap) {
         var fragmentId = configMap.getMetadata().getUid();
+        var appIdLabel = configMap.getMetadata().getLabels().get(KubernetesLabels.CONTENTGRID_APPID);
 
-        var labels = configMap.getMetadata().getLabels();
-        var fragment = Optional.ofNullable(labels.get(APP_ID_LABEL))
+        return Optional.ofNullable(appIdLabel)
                 .flatMap(ApplicationId::from)
-                .map(appId -> new ApplicationConfigurationFragment(fragmentId, appId, configMap.getData()));
-
-        if (fragment.isEmpty()) {
-            log.warn("ConfigMap {} has no valid label '{}': {}", configMap.getFullResourceName(), APP_ID_LABEL, configMap);
-            return Optional.empty();
-        }
-
-        return fragment;
+                .map(appId -> new ApplicationConfigurationFragment(fragmentId, appId, configMap.getData()))
+                .or(() -> {
+                    log.warn("{} {} has no valid label '{}'",
+                            configMap.getFullResourceName(), configMap.getMetadata().getName(), KubernetesLabels.CONTENTGRID_APPID);
+                    return Optional.empty();
+                });
     }
 }
