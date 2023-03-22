@@ -56,16 +56,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
 
-        //        @Bean
-//        @Primary
-//        TestApplicationConfigurationRepository applicationConfigurationRepository() {
-//            return new TestApplicationConfigurationRepository();
-//        }
-        @Bean
-        ComposableApplicationConfigurationRepository applicationConfigurationRepository() {
-            return new ComposableApplicationConfigurationRepository();
-        }
-
         @Bean
         @Primary
         RuntimeRequestResolver testRuntimeRequestResolver() {
