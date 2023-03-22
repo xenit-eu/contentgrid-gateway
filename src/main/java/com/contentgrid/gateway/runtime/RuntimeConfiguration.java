@@ -135,7 +135,7 @@ public class RuntimeConfiguration {
 
         @Bean
         ApplicationRunner runner(ObjectProvider<ServiceDiscovery> serviceDiscovery) {
-            return args -> serviceDiscovery.forEach(ServiceDiscovery::discoverApis);
+            return args -> serviceDiscovery.ifAvailable(ServiceDiscovery::discoverApis);
         }
 
         @ConditionalOnCloudPlatform(CloudPlatform.KUBERNETES)
