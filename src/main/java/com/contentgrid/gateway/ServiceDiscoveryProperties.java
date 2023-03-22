@@ -7,5 +7,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "servicediscovery")
 public class ServiceDiscoveryProperties {
     private boolean enabled = false;
-    private String namespace;
+    private String namespace = "default";
 }
