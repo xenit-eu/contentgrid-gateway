@@ -25,4 +25,10 @@ public class MonoAssert<T> extends AbstractAssert<MonoAssert<T>, Mono<T>> {
         StepVerifier.create(actual).expectNext(value).verifyComplete();
         return this;
     }
+
+    public MonoAssert<T> hasValue() {
+        this.isNotNull();
+        StepVerifier.create(actual).expectNextCount(1).verifyComplete();
+        return this;
+    }
 }

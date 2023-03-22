@@ -3,23 +3,23 @@ package com.contentgrid.gateway.runtime;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
+import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
+import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.routing.SimpleContentGridRequestRouter;
-import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
-import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
-import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
+import com.contentgrid.gateway.runtime.routing.SimpleContentGridRequestRouter;
 import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
+import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
@@ -145,6 +145,4 @@ public class RuntimeConfiguration {
 
         }
     }
-
-
 }
