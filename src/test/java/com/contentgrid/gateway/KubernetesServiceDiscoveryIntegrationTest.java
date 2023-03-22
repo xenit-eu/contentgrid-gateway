@@ -78,6 +78,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.runtime-platform.enabled=true",
             "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
