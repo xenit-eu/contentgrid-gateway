@@ -1,16 +1,10 @@
 package com.contentgrid.gateway.runtime.web;
 
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
-import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -34,22 +28,24 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     public static final String CONTENTGRID_DEPLOY_ID_ATTR = "com.contentgrid.gateway.deployment-id";
 
     @NonNull
-    private final ServiceTracker serviceTracker;
+    private final ContentGridDeploymentMetadata serviceMetadata;
 
     @NonNull
-    private final ContentGridDeploymentMetadata deploymentMetadata;
-
-    @NonNull
-    private final ContentGridApplicationMetadata applicationMetadata;
+    private final ContentGridRequestRouter requestRouter;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        var candidates = this.findAppServices(exchange);
-        var selection = this.selectService(exchange, candidates);
+        return this.requestRouter.route(exchange)
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.info("-- {} {} no route found", exchange.getRequest().getMethod(),
+                            exchange.getRequest().getURI().getHost());
 
-        selection.ifPresentOrElse(service -> {
-                    var appId = deploymentMetadata.getApplicationId(service);
-                    var deployId = deploymentMetadata.getDeploymentId(service);
+                    // potentially return HTTP 503 early here in the future
+                    return Mono.empty();
+                }))
+                .doOnNext(service -> {
+                    var appId = serviceMetadata.getApplicationId(service);
+                    var deployId = serviceMetadata.getDeploymentId(service);
 
                     log.debug("{} {} -> app-id: {} deploy-id: {}",
                             exchange.getRequest().getMethod().name(), exchange.getRequest().getURI(),
@@ -59,37 +55,8 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                     attributes.put(CONTENTGRID_SERVICE_INSTANCE_ATTR, service);
                     appId.ifPresent(value -> attributes.put(CONTENTGRID_APP_ID_ATTR, value));
                     deployId.ifPresent(value -> attributes.put(CONTENTGRID_DEPLOY_ID_ATTR, value));
-                },
-                () -> log.info("-- {} no cg-app match found", exchange.getRequest().getURI().getHost()));
-
-        return chain.filter(exchange);
-    }
-
-    private Optional<ServiceInstance> selectService(ServerWebExchange exchange, Set<ServiceInstance> candidates) {
-
-        if (candidates.size() > 1) {
-            // logging a warning until we have a better service selection
-            log.warn("multiple matches {}: {}", exchange.getRequest().getURI().getHost(), candidates.stream()
-                    .map(service -> deploymentMetadata.getDeploymentId(service).orElse("<none>")).toList());
-        }
-
-        return candidates.stream()
-
-                // sorting based on deployment-id alphabetical order, to get at least a stable selection
-                .sorted((service1, service2) -> {
-                    var d1 = deploymentMetadata.getDeploymentId(service1).orElse("");
-                    var d2 = deploymentMetadata.getDeploymentId(service2).orElse("");
-                    return d1.compareTo(d2);
-                }).findFirst();
-    }
-
-    private Set<ServiceInstance> findAppServices(ServerWebExchange exchange) {
-        return this.serviceTracker.services().filter(service -> {
-            var requestHost = exchange.getRequest().getURI().getHost();
-
-            var domains = applicationMetadata.getDomainNames(service);
-            return domains.contains(requestHost.toLowerCase(Locale.ROOT));
-        }).collect(Collectors.toSet());
+                })
+                .then(chain.filter(exchange));
     }
 
 }
