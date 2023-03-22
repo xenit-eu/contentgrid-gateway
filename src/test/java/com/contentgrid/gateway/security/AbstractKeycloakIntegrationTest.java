@@ -2,7 +2,7 @@ package com.contentgrid.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;

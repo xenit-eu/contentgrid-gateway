@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.security.oidc;
 
-import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.server.DefaultServerOAuth2AuthorizationRequestResolver;

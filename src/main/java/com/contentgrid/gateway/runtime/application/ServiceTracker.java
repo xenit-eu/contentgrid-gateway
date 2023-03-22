@@ -1,8 +1,7 @@
-package com.contentgrid.gateway.routing;
+package com.contentgrid.gateway.runtime.application;
 
-import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.servicediscovery.ServiceAddedHandler;
-import com.contentgrid.gateway.servicediscovery.ServiceDeletedHandler;
+import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
+import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

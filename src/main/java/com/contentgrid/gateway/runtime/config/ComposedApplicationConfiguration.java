@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.config;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;

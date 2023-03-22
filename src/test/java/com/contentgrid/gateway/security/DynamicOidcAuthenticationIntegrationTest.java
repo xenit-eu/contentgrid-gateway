@@ -2,9 +2,9 @@ package com.contentgrid.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
-import com.contentgrid.gateway.runtime.DeploymentId;
-import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.oidc.OAuth2ClientApplicationConfigurationMapper.Keys;

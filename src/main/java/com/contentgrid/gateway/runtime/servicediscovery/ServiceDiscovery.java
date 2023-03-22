@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.servicediscovery;
+package com.contentgrid.gateway.runtime.servicediscovery;
 
 public interface ServiceDiscovery {
     void discoverApis();

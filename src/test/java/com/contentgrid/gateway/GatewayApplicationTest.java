@@ -1,7 +1,7 @@
 package com.contentgrid.gateway;
 
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
-import com.contentgrid.gateway.servicediscovery.KubernetesServiceDiscovery;
+import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

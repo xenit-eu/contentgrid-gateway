@@ -1,7 +1,6 @@
-package com.contentgrid.gateway.runtime;
+package com.contentgrid.gateway.runtime.application;
 
 import java.util.Optional;
-import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -10,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 
 @EqualsAndHashCode
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class ApplicationId {
+public class DeploymentId {
 
     @NonNull
     @Getter
@@ -21,15 +20,11 @@ public class ApplicationId {
         return this.getValue();
     }
 
-    public static Optional<ApplicationId> from(@NonNull String value) {
+    public static Optional<DeploymentId> from(@NonNull String value) {
         if (value.isBlank()) {
             return Optional.empty();
         }
 
-        return Optional.of(new ApplicationId(value));
-    }
-
-    public static ApplicationId random() {
-        return new ApplicationId(UUID.randomUUID().toString());
+        return Optional.of(new DeploymentId(value));
     }
 }

@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.config.kubernetes;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import java.util.Optional;

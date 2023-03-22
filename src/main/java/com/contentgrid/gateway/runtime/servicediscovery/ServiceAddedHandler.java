@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.servicediscovery;
+package com.contentgrid.gateway.runtime.servicediscovery;
 
 import org.springframework.cloud.client.ServiceInstance;
 

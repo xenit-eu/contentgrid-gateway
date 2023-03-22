@@ -3,7 +3,7 @@ package com.contentgrid.gateway.runtime.config.kubernetes;
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding.ApplicationConfigResourceWatcher;

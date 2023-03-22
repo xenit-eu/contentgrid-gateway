@@ -1,19 +1,19 @@
 package com.contentgrid.gateway.runtime;
 
-import static com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
+import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
-import com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter;
-import com.contentgrid.gateway.filter.web.ContentGridResponseHeadersWebFilter;
-import com.contentgrid.gateway.routing.ServiceTracker;
+import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
-import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
-import com.contentgrid.gateway.servicediscovery.KubernetesServiceDiscovery;
-import com.contentgrid.gateway.servicediscovery.ServiceDiscovery;
+import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
+import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
+import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import java.util.Optional;
@@ -23,7 +23,6 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
