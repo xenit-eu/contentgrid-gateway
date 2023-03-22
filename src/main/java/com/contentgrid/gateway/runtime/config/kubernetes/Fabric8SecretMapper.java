@@ -10,7 +10,7 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class Fabric8SecretMapper implements SecretMapper<Secret> {
+public class Fabric8SecretMapper implements KubernetesResourceMapper<Secret> {
 
     private static final String APP_ID_LABEL = "app.contentgrid.com/application-id";
 
