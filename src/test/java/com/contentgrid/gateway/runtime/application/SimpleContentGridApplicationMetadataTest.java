@@ -1,8 +1,8 @@
 package com.contentgrid.gateway.runtime.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
+import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
 import org.junit.jupiter.api.Test;
 
 class SimpleContentGridApplicationMetadataTest {
