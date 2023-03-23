@@ -3,19 +3,21 @@ package com.contentgrid.gateway.runtime;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
+import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
+import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
-import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
-import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
+import com.contentgrid.gateway.runtime.routing.SimpleContentGridRequestRouter;
 import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
+import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
@@ -54,16 +56,23 @@ public class RuntimeConfiguration {
 
     @Bean
     @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER)
-    ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(ServiceTracker tracker,
-            ContentGridDeploymentMetadata deploymentMetadata,
-            ContentGridApplicationMetadata applicationMetadata) {
-        return new ContentGridAppRequestWebFilter(tracker, deploymentMetadata, applicationMetadata);
+    ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(
+            ContentGridDeploymentMetadata serviceMetadata,
+            ContentGridRequestRouter requestRouter) {
+        return new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);
     }
 
     @Bean
     @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER + 10)
     ContentGridResponseHeadersWebFilter contentGridResponseHeadersWebFilter() {
         return new ContentGridResponseHeadersWebFilter();
+    }
+
+    @Bean
+    ContentGridRequestRouter requestRouter(ServiceTracker serviceTracker,
+            ContentGridApplicationMetadata applicationMetadata,
+            ContentGridDeploymentMetadata serviceMetadata) {
+        return new SimpleContentGridRequestRouter(serviceTracker, applicationMetadata, serviceMetadata);
     }
 
     @Bean
@@ -120,7 +129,8 @@ public class RuntimeConfiguration {
             KubernetesResourceWatcherBinding kubernetesApplicationConfigMapWatcher(
                     ComposableApplicationConfigurationRepository appConfigRepository,
                     KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
-                return new KubernetesResourceWatcherBinding(appConfigRepository, kubernetesClient, properties.getNamespace());
+                return new KubernetesResourceWatcherBinding(appConfigRepository, kubernetesClient,
+                        properties.getNamespace());
             }
 
             @Bean
@@ -135,5 +145,4 @@ public class RuntimeConfiguration {
 
         }
     }
-
 }

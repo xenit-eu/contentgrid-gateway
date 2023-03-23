@@ -1,5 +1,7 @@
-package com.contentgrid.gateway.runtime.application;
+package com.contentgrid.gateway.runtime;
 
+import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
 import java.util.Map;
 import java.util.UUID;
@@ -9,13 +11,17 @@ import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.cloud.client.ServiceInstance;
 
 @UtilityClass
-class ServiceInstanceStubs {
+public class ServiceInstanceStubs {
 
-    static ServiceInstance serviceInstance(ApplicationId applicationId) {
+    public static ServiceInstance serviceInstance(ApplicationId applicationId) {
         return serviceInstance(DeploymentId.random(), applicationId, randomPolicyPackage());
     }
 
-    static ServiceInstance serviceInstance(
+    public static ServiceInstance serviceInstance(DeploymentId deploymentId, ApplicationId applicationId) {
+        return serviceInstance(deploymentId, applicationId, randomPolicyPackage());
+    }
+
+    public static ServiceInstance serviceInstance(
             @NonNull DeploymentId deploymentId,
             @NonNull ApplicationId applicationId,
             @NonNull String policyPackage) {
@@ -37,7 +43,7 @@ class ServiceInstanceStubs {
     }
 
     @NonNull
-    static String randomPolicyPackage() {
+    public static String randomPolicyPackage() {
         return "contentgrid.userapps.x" + UUID.randomUUID().toString().replaceAll("-", "");
     }
 }
