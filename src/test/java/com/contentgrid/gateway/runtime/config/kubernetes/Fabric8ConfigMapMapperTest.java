@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.config.kubernetes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import lombok.SneakyThrows;

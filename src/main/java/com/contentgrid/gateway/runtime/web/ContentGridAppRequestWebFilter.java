@@ -1,8 +1,8 @@
-package com.contentgrid.gateway.filter.web;
+package com.contentgrid.gateway.runtime.web;
 
-import com.contentgrid.gateway.routing.ServiceTracker;
-import com.contentgrid.gateway.servicediscovery.ContentGridApplicationMetadata;
-import com.contentgrid.gateway.servicediscovery.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.application.ServiceTracker;
+import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
+import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;

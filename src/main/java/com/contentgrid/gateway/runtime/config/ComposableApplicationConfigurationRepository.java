@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.config;
 
 import com.contentgrid.gateway.collections.ObservableMap;
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import lombok.NonNull;
 import org.springframework.lang.Nullable;
 import reactor.core.publisher.Flux;

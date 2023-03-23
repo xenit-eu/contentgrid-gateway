@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.config;
 
-import com.contentgrid.gateway.runtime.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Stream;

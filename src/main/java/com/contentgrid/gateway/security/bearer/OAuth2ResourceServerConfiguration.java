@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.security.bearer;
 
-import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;

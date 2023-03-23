@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.servicediscovery;
+package com.contentgrid.gateway.runtime.servicediscovery;
 
 
 import io.fabric8.kubernetes.api.model.LabelSelector;

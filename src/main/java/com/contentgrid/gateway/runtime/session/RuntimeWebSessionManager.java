@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.session;
 
-import com.contentgrid.gateway.runtime.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

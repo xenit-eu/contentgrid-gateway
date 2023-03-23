@@ -1,7 +1,4 @@
-package com.contentgrid.gateway.filter.web;
-
-import static com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR;
-import static com.contentgrid.gateway.filter.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
+package com.contentgrid.gateway.runtime.web;
 
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -16,8 +13,8 @@ public class ContentGridResponseHeadersWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 
-        copyAttributeToResponseHeader(exchange, CONTENTGRID_APP_ID_ATTR, "ContentGrid-Application-Id");
-        copyAttributeToResponseHeader(exchange, CONTENTGRID_DEPLOY_ID_ATTR, "ContentGrid-Deployment-Id");
+        copyAttributeToResponseHeader(exchange, ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR, "ContentGrid-Application-Id");
+        copyAttributeToResponseHeader(exchange, ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR, "ContentGrid-Deployment-Id");
 
         return chain.filter(exchange);
     }
