@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.runtime.application;
 
 import java.util.Optional;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -26,5 +27,9 @@ public class DeploymentId {
         }
 
         return Optional.of(new DeploymentId(value));
+    }
+
+    public static DeploymentId random() {
+        return new DeploymentId(UUID.randomUUID().toString());
     }
 }

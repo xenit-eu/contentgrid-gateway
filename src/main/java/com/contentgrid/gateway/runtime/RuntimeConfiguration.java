@@ -3,6 +3,8 @@ package com.contentgrid.gateway.runtime;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
+import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
+import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.runtime.application.ServiceTracker;
@@ -16,17 +18,12 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -47,41 +44,12 @@ public class RuntimeConfiguration {
 
     @Bean
     ContentGridDeploymentMetadata deploymentMetadata() {
-        return new ContentGridDeploymentMetadata() {
-            public Optional<String> getApplicationId(@NonNull ServiceInstance service) {
-                return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/application-id"));
-            }
-
-            @Override
-            public Optional<String> getDeploymentId(ServiceInstance service) {
-                return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/deployment-id"));
-            }
-
-            @Override
-            public Optional<String> getPolicyPackage(ServiceInstance service) {
-                return Optional.ofNullable(service.getMetadata().get("authz.contentgrid.com/policy-package"));
-            }
-        };
+        return new SimpleContentGridDeploymentMetadata();
     }
 
     @Bean
     ContentGridApplicationMetadata applicationMetadata(ContentGridDeploymentMetadata deploymentMetadata) {
-        return new ContentGridApplicationMetadata() {
-
-            @Override
-            public Optional<String> getApplicationId(ServiceInstance service) {
-                return deploymentMetadata.getApplicationId(service);
-            }
-
-            @Override
-            @Deprecated
-            public Set<String> getDomainNames(@NonNull ServiceInstance service) {
-                return this.getApplicationId(service)
-                        .stream()
-                        .map("%s.userapps.contentgrid.com"::formatted)
-                        .collect(Collectors.toSet());
-            }
-        };
+        return new SimpleContentGridApplicationMetadata(deploymentMetadata);
     }
 
     @Bean
@@ -167,4 +135,5 @@ public class RuntimeConfiguration {
 
         }
     }
+
 }
