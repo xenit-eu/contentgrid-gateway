@@ -5,7 +5,7 @@ import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -39,9 +39,10 @@ public class RuntimeConfiguration {
 
 
     @Bean
-    public ServiceTracker serviceTracker(ApplicationEventPublisher publisher,
+    public ServiceCatalog serviceTracker(ApplicationEventPublisher publisher,
+            ContentGridDeploymentMetadata deploymentMetadata,
             ContentGridApplicationMetadata applicationMetadata) {
-        return new ServiceTracker(publisher, applicationMetadata);
+        return new ServiceCatalog(publisher, deploymentMetadata, applicationMetadata);
     }
 
     @Bean
@@ -69,10 +70,10 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    ContentGridRequestRouter requestRouter(ServiceTracker serviceTracker,
+    ContentGridRequestRouter requestRouter(ServiceCatalog serviceCatalog,
             ContentGridApplicationMetadata applicationMetadata,
             ContentGridDeploymentMetadata serviceMetadata) {
-        return new SimpleContentGridRequestRouter(serviceTracker, applicationMetadata, serviceMetadata);
+        return new SimpleContentGridRequestRouter(serviceCatalog, applicationMetadata, serviceMetadata);
     }
 
     @Bean
@@ -81,12 +82,12 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    OpaQueryProvider opaQueryProvider(ServiceTracker serviceTracker,
+    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog,
             ContentGridDeploymentMetadata deploymentMetadata,
             ContentGridApplicationMetadata applicationMetadata) {
 
         // TARGET ARCH: get application-id from request attributes, not from the service-tracker
-        return request -> serviceTracker
+        return request -> serviceCatalog
                 .services()
                 .filter(service -> {
                     var domainNames = applicationMetadata.getDomainNames(service);
@@ -119,10 +120,10 @@ public class RuntimeConfiguration {
 
             @Bean
             ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
-                    ServiceTracker serviceTracker, Fabric8ServiceInstanceMapper instanceMapper) {
+                    ServiceCatalog serviceCatalog, Fabric8ServiceInstanceMapper instanceMapper) {
                 log.info("Enabled k8s service discovery (namespace:{})", properties.getNamespace());
-                return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceTracker,
-                        serviceTracker, instanceMapper);
+                return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceCatalog,
+                        serviceCatalog, instanceMapper);
             }
 
             @Bean

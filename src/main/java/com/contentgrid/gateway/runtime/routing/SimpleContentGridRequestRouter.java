@@ -3,7 +3,7 @@ package com.contentgrid.gateway.runtime.routing;
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -16,14 +16,14 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class SimpleContentGridRequestRouter implements ContentGridRequestRouter {
 
-    private final ServiceTracker serviceTracker;
+    private final ServiceCatalog serviceCatalog;
     private final ContentGridApplicationMetadata applicationMetadata;
     private final ContentGridDeploymentMetadata serviceMetadata;
 
-    public SimpleContentGridRequestRouter(ServiceTracker serviceTracker,
+    public SimpleContentGridRequestRouter(ServiceCatalog serviceCatalog,
             ContentGridApplicationMetadata applicationMetadata,
             ContentGridDeploymentMetadata serviceMetadata) {
-        this.serviceTracker = serviceTracker;
+        this.serviceCatalog = serviceCatalog;
         this.applicationMetadata = applicationMetadata;
         this.serviceMetadata = serviceMetadata;
     }
@@ -36,7 +36,7 @@ public class SimpleContentGridRequestRouter implements ContentGridRequestRouter 
     }
 
     private Set<ServiceInstance> findAppServices(ServerWebExchange exchange) {
-        return serviceTracker.services().filter(service -> {
+        return serviceCatalog.services().filter(service -> {
             var requestHost = exchange.getRequest().getURI().getHost();
 
             var domains = applicationMetadata.getDomainNames(service);
