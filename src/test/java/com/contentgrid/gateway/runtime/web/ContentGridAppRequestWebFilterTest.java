@@ -49,14 +49,13 @@ class ContentGridAppRequestWebFilterTest {
 
         StepVerifier.create(result).verifyComplete();
 
-        assertThat(request.getAttributes()).containsEntry(CONTENTGRID_APP_ID_ATTR, appId.toString());
-        assertThat(request.getAttributes()).containsEntry(CONTENTGRID_DEPLOY_ID_ATTR, deploymentId.toString());
+        assertThat(request.getAttributes()).containsEntry(CONTENTGRID_APP_ID_ATTR, appId);
+        assertThat(request.getAttributes()).containsEntry(CONTENTGRID_DEPLOY_ID_ATTR, deploymentId);
     }
 
     @Test
     void noMatchingRoute_hasNoAttributes() {
         var appId = ApplicationId.random();
-        var deploymentId = DeploymentId.random();
         Mockito.when(requestRouter.route(any(ServerWebExchange.class))).thenReturn(Mono.empty());
 
         var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);

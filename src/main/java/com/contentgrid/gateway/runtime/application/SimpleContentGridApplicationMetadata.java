@@ -15,7 +15,7 @@ public class SimpleContentGridApplicationMetadata implements ContentGridApplicat
     }
 
     @Override
-    public Optional<String> getApplicationId(ServiceInstance service) {
+    public Optional<ApplicationId> getApplicationId(ServiceInstance service) {
         return deploymentMetadata.getApplicationId(service);
     }
 
