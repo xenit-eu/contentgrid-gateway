@@ -20,7 +20,7 @@ public class Fabric8SecretMapper implements KubernetesResourceMapper<Secret> {
 
         var labels = secret.getMetadata().getLabels();
         var fragment = Optional.ofNullable(labels.get(APP_ID_LABEL))
-                .flatMap(ApplicationId::from)
+                .map(ApplicationId::from)
                 .map(appId -> new ApplicationConfigurationFragment(fragmentId, appId, base64decode(secret.getData())));
 
         if (fragment.isEmpty()) {
