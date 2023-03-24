@@ -1,14 +1,14 @@
 package com.contentgrid.gateway.runtime.application;
 
+import com.contentgrid.gateway.collections.ConcurrentLookup;
+import com.contentgrid.gateway.collections.ConcurrentLookup.Lookup;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
@@ -20,8 +20,7 @@ import reactor.core.publisher.Flux;
 import reactor.util.Loggers;
 
 @Slf4j
-@RequiredArgsConstructor
-public class ServiceTracker implements
+public class ServiceCatalog implements
         ServiceAddedHandler, ServiceDeletedHandler,
         RouteDefinitionLocator /* replace this later with DiscoveryClientRouteDefinitionLocator */ {
 
@@ -29,9 +28,25 @@ public class ServiceTracker implements
     private final ApplicationEventPublisher publisher;
 
     @NonNull
+    private final ContentGridDeploymentMetadata deploymentMetadata;
+
+    @NonNull
     private final ContentGridApplicationMetadata applicationMetadata;
 
-    private final Map<String, ServiceInstance> services = new ConcurrentHashMap<>();
+    private final ConcurrentLookup<String, ServiceInstance> services;
+    private final Lookup<ApplicationId, ServiceInstance> lookupByApplicationId;
+
+    public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
+            @NonNull ContentGridDeploymentMetadata deploymentMetadata,
+            @NonNull ContentGridApplicationMetadata applicationMetadata) {
+        this.publisher = publisher;
+        this.deploymentMetadata = deploymentMetadata;
+        this.applicationMetadata = applicationMetadata;
+
+        this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
+        this.lookupByApplicationId = this.services.createLookup(service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
+
+    }
 
     private RouteDefinition createRouteDefinition(ServiceInstance service) {
         var routeDef = new RouteDefinition();
@@ -49,13 +64,13 @@ public class ServiceTracker implements
 
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
-        return Flux.fromStream(() -> services.values().stream().map(this::createRouteDefinition))
-                .log(Loggers.getLogger(ServiceTracker.class), Level.FINE, false);
+        return Flux.fromStream(() -> services.stream().map(this::createRouteDefinition))
+                .log(Loggers.getLogger(ServiceCatalog.class), Level.FINE, false);
     }
 
     @Override
     public void handleServiceAdded(ServiceInstance service) {
-        services.put(service.getInstanceId(), service);
+        services.add(service);
         publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
@@ -66,6 +81,10 @@ public class ServiceTracker implements
     }
 
     public Stream<ServiceInstance> services() {
-        return services.values().stream();
+        return services.stream();
+    }
+
+    public Collection<ServiceInstance> findByApplicationId(@NonNull ApplicationId applicationId) {
+        return this.lookupByApplicationId.apply(applicationId);
     }
 }

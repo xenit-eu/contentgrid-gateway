@@ -5,7 +5,7 @@ import static com.contentgrid.gateway.test.assertj.MonoAssert.assertThat;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
-import com.contentgrid.gateway.runtime.application.ServiceTracker;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
@@ -22,7 +22,7 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 class SimpleContentGridRequestRouterTest {
 
     protected ContentGridApplicationMetadata applicationMetadata;
-    protected ServiceTracker serviceTracker;
+    protected ServiceCatalog serviceCatalog;
 
     protected ContentGridRequestRouter requestRouter;
 
@@ -30,8 +30,8 @@ class SimpleContentGridRequestRouterTest {
     void setup() {
         var deployMetadata = new SimpleContentGridDeploymentMetadata();
         this.applicationMetadata = new SimpleContentGridApplicationMetadata(deployMetadata);
-        this.serviceTracker = new ServiceTracker(event -> { }, applicationMetadata);
-        this.requestRouter = new SimpleContentGridRequestRouter(this.serviceTracker, this.applicationMetadata, deployMetadata);
+        this.serviceCatalog = new ServiceCatalog(event -> { }, deployMetadata, applicationMetadata);
+        this.requestRouter = new SimpleContentGridRequestRouter(this.serviceCatalog, this.applicationMetadata, deployMetadata);
     }
 
     @Test
@@ -45,7 +45,7 @@ class SimpleContentGridRequestRouterTest {
 
         var service = serviceInstance(deployId, appId);
 
-        this.serviceTracker.handleServiceAdded(service);
+        this.serviceCatalog.handleServiceAdded(service);
 
         var exchange2 = createExchange("https://{appId}.userapps.contentgrid.com/me", appId);
         assertThat(this.requestRouter.route(exchange2)).hasValue();
