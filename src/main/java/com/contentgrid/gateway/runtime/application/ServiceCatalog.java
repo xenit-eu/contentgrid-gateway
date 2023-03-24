@@ -45,7 +45,6 @@ public class ServiceCatalog implements
         this.applicationMetadata = applicationMetadata;
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
-
         this.lookupByApplicationId = this.services.createLookup(service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
 
     }

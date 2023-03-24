@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.NonNull;
@@ -22,7 +23,7 @@ public class ConcurrentLookup<ID, T> {
 
     private final Set<IIndex<?, T>> indices = new HashSet<>();
 
-    private final Map<ID, T> data = new LinkedHashMap<>();
+    private final Map<ID, T> data = new ConcurrentHashMap<>();
 
     public final T add(@NonNull T item) {
         var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
@@ -49,7 +50,16 @@ public class ConcurrentLookup<ID, T> {
 
     public final <E extends Throwable> T remove(@NonNull ID id)
             throws E {
-        return this.data.remove(id);
+        var old = this.data.remove(id);
+
+        // remove the old item from the index
+        if (old != null) {
+            for (var index : this.indices) {
+                index.remove(old);
+            }
+        }
+
+        return old;
     }
 
     public final <Key> Lookup<Key, T> createLookup(Function<T, Key> indexFunction) {
