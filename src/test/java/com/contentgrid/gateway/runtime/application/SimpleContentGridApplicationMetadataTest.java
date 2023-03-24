@@ -16,7 +16,7 @@ class SimpleContentGridApplicationMetadataTest {
         var appId = ApplicationId.random();
         var service = ServiceInstanceStubs.serviceInstance(appId);
 
-        assertThat(applicationMetadata.getApplicationId(service)).hasValue(appId.toString());
+        assertThat(applicationMetadata.getApplicationId(service)).hasValue(appId);
 
     }
 

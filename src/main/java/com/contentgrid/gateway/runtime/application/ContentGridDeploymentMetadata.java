@@ -5,9 +5,9 @@ import org.springframework.cloud.client.ServiceInstance;
 
 public interface ContentGridDeploymentMetadata {
 
-    Optional<String> getApplicationId(ServiceInstance service);
+    Optional<ApplicationId> getApplicationId(ServiceInstance service);
 
-    Optional<String> getDeploymentId(ServiceInstance service);
+    Optional<DeploymentId> getDeploymentId(ServiceInstance service);
 
 
 

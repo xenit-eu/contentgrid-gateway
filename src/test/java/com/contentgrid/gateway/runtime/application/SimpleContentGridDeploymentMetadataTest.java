@@ -16,8 +16,8 @@ class SimpleContentGridDeploymentMetadataTest {
         var policy = ServiceInstanceStubs.randomPolicyPackage();
         var service = ServiceInstanceStubs.serviceInstance(deployId, appId, policy);
 
-        assertThat(metadata.getDeploymentId(service)).hasValue(deployId.toString());
-        assertThat(metadata.getApplicationId(service)).hasValue(appId.toString());
+        assertThat(metadata.getDeploymentId(service)).hasValue(deployId);
+        assertThat(metadata.getApplicationId(service)).hasValue(appId);
         assertThat(metadata.getPolicyPackage(service)).hasValue(policy);
     }
 

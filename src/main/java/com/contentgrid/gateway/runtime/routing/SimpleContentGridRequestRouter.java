@@ -2,6 +2,7 @@ package com.contentgrid.gateway.runtime.routing;
 
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceTracker;
 import java.util.Locale;
 import java.util.Optional;
@@ -48,13 +49,13 @@ public class SimpleContentGridRequestRouter implements ContentGridRequestRouter 
         if (candidates.size() > 1) {
             // logging a warning until we have a better service selection
             log.warn("multiple matches {}: {}", exchange.getRequest().getURI().getHost(), candidates.stream()
-                    .map(service -> serviceMetadata.getDeploymentId(service).orElse("<none>")).toList());
+                    .map(service -> serviceMetadata.getDeploymentId(service).map(DeploymentId::toString).orElse("<none>")).toList());
         }
 
         // sorting based on deployment-id alphabetical order, to get at least a stable selection
         return candidates.stream().min((service1, service2) -> {
-            var d1 = serviceMetadata.getDeploymentId(service1).orElse("");
-            var d2 = serviceMetadata.getDeploymentId(service2).orElse("");
+            var d1 = serviceMetadata.getDeploymentId(service1).map(DeploymentId::toString).orElse("");
+            var d2 = serviceMetadata.getDeploymentId(service2).map(DeploymentId::toString).orElse("");
             return d1.compareTo(d2);
         });
     }

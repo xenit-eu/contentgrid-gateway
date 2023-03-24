@@ -7,7 +7,7 @@ import org.springframework.cloud.client.ServiceInstance;
 
 public interface ContentGridApplicationMetadata {
 
-    Optional<String> getApplicationId(ServiceInstance service);
+    Optional<ApplicationId> getApplicationId(ServiceInstance service);
 
     /**
      * @deprecated domainname data will most probably be backed by another object, not `ServiceInstance`
