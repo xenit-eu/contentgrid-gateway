@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,16 +15,16 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class ConcurrentLookup<ID, T> {
+public class ConcurrentLookup<K, V> {
 
     @NonNull
-    private final Function<T, ID> identityFunction;
+    private final Function<V, K> identityFunction;
 
-    private final Set<IIndex<?, T>> indices = new HashSet<>();
+    private final Set<Index<?, V>> indices = new HashSet<>();
 
-    private final Map<ID, T> data = new ConcurrentHashMap<>();
+    private final Map<K, V> data = new ConcurrentHashMap<>();
 
-    public final T add(@NonNull T item) {
+    public final V add(@NonNull V item) {
         var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
         var old = this.data.put(id, item);
 
@@ -44,11 +43,11 @@ public class ConcurrentLookup<ID, T> {
         return old;
     }
 
-    public final T get(@NonNull ID id) {
+    public final V get(@NonNull K id) {
         return this.data.get(id);
     }
 
-    public final <E extends Throwable> T remove(@NonNull ID id)
+    public final <E extends Throwable> V remove(@NonNull K id)
             throws E {
         var old = this.data.remove(id);
 
@@ -62,7 +61,7 @@ public class ConcurrentLookup<ID, T> {
         return old;
     }
 
-    public final <Key> Lookup<Key, T> createLookup(Function<T, Key> indexFunction) {
+    public final <L> Lookup<L, V> createLookup(Function<V, L> indexFunction) {
         var index = new LookupIndex<>(indexFunction);
         this.indices.add(index);
 
@@ -74,32 +73,32 @@ public class ConcurrentLookup<ID, T> {
         return index::get;
     }
 
-    public Stream<T> stream() {
+    public Stream<V> stream() {
         return this.data.values().stream();
     }
 
     @FunctionalInterface
-    public interface Lookup<Key, Value> extends Function<Key, Collection<Value>> {
+    public interface Lookup<L, V> extends Function<L, Collection<V>> {
 
     }
 
-    public interface IIndex<Key, T> {
-        List<T> get(Key key);
+    public interface Index<L, T> {
+        List<T> get(L key);
         void store(T data);
         void remove(T data);
     }
 
-    private static class LookupIndex<Key, T> implements IIndex<Key, T> {
+    private static class LookupIndex<L, T> implements Index<L, T> {
 
-        private final Map<Key, List<T>> data = new HashMap<>();
-        private final Function<T, Key> indexFunction;
+        private final Map<L, List<T>> data = new HashMap<>();
+        private final Function<T, L> indexFunction;
 
-        LookupIndex(@NonNull Function<T, Key> indexFunction) {
+        LookupIndex(@NonNull Function<T, L> indexFunction) {
             this.indexFunction = indexFunction;
         }
 
         @Override
-        public List<T> get(Key key) {
+        public List<T> get(L key) {
             return List.copyOf(this.data.getOrDefault(key, List.of()));
         }
 

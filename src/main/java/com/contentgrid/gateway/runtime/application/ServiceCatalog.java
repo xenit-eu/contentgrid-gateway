@@ -6,7 +6,6 @@ import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.stream.Stream;
 import lombok.NonNull;
@@ -37,9 +36,9 @@ public class ServiceCatalog implements
     private final ConcurrentLookup<String, ServiceInstance> services;
     private final Lookup<ApplicationId, ServiceInstance> lookupByApplicationId;
 
-    public ServiceCatalog(ApplicationEventPublisher publisher,
-            ContentGridDeploymentMetadata deploymentMetadata,
-            ContentGridApplicationMetadata applicationMetadata) {
+    public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
+            @NonNull ContentGridDeploymentMetadata deploymentMetadata,
+            @NonNull ContentGridApplicationMetadata applicationMetadata) {
         this.publisher = publisher;
         this.deploymentMetadata = deploymentMetadata;
         this.applicationMetadata = applicationMetadata;
