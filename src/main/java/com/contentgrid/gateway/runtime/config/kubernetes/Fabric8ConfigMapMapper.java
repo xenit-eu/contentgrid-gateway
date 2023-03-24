@@ -15,7 +15,7 @@ public class Fabric8ConfigMapMapper implements KubernetesResourceMapper<ConfigMa
         var appIdLabel = configMap.getMetadata().getLabels().get(KubernetesLabels.CONTENTGRID_APPID);
 
         return Optional.ofNullable(appIdLabel)
-                .flatMap(ApplicationId::from)
+                .map(ApplicationId::from)
                 .map(appId -> new ApplicationConfigurationFragment(fragmentId, appId, configMap.getData()))
                 .or(() -> {
                     log.warn("{} {} has no valid label '{}'",

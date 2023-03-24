@@ -63,13 +63,13 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                 @Override
                 public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
                     var header = exchange.getRequest().getHeaders().getFirst("Test-ApplicationId");
-                    return Optional.ofNullable(header).flatMap(ApplicationId::from);
+                    return Optional.ofNullable(header).map(ApplicationId::from);
                 }
 
                 @Override
                 public Optional<DeploymentId> resolveDeploymentId(ServerWebExchange exchange) {
                     var header = exchange.getRequest().getHeaders().getFirst("Test-DeploymentId");
-                    return Optional.ofNullable(header).flatMap(DeploymentId::from);
+                    return Optional.ofNullable(header).map(DeploymentId::from);
                 }
             };
         }
@@ -153,8 +153,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         // HTTP 401 - request not associated with an app-id
         assertRequest_withBearer(null, tokenResponse.getAccessToken()).isUnauthorized();
         // HTTP 401 - access token cannot be associated with app-id
-        assertRequest_withBearer(ApplicationId.from("invalid").orElseThrow(),
-                tokenResponse.getAccessToken()).isUnauthorized();
+        assertRequest_withBearer(ApplicationId.from("invalid"), tokenResponse.getAccessToken()).isUnauthorized();
 
         // revoke app-id configuration
         applicationConfigurationRepository.remove(appId);

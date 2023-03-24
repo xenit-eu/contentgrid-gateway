@@ -16,7 +16,7 @@ class Fabric8ConfigMapMapperTest {
         var fragment = mapper.apply(Fixtures.configMap()).orElseThrow();
 
         assertThat(fragment.getApplicationId())
-                .isEqualTo(ApplicationId.from("f2c9cbef-dd86-4625-a805-28b65dd068cf").orElseThrow());
+                .isEqualTo(ApplicationId.from("f2c9cbef-dd86-4625-a805-28b65dd068cf"));
         assertThat(fragment.getProperty("contentgrid.routing.domains"))
                 .hasValue("f2c9cbef-dd86-4625-a805-28b65dd068cf.userapps.contentgrid.com");
     }
