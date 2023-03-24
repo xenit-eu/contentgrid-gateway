@@ -82,43 +82,6 @@ public class ConcurrentLookup<ID, T> {
     public interface Lookup<Key, Value> extends Function<Key, Collection<Value>> {
 
     }
-//
-//    public final <Key> Function<Key, List<T>> addMultiIndex(Function<T, Stream<Key>> indexFunction) {
-//        var index = new MultiIndex<Key, T>(indexFunction);
-//        this.indices.add(index);
-//
-//        // rebuild the index
-//        for (var item : this.data.values()) {
-//            index.store(item);
-//        }
-//
-//        return index::get;
-//    }
-
-//    /**
-//     * Stores the data if no data with the same id exists yet. If data with the same id exists, throws the supplied
-//     * {@code Throwable}.
-//     *
-//     * @param data              the data to store
-//     * @param throwableSupplier provides the exception to be thrown, when data with the same id already exists
-//     * @param <E>               the type of exception to be thrown
-//     * @throws E the exception thrown when the data already exists
-//     */
-//    protected <E extends Throwable> void create(T data, Supplier<E> throwableSupplier) throws E {
-//        if (this.get(identityFunction.apply(data)).isPresent()) {
-//            throw throwableSupplier.get();
-//        }
-//
-//        this.add(data);
-//    }
-
-//    protected <E extends Throwable> void update(T data, Supplier<E> throwableSupplier) throws E {
-//        if (this.get(identityFunction.apply(data)) == null) {
-//            throw throwableSupplier.get();
-//        }
-//
-//        this.put(data);
-//    }
 
     public interface IIndex<Key, T> {
         List<T> get(Key key);
@@ -155,35 +118,4 @@ public class ConcurrentLookup<ID, T> {
             list.remove(data);
         }
     }
-
-    private static class MultiIndex<Key, T> implements IIndex<Key, T> {
-
-        private final Map<Key, List<T>> data = new HashMap<>();
-        private final Function<T, Stream<Key>> indexFunction;
-
-        MultiIndex(@NonNull Function<T, Stream<Key>> indexFunction) {
-            this.indexFunction = indexFunction;
-        }
-
-        @Override
-        public List<T> get(Key key) {
-            return this.data.getOrDefault(key, List.of());
-        }
-
-        @Override
-        public void store(T data) {
-            this.indexFunction.apply(data)
-                    .forEachOrdered(key -> this.data.computeIfAbsent(key, k -> new ArrayList<>()).add(data));
-        }
-
-        @Override
-        public void remove(T data) {
-            this.indexFunction.apply(data).forEach(key -> {
-                var list = this.data.get(key);
-                list.remove(data);
-            });
-        }
-
-    }
-
 }
