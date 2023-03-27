@@ -8,6 +8,7 @@ import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -39,6 +40,8 @@ public class ServiceCatalog implements
     private final ConcurrentLookup<String, ServiceInstance> services;
     private final Lookup<ApplicationId, ServiceInstance> lookupByApplicationId;
 
+    private final Lookup<DeploymentId, ServiceInstance> lookupByDeploymentId;
+
 
 
     public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
@@ -50,6 +53,7 @@ public class ServiceCatalog implements
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
         this.lookupByApplicationId = this.services.createLookup(service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
+        this.lookupByDeploymentId = this.services.createLookup(service -> this.deploymentMetadata.getDeploymentId(service).orElse(null));
 
     }
 
@@ -94,5 +98,14 @@ public class ServiceCatalog implements
 
     public Collection<ServiceInstance> findByApplicationId(@NonNull ApplicationId applicationId) {
         return this.lookupByApplicationId.apply(applicationId);
+    }
+
+    public Optional<ServiceInstance> findByDeploymentId(@NonNull DeploymentId deploymentId) {
+        var services = this.lookupByDeploymentId.apply(deploymentId);
+        if (services.size() > 1) {
+            log.warn("DUPLICATE ENTRY for {} {}", DeploymentId.class.getSimpleName(), deploymentId);
+        }
+
+        return services.stream().findAny();
     }
 }

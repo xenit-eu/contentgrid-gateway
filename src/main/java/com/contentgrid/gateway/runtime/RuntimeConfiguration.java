@@ -1,10 +1,12 @@
 package com.contentgrid.gateway.runtime;
 
+import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
@@ -104,28 +106,8 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog,
-            ContentGridDeploymentMetadata deploymentMetadata,
-            ContentGridApplicationMetadata applicationMetadata) {
-
-        // TARGET ARCH: get application-id from request attributes, not from the service-tracker
-        return request -> serviceCatalog
-                .services()
-                .filter(service -> {
-                    var domainNames = applicationMetadata.getDomainNames(service);
-                    return domainNames.contains(request.getURI().getHost());
-                })
-                .flatMap(service -> deploymentMetadata.getPolicyPackage(service)
-                        .stream()
-                        .map("data.%s.allow == true"::formatted))
-                .findFirst()
-                .orElseGet(() -> {
-                    // TODO this should fail !?
-                    log.warn(
-                            "Request for unknown host ({}), perhaps the gateway itself, using tautological opa query",
-                            request.getURI().getHost());
-                    return "1 == 1";
-                });
+    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog, ContentGridDeploymentMetadata deploymentMetadata) {
+        return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
     }
 
     @Configuration
