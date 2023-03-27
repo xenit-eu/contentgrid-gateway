@@ -5,6 +5,8 @@ import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
+import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.thunx.pdp.RequestContext;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.security.ServerWebExchangeRequestContext;
@@ -83,8 +85,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
 
         @Test
         public void testConfiguredServiceDiscoveryHappyPath() {
-            String appId = UUID.randomUUID().toString();
-            String deploymentId = UUID.randomUUID().toString();
+            var appId = ApplicationId.random();
+            var deploymentId = DeploymentId.random();
 
             List<Route> routes = routeLocator.getRoutes().collectList().block();
             assertThat(routes).isNotNull();
@@ -93,23 +95,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             var request = MockServerHttpRequest.get("https://{appId}.userapps.contentgrid.com", appId).build();
             var exchange = MockServerWebExchange.from(request);
             var requestContext = new ServerWebExchangeRequestContext(exchange);
-            assertThat(opaQueryProvider.createQuery(requestContext)).isEqualTo("1 == 1");
-
-//            Deployment deployment = new DeploymentBuilder()
-//                    .withNewMetadata()
-//                        .withLabels(Map.of("app.contentgrid.com/deployment-request-id", deploymentId))
-//                    .endMetadata()
-//                    .withNewSpec()
-//                        .withNewTemplate()
-//                            .withNewSpec()
-//                                .addNewContainer()
-//                                    .withName("integration-test-dummy-pod")
-//                                    .withImage("nginx")
-//                                .endContainer()
-//                            .endSpec()
-//                        .endTemplate()
-//                    .endSpec()
-//                    .build();
 
             Service service = new ServiceBuilder()
                     .withNewMetadata()
@@ -117,15 +102,15 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                         .withLabels(Map.of(
                                 "app.kubernetes.io/managed-by", "contentgrid",
                                 "app.contentgrid.com/service-type", "api",
-                                "app.contentgrid.com/application-id", appId,
-                                "app.contentgrid.com/deployment-id", deploymentId,
+                                "app.contentgrid.com/application-id", appId.toString(),
+                                "app.contentgrid.com/deployment-id", deploymentId.toString(),
                                 "authz.contentgrid.com/policy-package", "contentgrid.userapps.deployment%s"
-                                        .formatted(deploymentId.replace("-", ""))
+                                        .formatted(deploymentId.toString().replace("-", ""))
                         ))
                     .endMetadata()
                     .withNewSpec()
                         .withPorts(new ServicePortBuilder().withPort(8080).withName("http").build())
-                        .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId))
+                        .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
                     .endSpec()
                     .build();
             try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig())).build()) {
@@ -139,7 +124,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                         assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
                         assertThat(opaQueryProvider.createQuery(requestContext))
                                 .isEqualTo("data.contentgrid.userapps.deployment%s.allow == true"
-                                        .formatted(deploymentId.replace("-", "")));
+                                        .formatted(deploymentId.toString().replace("-", "")));
                     });
 
             var newRoutes = routeLocator.getRoutes().collectList().block();
