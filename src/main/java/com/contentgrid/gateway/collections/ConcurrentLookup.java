@@ -159,7 +159,7 @@ public class ConcurrentLookup<K, V> {
         }
     }
 
-    public final <L> Lookup<L, V> addMultiIndex(Function<V, Stream<L>> indexFunction) {
+    public final <L> Lookup<L, V> createMultiLookup(Function<V, Stream<L>> indexFunction) {
         var index = new MultiIndex<>(indexFunction);
         this.indices.add(index);
 

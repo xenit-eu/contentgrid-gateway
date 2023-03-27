@@ -55,4 +55,31 @@ class DynamicVirtualHostResolverTest {
 
     }
 
+    @Test
+    void delete() {
+        TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
+        var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
+        var resolver = new DynamicVirtualHostResolver(flux);
+
+        var appId = ApplicationId.random();
+        publisher.next(ApplicationDomainNameEvent.put(appId, "my.domain.test"));
+        assertThat(resolver.resolve("https://my.domain.test/foo")).isNotEmpty();
+
+        publisher.next(ApplicationDomainNameEvent.delete(appId));
+        assertThat(resolver.resolve("https://my.domain.test/foo")).isEmpty();
+    }
+
+    @Test
+    void clear() {
+        TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
+        var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
+        var resolver = new DynamicVirtualHostResolver(flux);
+
+        publisher.next(ApplicationDomainNameEvent.put(ApplicationId.random(), "my.domain.test"));
+        assertThat(resolver.resolve("https://my.domain.test/foo")).isNotEmpty();
+
+        publisher.next(ApplicationDomainNameEvent.clear());
+        assertThat(resolver.resolve("https://my.domain.test/foo")).isEmpty();
+    }
+
 }
