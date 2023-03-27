@@ -8,69 +8,115 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
+/**
+ * A thread-safe higher level data structure that wraps a map and supports creating multiple lookup indexes.
+ * Requires an identity function for the data structure to be stored.
+ *
+ * @param <K> the type of id
+ * @param <V> the type of the stored values
+ */
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class ConcurrentLookup<K, V> {
 
     @NonNull
     private final Function<V, K> identityFunction;
 
+    @NonNull
+    private final ReadWriteLock readWriteLock;
+
+    public ConcurrentLookup(Function<V, K> identityFunction) {
+        this(identityFunction, new ReentrantReadWriteLock());
+    }
+
     private final Set<Index<?, V>> indices = new HashSet<>();
 
-    private final Map<K, V> data = new ConcurrentHashMap<>();
+    private final Map<K, V> data = new HashMap<>();
 
     public final V add(@NonNull V item) {
-        var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
-        var old = this.data.put(id, item);
 
-        // update all the indices
-        for (var index : this.indices) {
+        var writeLock = this.readWriteLock.writeLock();
 
-            // remove the old item from the index
-            if (old != null) {
-                index.remove(old);
+        try {
+            writeLock.lock();
+
+            var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
+            var old = this.data.put(id, item);
+
+            // update all the indices
+            for (var index : this.indices) {
+
+                // remove the old item from the index
+                if (old != null) {
+                    index.remove(old);
+                }
+
+                // store the new item in the index
+                index.store(item);
             }
 
-            // store the new item in the index
-            index.store(item);
+            return old;
+        } finally {
+            writeLock.unlock();
         }
-
-        return old;
     }
 
     public final V get(@NonNull K id) {
-        return this.data.get(id);
+        var readlock = this.readWriteLock.readLock();
+        try {
+            readlock.lock();
+            return this.data.get(id);
+        } finally {
+            readlock.unlock();;
+        }
     }
 
     public final <E extends Throwable> V remove(@NonNull K id)
             throws E {
-        var old = this.data.remove(id);
+        var writeLock = this.readWriteLock.writeLock();
 
-        // remove the old item from the index
-        if (old != null) {
-            for (var index : this.indices) {
-                index.remove(old);
+        try {
+            writeLock.lock();
+            var old = this.data.remove(id);
+
+            // remove the old item from the index
+            if (old != null) {
+                for (var index : this.indices) {
+                    index.remove(old);
+                }
             }
-        }
 
-        return old;
+            return old;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public final <L> Lookup<L, V> createLookup(Function<V, L> indexFunction) {
         var index = new LookupIndex<>(indexFunction);
-        this.indices.add(index);
 
-        // rebuild the index for existing data
-        for (var item : this.data.values()) {
-            index.store(item);
+        var writeLock = this.readWriteLock.writeLock();
+
+        try {
+            writeLock.lock();
+            this.indices.add(index);
+
+            // rebuild the index for existing data
+            for (var item : this.data.values()) {
+                index.store(item);
+            }
+
+            return index::get;
+        } finally {
+            writeLock.unlock();
         }
-
-        return index::get;
     }
 
     public Stream<V> stream() {
