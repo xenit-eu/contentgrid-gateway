@@ -7,6 +7,7 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.contentgrid.thunx.pdp.RequestContext;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
+import com.contentgrid.thunx.spring.security.ServerWebExchangeRequestContext;
 import com.dajudge.kindcontainer.KindContainer;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -33,6 +34,8 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -63,18 +66,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
     }
 
-    private record SimpleGetRequest(URI uri) implements RequestContext {
-        @Override public String getHttpMethod() {
-            return "GET";
-        }
-        @Override public URI getURI() {
-            return this.uri;
-        }
-        @Override public Map<String, List<String>> getQueryParams() {
-            return Map.of();
-        }
-    }
-
     @Nested
     @Import(KindClientConfiguration.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
@@ -99,8 +90,10 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             assertThat(routes).isNotNull();
             assertThat(routes).isEmpty();
 
-            SimpleGetRequest request = new SimpleGetRequest(URI.create("https://" + appId + ".userapps.contentgrid.com"));
-            assertThat(opaQueryProvider.createQuery(request)).isEqualTo("1 == 1");
+            var request = MockServerHttpRequest.get("https://{appId}.userapps.contentgrid.com", appId).build();
+            var exchange = MockServerWebExchange.from(request);
+            var requestContext = new ServerWebExchangeRequestContext(exchange);
+            assertThat(opaQueryProvider.createQuery(requestContext)).isEqualTo("1 == 1");
 
 //            Deployment deployment = new DeploymentBuilder()
 //                    .withNewMetadata()
@@ -144,7 +137,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(() -> {
                         assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
-                        assertThat(opaQueryProvider.createQuery(request))
+                        assertThat(opaQueryProvider.createQuery(requestContext))
                                 .isEqualTo("data.contentgrid.userapps.deployment%s.allow == true"
                                         .formatted(deploymentId.replace("-", "")));
                     });
