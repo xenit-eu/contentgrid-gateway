@@ -35,7 +35,7 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
             case DELETE -> this.lookup.remove(event.applicationId());
             case PUT -> {
                 var registration = new ApplicationDomainRegistration(event.applicationId, event.domains);
-                this.lookup.put(registration);
+                this.lookup.add(registration);
             }
         }
     }

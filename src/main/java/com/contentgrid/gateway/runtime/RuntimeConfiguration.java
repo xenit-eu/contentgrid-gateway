@@ -1,12 +1,10 @@
 package com.contentgrid.gateway.runtime;
 
-import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
 import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;

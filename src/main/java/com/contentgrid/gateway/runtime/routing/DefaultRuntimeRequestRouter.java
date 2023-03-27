@@ -27,8 +27,8 @@ public class DefaultRuntimeRequestRouter implements RuntimeRequestRouter {
                 .map(this.serviceCatalog::findByApplicationId)
                 .map(services -> this.serviceInstanceSelector.selectService(exchange, services))
                 .doOnNext(result -> result.ifPresentOrElse(
-                        service -> log.debug("Routing request {} to {}", exchange.getRequest().getURI(),
-                                service.getServiceId()),
+                        service -> log.debug("Routing request {} to {}://{}:{}{}", exchange.getRequest().getURI(),
+                                service.getScheme(), service.getHost(), service.getPort(), exchange.getRequest().getPath()),
                         () -> log.debug("No service found to route request {}", exchange.getRequest().getURI()))
                 )
                 .flatMap(Mono::justOrEmpty);

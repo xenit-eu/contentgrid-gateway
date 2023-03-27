@@ -82,7 +82,7 @@ public class ServiceCatalog implements
 
     @Override
     public void handleServiceAdded(ServiceInstance service) {
-        services.put(service);
+        services.add(service);
         publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
