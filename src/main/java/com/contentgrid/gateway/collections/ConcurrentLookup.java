@@ -78,8 +78,7 @@ public class ConcurrentLookup<K, V> {
         }
     }
 
-    public final <E extends Throwable> V remove(@NonNull K id)
-            throws E {
+    public final V remove(@NonNull K id) {
         var writeLock = this.readWriteLock.writeLock();
 
         try {
@@ -94,6 +93,22 @@ public class ConcurrentLookup<K, V> {
             }
 
             return old;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    public void clear() {
+        var writeLock = this.readWriteLock.writeLock();
+
+        try {
+            writeLock.lock();
+            this.data.clear();
+
+            // clear indexes
+            for (var index : this.indices) {
+                index.clear();;
+            }
         } finally {
             writeLock.unlock();
         }
@@ -132,6 +147,7 @@ public class ConcurrentLookup<K, V> {
         List<T> get(L key);
         void store(T data);
         void remove(T data);
+        void clear();
     }
 
     private static class LookupIndex<L, T> implements Index<L, T> {
@@ -161,6 +177,11 @@ public class ConcurrentLookup<K, V> {
             var key = this.indexFunction.apply(data);
             var list = this.data.get(key);
             list.remove(data);
+        }
+
+        @Override
+        public void clear() {
+            this.data.clear();
         }
     }
 }
