@@ -34,7 +34,6 @@ class ConcurrentLookupTest {
     void stream() {
 
         var map = new ConcurrentLookup<String, String>(String::toUpperCase);
-        map.createLookup(String::length);
 
         map.add("foo");
         var stream = map.stream();
@@ -51,10 +50,10 @@ class ConcurrentLookupTest {
     void createLookup() {
 
         var map = new ConcurrentLookup<String, String>(String::toUpperCase);
-        var lengthLookup = map.createLookup(String::length);
 
         map.add("foo");
         map.add("bar");
+        var lengthLookup = map.createLookup(String::length);
         map.add("foobar");
 
         assertThat(lengthLookup.apply(3)).containsExactlyInAnyOrder("foo", "bar");
@@ -74,10 +73,10 @@ class ConcurrentLookupTest {
     void createMultiLookup() {
 
         var map = new ConcurrentLookup<String, String>(String::toUpperCase);
-        var letterLookup = map.createMultiLookup(str -> Arrays.stream(str.split("")));
 
         map.add("foo");
         map.add("bar");
+        var letterLookup = map.createMultiLookup(str -> Arrays.stream(str.split("")));
         map.add("foobar");
         map.add("baz");
 
