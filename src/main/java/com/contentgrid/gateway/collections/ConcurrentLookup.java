@@ -144,6 +144,7 @@ public class ConcurrentLookup<K, V> {
         var writeLock = this.readWriteLock.writeLock();
 
         try {
+            writeLock.lock();
             this.indices.add(index);
 
             // rebuild the index
