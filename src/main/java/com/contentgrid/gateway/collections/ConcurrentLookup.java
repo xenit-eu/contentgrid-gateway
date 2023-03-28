@@ -17,8 +17,8 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 /**
- * A thread-safe higher level data structure that wraps a map and supports creating multiple lookup indexes.
- * Requires an identity function for the data structure to be stored.
+ * A thread-safe higher level data structure that wraps a map and supports creating multiple lookup indexes. Requires an
+ * identity function for the data structure to be stored.
  *
  * @param <K> the type of id
  * @param <V> the type of the stored values
@@ -74,7 +74,8 @@ public class ConcurrentLookup<K, V> {
             readlock.lock();
             return this.data.get(id);
         } finally {
-            readlock.unlock();;
+            readlock.unlock();
+            ;
         }
     }
 
@@ -107,7 +108,8 @@ public class ConcurrentLookup<K, V> {
 
             // clear indexes
             for (var index : this.indices) {
-                index.clear();;
+                index.clear();
+                ;
             }
         } finally {
             writeLock.unlock();
@@ -134,6 +136,18 @@ public class ConcurrentLookup<K, V> {
         }
     }
 
+    public final <L> Lookup<L, V> createMultiLookup(Function<V, Stream<L>> indexFunction) {
+        var index = new MultiIndex<>(indexFunction);
+        this.indices.add(index);
+
+        // rebuild the index
+        for (var item : this.data.values()){
+            index.store(item);
+        }
+
+        return index::get;
+    }
+
     public Stream<V> stream() {
         return this.data.values().stream();
     }
@@ -143,10 +157,14 @@ public class ConcurrentLookup<K, V> {
 
     }
 
-    public interface Index<L, T> {
+    private interface Index<L, T> {
+
         List<T> get(L key);
+
         void store(T data);
+
         void remove(T data);
+
         void clear();
     }
 
@@ -177,6 +195,42 @@ public class ConcurrentLookup<K, V> {
             var key = this.indexFunction.apply(data);
             var list = this.data.get(key);
             list.remove(data);
+        }
+
+        @Override
+        public void clear() {
+            this.data.clear();
+        }
+    }
+
+    private static class MultiIndex<L, T> implements Index<L, T> {
+
+        private final Map<L, List<T>> data = new HashMap<>();
+        private final Function<T, Stream<L>> indexFunction;
+
+        MultiIndex(@NonNull Function<T, Stream<L>> indexFunction) {
+            this.indexFunction = indexFunction;
+        }
+
+        @Override
+        public List<T> get(L key) {
+            return List.copyOf(this.data.getOrDefault(key, List.of()));
+        }
+
+        @Override
+        public void store(T data) {
+            this.indexFunction.apply(data).forEachOrdered(key -> {
+                Objects.requireNonNull(key, "key cannot be null");
+                this.data.computeIfAbsent(key, k -> new ArrayList<>()).add(data);
+            });
+        }
+
+        @Override
+        public void remove(T data) {
+            this.indexFunction.apply(data).forEach(key -> {
+                var list = this.data.get(Objects.requireNonNull(key));
+                list.remove(data);
+            });
         }
 
         @Override
