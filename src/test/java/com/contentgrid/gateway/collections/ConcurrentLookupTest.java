@@ -26,7 +26,7 @@ class ConcurrentLookupTest {
         assertThat(map.size()).isEqualTo(1);
 
         map.clear();
-        assertThat(map.size()).isEqualTo(0);
+        assertThat(map.size()).isZero();
     }
 
 
