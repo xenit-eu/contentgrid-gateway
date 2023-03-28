@@ -75,7 +75,6 @@ public class ConcurrentLookup<K, V> {
             return this.data.get(id);
         } finally {
             readlock.unlock();
-            ;
         }
     }
 
@@ -109,11 +108,14 @@ public class ConcurrentLookup<K, V> {
             // clear indexes
             for (var index : this.indices) {
                 index.clear();
-                ;
             }
         } finally {
             writeLock.unlock();
         }
+    }
+
+    public int size() {
+        return this.data.size();
     }
 
     public final <L> Lookup<L, V> createLookup(Function<V, L> indexFunction) {
@@ -170,7 +172,7 @@ public class ConcurrentLookup<K, V> {
 
     private static class LookupIndex<L, T> implements Index<L, T> {
 
-        private final Map<L, List<T>> data = new HashMap<>();
+        private final Map<L, Set<T>> data = new HashMap<>();
         private final Function<T, L> indexFunction;
 
         LookupIndex(@NonNull Function<T, L> indexFunction) {
@@ -179,14 +181,14 @@ public class ConcurrentLookup<K, V> {
 
         @Override
         public List<T> get(L key) {
-            return List.copyOf(this.data.getOrDefault(key, List.of()));
+            return List.copyOf(this.data.getOrDefault(key, Set.of()));
         }
 
         @Override
         public void store(T data) {
             var key = this.indexFunction.apply(data);
             if (key != null) {
-                this.data.computeIfAbsent(key, k -> new ArrayList<>()).add(data);
+                this.data.computeIfAbsent(key, k -> new HashSet<>()).add(data);
             }
         }
 
@@ -205,7 +207,7 @@ public class ConcurrentLookup<K, V> {
 
     private static class MultiIndex<L, T> implements Index<L, T> {
 
-        private final Map<L, List<T>> data = new HashMap<>();
+        private final Map<L, Set<T>> data = new HashMap<>();
         private final Function<T, Stream<L>> indexFunction;
 
         MultiIndex(@NonNull Function<T, Stream<L>> indexFunction) {
@@ -214,14 +216,14 @@ public class ConcurrentLookup<K, V> {
 
         @Override
         public List<T> get(L key) {
-            return List.copyOf(this.data.getOrDefault(key, List.of()));
+            return List.copyOf(this.data.getOrDefault(key, Set.of()));
         }
 
         @Override
         public void store(T data) {
             this.indexFunction.apply(data).forEachOrdered(key -> {
                 Objects.requireNonNull(key, "key cannot be null");
-                this.data.computeIfAbsent(key, k -> new ArrayList<>()).add(data);
+                this.data.computeIfAbsent(key, k -> new HashSet<>()).add(data);
             });
         }
 
