@@ -42,12 +42,12 @@ public class ConcurrentLookup<K, V> {
 
     public final V add(@NonNull V item) {
 
+        var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
         var writeLock = this.readWriteLock.writeLock();
 
         try {
             writeLock.lock();
 
-            var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
             var old = this.data.put(id, item);
 
             // update all the indices
@@ -140,14 +140,21 @@ public class ConcurrentLookup<K, V> {
 
     public final <L> Lookup<L, V> createMultiLookup(Function<V, Stream<L>> indexFunction) {
         var index = new MultiIndex<>(indexFunction);
-        this.indices.add(index);
 
-        // rebuild the index
-        for (var item : this.data.values()){
-            index.store(item);
+        var writeLock = this.readWriteLock.writeLock();
+
+        try {
+            this.indices.add(index);
+
+            // rebuild the index
+            for (var item : this.data.values()) {
+                index.store(item);
+            }
+
+            return index::get;
+        } finally {
+            writeLock.unlock();
         }
-
-        return index::get;
     }
 
     public Stream<V> stream() {
