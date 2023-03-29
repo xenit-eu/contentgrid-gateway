@@ -45,15 +45,6 @@ public class ServiceCatalog implements
 
     private final Lookup<DeploymentId, ServiceInstance> lookupByDeploymentId;
 
-    // temporary property untill we create a generic cg-app route-definition
-    @Value("#{new Boolean('${contentgrid.gateway.runtime-platform.catalog.route-uses-server-port}')}")
-    private boolean useServerPort;
-
-    // temporary property untill we create a generic cg-app route-definition
-    @Autowired
-    private ServerProperties serverProperties;
-
-
     public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
             @NonNull ContentGridDeploymentMetadata deploymentMetadata,
             @NonNull ApplicationConfigurationRepository appConfigRepository) {
@@ -69,40 +60,35 @@ public class ServiceCatalog implements
 
     }
 
-    private Stream<RouteDefinition> createRouteDefinition(ServiceInstance service) {
+    private RouteDefinition createRouteDefinition(ServiceInstance service) {
+        var routeDef = new RouteDefinition();
+        routeDef.setId("k8s-" + service.getServiceId());
+        routeDef.setUri(service.getUri());
+
+        var hostnamePredicate = new PredicateDefinition();
+        hostnamePredicate.setName("Host");
+
         var domainNames = this.deploymentMetadata.getApplicationId(service)
                 .map(this.appConfigRepository::getApplicationConfiguration)
                 .map(ApplicationConfiguration::getDomains)
                 .orElse(Set.of())
                 .stream()
                 // also accept Host headers on the current server port
-                .flatMap(domain -> this.useServerPort
-                        ? Stream.of(domain + ":" + this.serverProperties.getPort(), domain)
-                        : Stream.of(domain))
+                .flatMap(domain -> Stream.of(domain + ":*", domain))
                 .toList();
 
-        // PredicateDefinition 'Host' does not expand 'patterns' correctly into multiple value
-        // the alternative is creating multiple RouteDefinitions, for each domain name
-        // Note: this is a temporary thing, exchanges are already tagged with the correct deployment-id
-        return domainNames.stream().map(domainName -> {
-            var routeDef = new RouteDefinition();
-            routeDef.setId("k8s-" + service.getServiceId());
-            routeDef.setUri(service.getUri());
+        for (int i = 0; i < domainNames.size(); i++) {
+            hostnamePredicate.addArg("index_"+i, domainNames.get(i));
+        }
 
-            var hostnamePredicate = new PredicateDefinition();
+        routeDef.setPredicates(List.of(hostnamePredicate));
 
-            hostnamePredicate.setName("Host");
-            hostnamePredicate.addArg("patterns", domainName);
-
-            routeDef.setPredicates(List.of(hostnamePredicate));
-
-            return routeDef;
-        });
+        return routeDef;
     }
 
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
-        return Flux.fromStream(() -> this.services().flatMap(this::createRouteDefinition))
+        return Flux.fromStream(() -> this.services().map(this::createRouteDefinition))
                 .log(Loggers.getLogger(ServiceCatalog.class), Level.FINE, false);
     }
 
