@@ -2,6 +2,8 @@ contentgrid:
   gateway:
     runtime-platform:
       enabled: true
+      catalog:
+        route-uses-server-port: true # temporary workaround - not needed in production
 
 testing:
   bootstrap:

@@ -14,6 +14,9 @@ import java.util.logging.Level;
 import java.util.stream.Stream;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
@@ -42,6 +45,13 @@ public class ServiceCatalog implements
 
     private final Lookup<DeploymentId, ServiceInstance> lookupByDeploymentId;
 
+    // temporary property untill we create a generic cg-app route-definition
+    @Value("#{new Boolean('${contentgrid.gateway.runtime-platform.catalog.route-uses-server-port}')}")
+    private boolean useServerPort;
+
+    // temporary property untill we create a generic cg-app route-definition
+    @Autowired
+    private ServerProperties serverProperties;
 
 
     public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
@@ -52,31 +62,47 @@ public class ServiceCatalog implements
         this.appConfigRepository = appConfigRepository;
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
-        this.lookupByApplicationId = this.services.createLookup(service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
-        this.lookupByDeploymentId = this.services.createLookup(service -> this.deploymentMetadata.getDeploymentId(service).orElse(null));
+        this.lookupByApplicationId = this.services.createLookup(
+                service -> this.deploymentMetadata.getApplicationId(service).orElse(null));
+        this.lookupByDeploymentId = this.services.createLookup(
+                service -> this.deploymentMetadata.getDeploymentId(service).orElse(null));
 
     }
 
-    private RouteDefinition createRouteDefinition(ServiceInstance service) {
-        var routeDef = new RouteDefinition();
-        routeDef.setId("k8s-" + service.getServiceId());
-        routeDef.setUri(service.getUri());
-
-        var hostnamePredicate = new PredicateDefinition();
+    private Stream<RouteDefinition> createRouteDefinition(ServiceInstance service) {
         var domainNames = this.deploymentMetadata.getApplicationId(service)
                 .map(this.appConfigRepository::getApplicationConfiguration)
                 .map(ApplicationConfiguration::getDomains)
-                .orElse(Set.of());
-        hostnamePredicate.setName("Host");
-        hostnamePredicate.addArg("patterns", String.join(",", domainNames));
+                .orElse(Set.of())
+                .stream()
+                // also accept Host headers on the current server port
+                .flatMap(domain -> this.useServerPort
+                        ? Stream.of(domain + ":" + this.serverProperties.getPort(), domain)
+                        : Stream.of(domain))
+                .toList();
 
-        routeDef.setPredicates(List.of(hostnamePredicate));
-        return routeDef;
+        // PredicateDefinition 'Host' does not expand 'patterns' correctly into multiple value
+        // the alternative is creating multiple RouteDefinitions, for each domain name
+        // Note: this is a temporary thing, exchanges are already tagged with the correct deployment-id
+        return domainNames.stream().map(domainName -> {
+            var routeDef = new RouteDefinition();
+            routeDef.setId("k8s-" + service.getServiceId());
+            routeDef.setUri(service.getUri());
+
+            var hostnamePredicate = new PredicateDefinition();
+
+            hostnamePredicate.setName("Host");
+            hostnamePredicate.addArg("patterns", domainName);
+
+            routeDef.setPredicates(List.of(hostnamePredicate));
+
+            return routeDef;
+        });
     }
 
     @Override
     public Flux<RouteDefinition> getRouteDefinitions() {
-        return Flux.fromStream(() -> this.services().map(this::createRouteDefinition))
+        return Flux.fromStream(() -> this.services().flatMap(this::createRouteDefinition))
                 .log(Loggers.getLogger(ServiceCatalog.class), Level.FINE, false);
     }
 
