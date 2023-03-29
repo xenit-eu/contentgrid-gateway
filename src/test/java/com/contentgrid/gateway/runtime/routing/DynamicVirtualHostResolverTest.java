@@ -15,7 +15,7 @@ class DynamicVirtualHostResolverTest {
     void resolveDomains() {
         TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
         var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
-        var resolver = new DynamicVirtualHostResolver(flux);
+        var resolver = new DynamicVirtualHostResolver(flux, event -> {});
         var appId = ApplicationId.random();
 
         // verify nothing gets resolved
@@ -40,7 +40,7 @@ class DynamicVirtualHostResolverTest {
     void hijackDomain() {
         TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
         var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
-        var resolver = new DynamicVirtualHostResolver(flux);
+        var resolver = new DynamicVirtualHostResolver(flux, event -> {});
 
         var app1 = ApplicationId.random();
         publisher.next(ApplicationDomainNameEvent.put(app1, "my.domain.test"));
@@ -59,7 +59,7 @@ class DynamicVirtualHostResolverTest {
     void delete() {
         TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
         var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
-        var resolver = new DynamicVirtualHostResolver(flux);
+        var resolver = new DynamicVirtualHostResolver(flux, event -> {});
 
         var appId = ApplicationId.random();
         publisher.next(ApplicationDomainNameEvent.put(appId, "my.domain.test"));
@@ -73,7 +73,7 @@ class DynamicVirtualHostResolverTest {
     void clear() {
         TestPublisher<ApplicationDomainNameEvent> publisher = TestPublisher.create();
         var flux = publisher.flux().doOnNext(event -> log.info("event: {}", event));
-        var resolver = new DynamicVirtualHostResolver(flux);
+        var resolver = new DynamicVirtualHostResolver(flux, event -> {});
 
         publisher.next(ApplicationDomainNameEvent.put(ApplicationId.random(), "my.domain.test"));
         assertThat(resolver.resolve("https://my.domain.test/foo")).isNotEmpty();

@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import reactor.core.publisher.Flux;
 
 @Slf4j
@@ -23,7 +25,11 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
     );
     private final Lookup<String, ApplicationDomainRegistration> lookupByDomain;
 
-    public DynamicVirtualHostResolver(Flux<ApplicationDomainNameEvent> events) {
+    @NonNull
+    private final ApplicationEventPublisher eventPublisher;
+
+    public DynamicVirtualHostResolver(Flux<ApplicationDomainNameEvent> events, ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
         events.subscribe(this::onApplicationDomainEvent);
 
         this.lookupByDomain = this.lookup.createMultiLookup(event -> event.domains().stream());
@@ -38,6 +44,8 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
                 this.lookup.add(registration);
             }
         }
+
+        this.eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
     @Override

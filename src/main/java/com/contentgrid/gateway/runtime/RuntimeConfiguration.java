@@ -82,9 +82,11 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RuntimeVirtualHostResolver runtimeVirtualHostResolver(ApplicationConfigurationRepository appConfigRepository) {
+    RuntimeVirtualHostResolver runtimeVirtualHostResolver(ApplicationConfigurationRepository appConfigRepository,
+            ApplicationEventPublisher eventPublisher) {
         return new DynamicVirtualHostResolver(appConfigRepository.observe()
-                .map(update -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains())));
+                .map(update -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains())),
+                eventPublisher);
     }
 
     @Bean
