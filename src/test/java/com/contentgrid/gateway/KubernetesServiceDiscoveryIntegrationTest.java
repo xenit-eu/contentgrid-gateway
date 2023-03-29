@@ -21,6 +21,7 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.netty.resolver.HostsFileEntriesResolver;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -115,6 +116,9 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
+
+            // https://github.com/spring-cloud/spring-cloud-gateway/issues/2909
+            "spring.cloud.gateway.default-filters=PreserveHostHeader"
     })
     @AutoConfigureWebTestClient
     public class HappyPathTest {
@@ -134,6 +138,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     // add Spring Security test Support
                     .apply(springSecurity())
                     .configureClient()
+                    .responseTimeout(Duration.ofHours(1))
                     .build();
         }
 
