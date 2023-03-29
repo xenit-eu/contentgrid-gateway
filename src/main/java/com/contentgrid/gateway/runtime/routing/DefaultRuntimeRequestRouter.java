@@ -1,5 +1,7 @@
 package com.contentgrid.gateway.runtime.routing;
 
+import static org.springframework.http.HttpHeaders.HOST;
+
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,15 +23,17 @@ public class DefaultRuntimeRequestRouter implements RuntimeRequestRouter {
                 .map(this.virtualHostResolver::resolve)
                 .flatMap(Mono::justOrEmpty)
                 .switchIfEmpty(Mono.defer(() -> {
-                    log.debug("Could not resolve {} to app-id", exchange.getRequest().getURI());
+                    log.debug("Could not resolve Host:'{}' to app-id",
+                            exchange.getRequest().getURI().getHost());
                     return Mono.empty();
                 }))
                 .map(this.serviceCatalog::findByApplicationId)
                 .map(services -> this.serviceInstanceSelector.selectService(exchange, services))
                 .doOnNext(result -> result.ifPresentOrElse(
-                        service -> log.debug("Routing request {} to {}://{}:{}{}", exchange.getRequest().getURI(),
-                                service.getScheme(), service.getHost(), service.getPort(), exchange.getRequest().getPath()),
-                        () -> log.debug("No service found to route request {}", exchange.getRequest().getURI()))
+                        service -> log.debug("Routing '{}' to {}",
+                                exchange.getRequest().getURI().getHost(), service.getServiceId()),
+                        () -> log.debug("No service found to route request {}",
+                                exchange.getRequest().getURI().getHost()))
                 )
                 .flatMap(Mono::justOrEmpty);
 

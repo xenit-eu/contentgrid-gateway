@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -109,7 +110,12 @@ public class ServiceCatalog implements
     }
 
     public Collection<ServiceInstance> findByApplicationId(@NonNull ApplicationId applicationId) {
-        return this.lookupByApplicationId.apply(applicationId);
+        var services = this.lookupByApplicationId.apply(applicationId);
+        if (log.isDebugEnabled()){
+            log.debug("findByApplicationId({}) -> [{}]", applicationId,
+                    services.stream().map(ServiceInstance::getServiceId).collect(Collectors.joining(", ")));
+        }
+        return services;
     }
 
     public Optional<ServiceInstance> findByDeploymentId(@NonNull DeploymentId deploymentId) {

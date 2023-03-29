@@ -1,6 +1,8 @@
 server:
   forward-headers-strategy: native
 
+logging.level:
+  reactor.netty.http.server.AccessLog: INFO
 
 spring:
   cloud:
