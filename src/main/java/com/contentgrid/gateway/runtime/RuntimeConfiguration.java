@@ -13,6 +13,7 @@ import com.contentgrid.gateway.runtime.config.ComposableApplicationConfiguration
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
+import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
 import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver;
@@ -39,6 +40,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Slf4j
 @Configuration(proxyBeanMethods = false)
@@ -103,6 +105,12 @@ public class RuntimeConfiguration {
     @Bean
     ComposableApplicationConfigurationRepository applicationConfigurationRepository() {
         return new ComposableApplicationConfigurationRepository();
+    }
+
+    @Bean
+    CorsConfigurationSource runtimeCorsConfigurationSource(RuntimeRequestResolver runtimeRequestResolver,
+            ApplicationConfigurationRepository appConfigRepository) {
+        return new RuntimeCorsConfigurationSource(runtimeRequestResolver, appConfigRepository);
     }
 
     @Bean

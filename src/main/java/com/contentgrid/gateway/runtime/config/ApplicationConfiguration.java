@@ -1,5 +1,7 @@
 package com.contentgrid.gateway.runtime.config;
 
+import static com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys.DELIMITER_REGEX;
+
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Arrays;
 import java.util.Map.Entry;
@@ -12,6 +14,7 @@ import lombok.experimental.UtilityClass;
 
 public interface ApplicationConfiguration {
 
+
     @UtilityClass
     class Keys {
 
@@ -20,6 +23,9 @@ public interface ApplicationConfiguration {
         public static final String ISSUER_URI = "contentgrid.idp.issuer-uri";
 
         public static final String ROUTING_DOMAINS = "contentgrid.routing.domains";
+        public static final String CORS_ORIGINS = "contentgrid.cors.origins";
+
+        static final String DELIMITER_REGEX = "[,;]+";
     }
 
     String getConfigurationId();
@@ -45,8 +51,16 @@ public interface ApplicationConfiguration {
     }
 
     default Set<String> getDomains() {
-        return Arrays.stream(this.getProperty(Keys.ROUTING_DOMAINS).orElse("").split(","))
+        return Arrays.stream(this.getProperty(Keys.ROUTING_DOMAINS).orElse("").split(DELIMITER_REGEX))
                 .map(String::trim)
+                .filter(str -> !str.isBlank())
+                .collect(Collectors.toSet());
+    }
+
+    default Set<String> getCorsOrigins() {
+        return Arrays.stream(this.getProperty(Keys.CORS_ORIGINS).orElse("").split(DELIMITER_REGEX))
+                .map(String::trim)
+                .filter(str -> !str.isBlank())
                 .collect(Collectors.toSet());
     }
 }
