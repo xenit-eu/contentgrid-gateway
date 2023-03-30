@@ -3,15 +3,11 @@ package com.contentgrid.gateway.cors;
 
 import static com.contentgrid.gateway.cors.CorsConfigurations.applyDefaults;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
-
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class CorsConfigurationResolver implements CorsConfigurationSource {
 
@@ -41,6 +37,4 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
         var hostname = host.getHostName();
         return configurations.getOrDefault(hostname, this.fallback);
     }
-
-
 }
