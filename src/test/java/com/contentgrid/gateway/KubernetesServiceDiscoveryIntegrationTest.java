@@ -3,22 +3,30 @@ package com.contentgrid.gateway;
 
 import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import com.contentgrid.thunx.pdp.RequestContext;
-import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
-import com.contentgrid.thunx.spring.security.ServerWebExchangeRequestContext;
+import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.runtime.application.DeploymentId;
+import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import com.dajudge.kindcontainer.KindContainer;
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-import java.net.URI;
+import io.netty.resolver.HostsFileEntriesResolver;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -26,38 +34,73 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.cloud.gateway.config.HttpClientCustomizer;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
-import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 @Tag("integration")
 @Testcontainers
 public class KubernetesServiceDiscoveryIntegrationTest {
+
     private static final Logger logger = LoggerFactory.getLogger(KubernetesServiceDiscoveryIntegrationTest.class);
 
     @Container
     public static final KindContainer<?> K8S = new KindContainer<>();
 
+    @Container
+    public static final GenericContainer<?> NGINX = new GenericContainer<>(DockerImageName.parse("docker.io/nginx"))
+            .withCopyFileToContainer(MountableFile.forClasspathResource("fixtures/test.txt"),
+                    "/usr/share/nginx/html/test")
+            .withExposedPorts(80);
+
     @TestConfiguration
     public static class KindClientConfiguration {
+
         @Bean
         @Primary
         KubernetesClient testKubernetesClient() {
             return new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig())).build();
         }
+
+        @Bean
+        HttpClientCustomizer dnsResolverCustomizer() {
+            return httpClient -> httpClient
+                    .wiretap(true)
+                    .resolver(nameResolverSpec ->
+                            nameResolverSpec.hostsFileEntriesResolver((inetHost, resolvedAddressTypes) -> {
+                                if (inetHost.endsWith(".default.svc.cluster.local")) {
+                                    try {
+                                        var containerHostIp = InetAddress.getByName(NGINX.getHost());
+                                        logger.info("DNS lookup '{}' (types:{}) -> {}", inetHost,
+                                                resolvedAddressTypes, containerHostIp);
+                                        return containerHostIp;
+                                    } catch (UnknownHostException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }
+                                return HostsFileEntriesResolver.DEFAULT.address(inetHost, resolvedAddressTypes);
+                            }));
+
+        }
     }
 
     @TestConfiguration
     public static class NoK8sAvailableClient {
+
         @Primary
         KubernetesClient testKubernetesClient() {
             return Mockito.mock(KubernetesClient.class, invocation -> {
@@ -73,78 +116,104 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
+
+            // https://github.com/spring-cloud/spring-cloud-gateway/issues/2909
+            "spring.cloud.gateway.default-filters=PreserveHostHeader"
     })
+    @AutoConfigureWebTestClient
     public class HappyPathTest {
+
         @Autowired
         RouteLocator routeLocator;
 
         @Autowired
-        OpaQueryProvider opaQueryProvider;
+        ApplicationContext context;
+
+        private WebTestClient webTestClient;
+
+        @BeforeEach
+        public void setup() {
+            this.webTestClient = WebTestClient
+                    .bindToApplicationContext(this.context)
+                    // add Spring Security test Support
+                    .apply(springSecurity())
+                    .configureClient()
+                    .responseTimeout(Duration.ofHours(1))
+                    .build();
+        }
 
         @Test
         public void testConfiguredServiceDiscoveryHappyPath() {
-            String appId = UUID.randomUUID().toString();
-            String deploymentId = UUID.randomUUID().toString();
+            var appId = ApplicationId.random();
+            var deploymentId = DeploymentId.random();
 
             List<Route> routes = routeLocator.getRoutes().collectList().block();
             assertThat(routes).isNotNull();
             assertThat(routes).isEmpty();
 
-            var request = MockServerHttpRequest.get("https://{appId}.userapps.contentgrid.com", appId).build();
-            var exchange = MockServerWebExchange.from(request);
-            var requestContext = new ServerWebExchangeRequestContext(exchange);
-            assertThat(opaQueryProvider.createQuery(requestContext)).isEqualTo("1 == 1");
-
-//            Deployment deployment = new DeploymentBuilder()
-//                    .withNewMetadata()
-//                        .withLabels(Map.of("app.contentgrid.com/deployment-request-id", deploymentId))
-//                    .endMetadata()
-//                    .withNewSpec()
-//                        .withNewTemplate()
-//                            .withNewSpec()
-//                                .addNewContainer()
-//                                    .withName("integration-test-dummy-pod")
-//                                    .withImage("nginx")
-//                                .endContainer()
-//                            .endSpec()
-//                        .endTemplate()
-//                    .endSpec()
-//                    .build();
+            webTestClient
+                    .mutateWith(mockOidcLogin())
+                    .get()
+                    .uri("https://{appId}.userapps.contentgrid.com/test", appId)
+                    .header("Host", "%s.userapps.contentgrid.com".formatted(appId))
+                    .exchange()
+                    .expectStatus().is4xxClientError();
 
             Service service = new ServiceBuilder()
                     .withNewMetadata()
-                        .withName("integration-test-dummy-service")
-                        .withLabels(Map.of(
-                                "app.kubernetes.io/managed-by", "contentgrid",
-                                "app.contentgrid.com/service-type", "api",
-                                "app.contentgrid.com/application-id", appId,
-                                "app.contentgrid.com/deployment-id", deploymentId,
-                                "authz.contentgrid.com/policy-package", "contentgrid.userapps.deployment%s"
-                                        .formatted(deploymentId.replace("-", ""))
-                        ))
+                    .withName("integration-test-dummy-service")
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "api",
+                            "app.contentgrid.com/application-id", appId.toString(),
+                            "app.contentgrid.com/deployment-id", deploymentId.toString(),
+                            "authz.contentgrid.com/policy-package", "contentgrid.userapps.deployment%s"
+                                    .formatted(deploymentId.toString().replace("-", ""))
+                    ))
                     .endMetadata()
                     .withNewSpec()
-                        .withPorts(new ServicePortBuilder().withPort(8080).withName("http").build())
-                        .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId))
+                    // Swapping out the port to match the NGINX port, so we can reroute the request
+                    .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
+                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
                     .endSpec()
                     .build();
-            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig())).build()) {
-                client.resource(service).inNamespace("default").createOrReplace();
+
+            ConfigMap configMap = new ConfigMapBuilder()
+                    .withNewMetadata()
+                    .withName("app-" + UUID.randomUUID())
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "gateway",
+                            "app.contentgrid.com/application-id", appId.toString()
+                    ))
+                    .endMetadata()
+                    .addToData(Map.of(Keys.ROUTING_DOMAINS, "%s.userapps.contentgrid.com".formatted(appId)))
+                    .build();
+
+            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig()))
+                    .build()) {
+                client.resource(service).inNamespace("default").create();
+                client.resource(configMap).inNamespace("default").create();
+                logger.info("Created k8s resources");
             }
 
             await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(() -> {
-                        assertThat(routeLocator.getRoutes().collectList().block()).hasSize(1);
-                        assertThat(opaQueryProvider.createQuery(requestContext))
-                                .isEqualTo("data.contentgrid.userapps.deployment%s.allow == true"
-                                        .formatted(deploymentId.replace("-", "")));
+                        webTestClient
+                                .mutateWith(mockOidcLogin())
+                                .get()
+                                .uri("https://{appId}.userapps.contentgrid.com/test", appId)
+                                .header("Host", "%s.userapps.contentgrid.com".formatted(appId))
+                                .exchange()
+                                .expectStatus().is2xxSuccessful()
+                                .expectBody(String.class)
+                                .value(body -> assertThat(body).isEqualTo("Hello ContentGrid!"));
                     });
 
             var newRoutes = routeLocator.getRoutes().collectList().block();
-
-            assertThat(newRoutes.get(0).getFilters()).isNotEmpty();
+            assertThat(newRoutes).isNotEmpty();
         }
     }
 

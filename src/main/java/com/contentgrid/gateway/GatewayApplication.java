@@ -174,11 +174,6 @@ public class GatewayApplication {
         return new CorsConfigurationResolver(corsResolverProperties);
     }
 
-    @Bean
-    @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
-    RuntimeRequestResolver runtimeRequestResolver() {
-        return new DefaultRuntimeRequestResolver();
-    }
 
 
     @Bean

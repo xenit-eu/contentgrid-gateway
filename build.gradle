@@ -60,6 +60,7 @@ tasks.register("runtimeBootRun",  org.springframework.boot.gradle.tasks.run.Boot
 	mainClass = tasks.bootRun.mainClass
 
 	systemProperty("spring.profiles.active", "bootRun,runtime")
+	systemProperty("reactor.netty.http.server.accessLogEnabled", "true")
 }
 
 dependencies {

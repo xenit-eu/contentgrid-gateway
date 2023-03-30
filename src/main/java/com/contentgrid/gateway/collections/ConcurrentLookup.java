@@ -1,6 +1,5 @@
 package com.contentgrid.gateway.collections;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,7 +40,6 @@ public class ConcurrentLookup<K, V> {
     private final Map<K, V> data = new HashMap<>();
 
     public final V add(@NonNull V item) {
-
         var id = Objects.requireNonNull(this.identityFunction.apply(item), "identity(%s) is null".formatted(item));
         var writeLock = this.readWriteLock.writeLock();
 
@@ -97,6 +95,7 @@ public class ConcurrentLookup<K, V> {
             writeLock.unlock();
         }
     }
+
 
     public void clear() {
         var writeLock = this.readWriteLock.writeLock();
@@ -214,7 +213,6 @@ public class ConcurrentLookup<K, V> {
     }
 
     private static class MultiIndex<L, T> implements Index<L, T> {
-
         private final Map<L, Set<T>> data = new HashMap<>();
         private final Function<T, Stream<L>> indexFunction;
 

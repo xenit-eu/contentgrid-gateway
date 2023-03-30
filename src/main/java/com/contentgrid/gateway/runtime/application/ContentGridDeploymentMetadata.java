@@ -9,9 +9,5 @@ public interface ContentGridDeploymentMetadata {
 
     Optional<DeploymentId> getDeploymentId(ServiceInstance service);
 
-
-
     Optional<String> getPolicyPackage(ServiceInstance service);
-
-
 }

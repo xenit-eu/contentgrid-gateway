@@ -3,16 +3,18 @@ package com.contentgrid.gateway.runtime.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class ServiceCatalogTest {
 
     ContentGridDeploymentMetadata deploymentMetadata = new SimpleContentGridDeploymentMetadata();
-    ContentGridApplicationMetadata applicationMetadata = new SimpleContentGridApplicationMetadata(deploymentMetadata);
+    ApplicationConfigurationRepository appConfigRepo = Mockito.mock(ApplicationConfigurationRepository.class);
 
     @Test
     void services() {
-        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, applicationMetadata);
+        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, appConfigRepo);
 
         var appId1 = ApplicationId.random();
         var deploy1 = DeploymentId.random();
@@ -33,7 +35,7 @@ class ServiceCatalogTest {
 
     @Test
     void findByApplicationId_empty() {
-        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, applicationMetadata);
+        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, appConfigRepo);
 
         var result = catalog.findByApplicationId(ApplicationId.random());
         assertThat(result).isEmpty();

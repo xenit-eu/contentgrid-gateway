@@ -8,12 +8,20 @@ import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
-import com.contentgrid.gateway.runtime.routing.ContentGridRequestRouter;
-import com.contentgrid.gateway.runtime.routing.SimpleContentGridRequestRouter;
+import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
+import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver;
+import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver.ApplicationDomainNameEvent;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
+import com.contentgrid.gateway.runtime.routing.RuntimeServiceInstanceSelector;
+import com.contentgrid.gateway.runtime.routing.RuntimeVirtualHostResolver;
+import com.contentgrid.gateway.runtime.routing.SimpleRuntimeServiceInstanceSelector;
 import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
@@ -40,9 +48,8 @@ public class RuntimeConfiguration {
 
     @Bean
     public ServiceCatalog serviceTracker(ApplicationEventPublisher publisher,
-            ContentGridDeploymentMetadata deploymentMetadata,
-            ContentGridApplicationMetadata applicationMetadata) {
-        return new ServiceCatalog(publisher, deploymentMetadata, applicationMetadata);
+            ContentGridDeploymentMetadata deploymentMetadata, ApplicationConfigurationRepository appConfigRepository) {
+        return new ServiceCatalog(publisher, deploymentMetadata, appConfigRepository);
     }
 
     @Bean
@@ -56,10 +63,15 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    RuntimeRequestResolver runtimeRequestResolver() {
+        return new DefaultRuntimeRequestResolver();
+    }
+
+    @Bean
     @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER)
     ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(
             ContentGridDeploymentMetadata serviceMetadata,
-            ContentGridRequestRouter requestRouter) {
+            RuntimeRequestRouter requestRouter) {
         return new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);
     }
 
@@ -70,10 +82,22 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    ContentGridRequestRouter requestRouter(ServiceCatalog serviceCatalog,
-            ContentGridApplicationMetadata applicationMetadata,
-            ContentGridDeploymentMetadata serviceMetadata) {
-        return new SimpleContentGridRequestRouter(serviceCatalog, applicationMetadata, serviceMetadata);
+    RuntimeVirtualHostResolver runtimeVirtualHostResolver(ApplicationConfigurationRepository appConfigRepository,
+            ApplicationEventPublisher eventPublisher) {
+        return new DynamicVirtualHostResolver(appConfigRepository.observe()
+                .map(update -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains())),
+                eventPublisher);
+    }
+
+    @Bean
+    RuntimeServiceInstanceSelector simpleRuntimeServiceInstanceSelector(ContentGridDeploymentMetadata deploymentMetadata) {
+        return new SimpleRuntimeServiceInstanceSelector(deploymentMetadata);
+    }
+    @Bean
+    RuntimeRequestRouter requestRouter(ServiceCatalog serviceCatalog,
+            RuntimeVirtualHostResolver runtimeVirtualHostResolver,
+            RuntimeServiceInstanceSelector serviceInstanceSelector) {
+        return new DefaultRuntimeRequestRouter(serviceCatalog, runtimeVirtualHostResolver, serviceInstanceSelector);
     }
 
     @Bean
@@ -82,28 +106,8 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog,
-            ContentGridDeploymentMetadata deploymentMetadata,
-            ContentGridApplicationMetadata applicationMetadata) {
-
-        // TARGET ARCH: get application-id from request attributes, not from the service-tracker
-        return request -> serviceCatalog
-                .services()
-                .filter(service -> {
-                    var domainNames = applicationMetadata.getDomainNames(service);
-                    return domainNames.contains(request.getURI().getHost());
-                })
-                .flatMap(service -> deploymentMetadata.getPolicyPackage(service)
-                        .stream()
-                        .map("data.%s.allow == true"::formatted))
-                .findFirst()
-                .orElseGet(() -> {
-                    // TODO this should fail !?
-                    log.warn(
-                            "Request for unknown host ({}), perhaps the gateway itself, using tautological opa query",
-                            request.getURI().getHost());
-                    return "1 == 1";
-                });
+    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog, ContentGridDeploymentMetadata deploymentMetadata) {
+        return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
     }
 
     @Configuration
