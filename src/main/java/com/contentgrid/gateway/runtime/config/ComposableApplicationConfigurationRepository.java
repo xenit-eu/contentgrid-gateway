@@ -4,6 +4,7 @@ import com.contentgrid.gateway.collections.ObservableMap;
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import lombok.NonNull;
+import lombok.Synchronized;
 import org.springframework.lang.Nullable;
 import reactor.core.publisher.Flux;
 
@@ -23,14 +24,17 @@ public class ComposableApplicationConfigurationRepository implements
     }
 
 
+    @Synchronized
     public void put(ComposedApplicationConfiguration applicationConfig) {
         this.configs.put(applicationConfig.getApplicationId(), applicationConfig);
     }
 
+    @Synchronized
     public void remove(@NonNull ApplicationId applicationId) {
         this.configs.remove(applicationId);
     }
 
+    @Synchronized
     public void clear() {
         this.configs.clear();
     }
