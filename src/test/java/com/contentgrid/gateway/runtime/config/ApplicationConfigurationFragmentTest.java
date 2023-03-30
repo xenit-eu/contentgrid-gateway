@@ -29,7 +29,7 @@ class ApplicationConfigurationFragmentTest {
 
 
     @Test
-    void getRotingDomains() {
+    void getRoutingDomains() {
         assertThat(SIMPLE.getDomains()).singleElement().isEqualTo("my-app.contentgrid.cloud");
         assertThat(MESSY.getDomains())
                 .containsExactlyInAnyOrder("foo.bar.test", "my-app.contentgrid.cloud", "other.domain.test");
@@ -39,11 +39,11 @@ class ApplicationConfigurationFragmentTest {
 
     @Test
     void getCorsOrigins() {
-        assertThat(SIMPLE.getDomains()).singleElement().isEqualTo("https://my-app.contentgrid.app");
+        assertThat(SIMPLE.getCorsOrigins()).singleElement().isEqualTo("https://my-app.contentgrid.app");
         assertThat(MESSY.getCorsOrigins()).containsExactlyInAnyOrder(
                 "https://my-app.contentgrid.app", "http://localhost:*", "https://*.domain.test");
-        assertThat(EMPTY.getDomains()).isNotNull().isEmpty();
-        assertThat(MISSING.getDomains()).isNotNull().isEmpty();
+        assertThat(EMPTY.getCorsOrigins()).isNotNull().isEmpty();
+        assertThat(MISSING.getCorsOrigins()).isNotNull().isEmpty();
     }
 
 }
