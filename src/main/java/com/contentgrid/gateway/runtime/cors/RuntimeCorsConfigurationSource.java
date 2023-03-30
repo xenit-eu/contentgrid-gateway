@@ -13,11 +13,13 @@ import org.springframework.web.server.ServerWebExchange;
 @RequiredArgsConstructor
 public class RuntimeCorsConfigurationSource implements CorsConfigurationSource {
 
+    @NonNull
     private final RuntimeRequestResolver requestResolver;
 
+    @NonNull
     private final ApplicationConfigurationRepository appConfigRepository;
 
-    private final CorsConfigurationMapper corsConfigurationMapper = new DefaultCorsConfigurationEventMapper();
+    private final CorsConfigurationMapper corsConfigurationMapper = new DefaultCorsConfigurationMapper();
 
     @Nullable
     @Override

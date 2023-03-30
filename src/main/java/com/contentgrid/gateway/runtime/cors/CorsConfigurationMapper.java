@@ -7,6 +7,5 @@ import org.springframework.web.cors.CorsConfiguration;
 @FunctionalInterface
 public interface CorsConfigurationMapper extends Function<ApplicationConfiguration, CorsConfiguration> {
 
-
 }
 

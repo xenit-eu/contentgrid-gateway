@@ -22,7 +22,7 @@ import org.springframework.web.cors.reactive.CorsUtils;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import reactor.core.publisher.Mono;
 
-public class RuntimeCorsWebFilterTest {
+class RuntimeCorsWebFilterTest {
 
     private ApplicationConfiguration appConfig;
     private RuntimeCorsConfigurationSource corsSource;
