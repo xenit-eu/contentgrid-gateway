@@ -55,8 +55,13 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getHeaders())
                 .containsEntry(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, List.of("https://frontend-domain.test"))
                 .containsEntry(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, List.of(HttpMethod.POST.name()))
-                .containsEntry(HttpHeaders.VARY, List.of(HttpHeaders.ORIGIN, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
-                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
+                .containsEntry(HttpHeaders.VARY, List.of(
+                        HttpHeaders.ORIGIN,
+                        HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
+                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS))
+
+                // We do NOT allow CORS requests using cookies, authorization headers or TLS client certificates
+                .doesNotContainKey(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS);
     }
 
     @Test
