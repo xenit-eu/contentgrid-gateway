@@ -87,14 +87,18 @@ public class RuntimeConfiguration {
     RuntimeVirtualHostResolver runtimeVirtualHostResolver(ApplicationConfigurationRepository appConfigRepository,
             ApplicationEventPublisher eventPublisher) {
         return new DynamicVirtualHostResolver(appConfigRepository.observe()
-                .map(update -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains())),
-                eventPublisher);
+                .map(update -> switch (update.getType()) {
+                            case PUT -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains());
+                            case REMOVE -> ApplicationDomainNameEvent.delete(update.getKey());
+                            case CLEAR -> ApplicationDomainNameEvent.clear();
+                        }), eventPublisher);
     }
 
     @Bean
     RuntimeServiceInstanceSelector simpleRuntimeServiceInstanceSelector(ContentGridDeploymentMetadata deploymentMetadata) {
         return new SimpleRuntimeServiceInstanceSelector(deploymentMetadata);
     }
+
     @Bean
     RuntimeRequestRouter requestRouter(ServiceCatalog serviceCatalog,
             RuntimeVirtualHostResolver runtimeVirtualHostResolver,
