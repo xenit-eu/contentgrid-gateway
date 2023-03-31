@@ -4,11 +4,15 @@ import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import lombok.With;
 
 @Value
+@RequiredArgsConstructor
 public class ApplicationConfigurationFragment implements ApplicationConfiguration {
 
     @NonNull
@@ -34,4 +38,7 @@ public class ApplicationConfigurationFragment implements ApplicationConfiguratio
         return this.properties.entrySet().stream();
     }
 
+    public static ApplicationConfiguration fromProperties(Map<String, String> properties) {
+        return new ApplicationConfigurationFragment(UUID.randomUUID().toString(), ApplicationId.random(), Map.copyOf(properties));
+    }
 }

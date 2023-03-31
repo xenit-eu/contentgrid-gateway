@@ -14,8 +14,7 @@
     <logger name="org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint" level="INFO"/>
     <logger name="org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository" level="INFO"/>
 
-    <logger name="com.contentgrid.gateway.runtime.routing" level="DEBUG"/>
-
+    <logger name="com.contentgrid.gateway.runtime" level="DEBUG"/>
 
     <logger name="org.testcontainers" level="INFO"/>
     <logger name="com.github.dockerjava" level="WARN"/>
