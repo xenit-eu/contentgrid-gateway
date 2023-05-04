@@ -84,7 +84,7 @@ dependencies {
 	testImplementation 'io.rest-assured:rest-assured'
 	testImplementation 'io.projectreactor:reactor-test'
 
-	testImplementation platform('org.testcontainers:testcontainers-bom:1.17.6')
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.18.0')
 	testImplementation 'org.testcontainers:testcontainers'
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:2.5.0'
