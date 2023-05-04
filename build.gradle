@@ -98,7 +98,7 @@ test {
 }
 
 bootBuildImage {
-	def dockerImageRepo = "docker.xenit.eu/open-source/contentgrid/gateway"
+	def dockerImageRepo = "ghcr.io/xenit-eu/contentgrid-gateway"
 	imageName = "${dockerImageRepo}:${project.version}"
 	tags = "${project.version}".endsWith('SNAPSHOT') ? [ "${dockerImageRepo}:SNAPSHOT" ] : null
 

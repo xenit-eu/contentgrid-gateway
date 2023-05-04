@@ -20,7 +20,7 @@ services:
       - "./example-rego/example.rego:/config/example.rego"
 
   gateway:
-    image: ${CONTENTGRID_GATEWAY_DOCKER_IMAGE:-docker.xenit.eu/contentgrid/gateway:local}
+    image: ${CONTENTGRID_GATEWAY_DOCKER_IMAGE:-ghcr.io/xenit-eu/contentgrid-gateway:local}
     environment:
       - "OPA_SERVICE_URL=http://opa:8181"
       - "OPA_QUERY=data.gateway.example.allow == true"
