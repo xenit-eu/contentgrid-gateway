@@ -10,7 +10,6 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.dajudge.kindcontainer.KindContainer;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.Service;
@@ -49,6 +48,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.k3s.K3sContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -59,7 +59,8 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(KubernetesServiceDiscoveryIntegrationTest.class);
 
     @Container
-    public static final KindContainer<?> K8S = new KindContainer<>();
+    private static final K3sContainer K8S = new K3sContainer(DockerImageName.parse("rancher/k3s:latest"))
+            .withCommand("server", "--disable=traefik");
 
     @Container
     public static final GenericContainer<?> NGINX = new GenericContainer<>(DockerImageName.parse("docker.io/nginx"))
@@ -73,7 +74,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         @Bean
         @Primary
         KubernetesClient testKubernetesClient() {
-            return new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig())).build();
+            return new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml())).build();
         }
 
         @Bean
@@ -190,7 +191,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .addToData(Map.of(Keys.ROUTING_DOMAINS, "%s.userapps.contentgrid.com".formatted(appId)))
                     .build();
 
-            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeconfig()))
+            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml()))
                     .build()) {
                 client.resource(service).inNamespace("default").create();
                 client.resource(configMap).inNamespace("default").create();
