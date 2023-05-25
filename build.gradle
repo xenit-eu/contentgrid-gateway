@@ -65,7 +65,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-	implementation platform('com.contentgrid.thunx:thunx-bom:0.6.1')
+	implementation platform('com.contentgrid.thunx:thunx-bom:0.6.2')
 	implementation 'com.contentgrid.thunx:thunx-spring'
 	implementation 'com.contentgrid.thunx:thunx-pdp-opa'
 
