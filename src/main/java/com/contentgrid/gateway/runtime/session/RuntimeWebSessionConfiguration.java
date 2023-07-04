@@ -2,7 +2,10 @@ package com.contentgrid.gateway.runtime.session;
 
 import static org.springframework.web.server.adapter.WebHttpHandlerBuilder.WEB_SESSION_MANAGER_BEAN_NAME;
 
+import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import java.time.Duration;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -12,6 +15,7 @@ import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
 import org.springframework.web.server.session.DefaultWebSessionManager;
 import org.springframework.web.server.session.InMemoryWebSessionStore;
@@ -29,9 +33,10 @@ public class RuntimeWebSessionConfiguration {
     private final ServerProperties serverProperties;
 
     @Bean(name = WEB_SESSION_MANAGER_BEAN_NAME)
-    public WebSessionManager runtimeWebSessionManager(ObjectProvider<WebSessionIdResolver> webSessionIdResolver) {
+    public WebSessionManager runtimeWebSessionManager(ObjectProvider<WebSessionIdResolver> webSessionIdResolver,
+            WebExchangePartitioner<?> partitioner) {
         return new PartitionedWebSessionManager<>(
-                WebExchangePartitioner.byHostname(),
+                partitioner,
                 (partition) -> {
                     log.debug("Creating new session manager for partition {}", partition);
                     var delegate = new DefaultWebSessionManager();
@@ -40,6 +45,17 @@ public class RuntimeWebSessionConfiguration {
                     webSessionIdResolver.ifAvailable(delegate::setSessionIdResolver);
                     return delegate;
                 });
+    }
+
+    @Bean
+    WebExchangePartitioner<String> partitioner(RuntimeRequestResolver runtimeRequestResolver) {
+        return exchange ->
+                // partition by application-id
+                Mono.justOrEmpty(runtimeRequestResolver.resolveApplicationId(exchange))
+                .map(ApplicationId::toString)
+
+                // fallback to hostname-based partioning
+                .switchIfEmpty(WebExchangePartitioner.byHostname().apply(exchange));
     }
 
     static final class MaxIdleTimeInMemoryWebSessionStore extends InMemoryWebSessionStore {

@@ -76,15 +76,15 @@ class PartitionedWebSessionManagerTest {
         assertThat(sessionCookie).isNotNull();
         assertThat(sessionCookie.getValue()).isNotEmpty();
 
-        // session cookie should not be accessible to javascript
+        // HttpOnly: session cookie should not be accessible to javascript
         assertThat(sessionCookie.isHttpOnly()).isTrue();
-        // only send session cookie over HTTPS
+        // Secure: only send session cookie over HTTPS
         assertThat(sessionCookie.isSecure()).isTrue();
-        // Negative "Max-Age" means cookie is deleted when the browser session ends
+        // Max-Age: Negative Max-Age means cookie is deleted when the browser session ends
         assertThat(sessionCookie.getMaxAge()).isNegative();
-        // specifying "Domain" is less restrictive, because that also implies subdomains
+        // Domain: specifying "Domain" is less restrictive, because that also implies subdomains
         assertThat(sessionCookie.getDomain()).isNull();
-
+        // SameSite: Lax; cookie is sent in a first-party context or following a link to the origin
         assertThat(sessionCookie.getSameSite()).isEqualTo("Lax");
     }
 

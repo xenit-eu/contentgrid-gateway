@@ -3,6 +3,7 @@ package com.contentgrid.gateway.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
@@ -23,6 +24,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.hamcrest.Matchers;
 import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
@@ -47,6 +49,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.netty.http.client.HttpClient;
 
+@Slf4j
 @Testcontainers
 abstract class AbstractKeycloakIntegrationTest {
 
@@ -62,8 +65,9 @@ abstract class AbstractKeycloakIntegrationTest {
     }
 
 
-    private final WebTestClient http = WebTestClient
+    protected final WebTestClient http = WebTestClient
             .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
+            .filter(new LoggingExchangeFilterFunction(log::info))
             .responseTimeout(Duration.ofHours(1)) // for interactive debugging
             .build();
 
