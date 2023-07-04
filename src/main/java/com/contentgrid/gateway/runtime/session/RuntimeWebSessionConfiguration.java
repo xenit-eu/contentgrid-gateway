@@ -2,9 +2,9 @@ package com.contentgrid.gateway.runtime.session;
 
 import static org.springframework.web.server.adapter.WebHttpHandlerBuilder.WEB_SESSION_MANAGER_BEAN_NAME;
 
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
@@ -13,10 +13,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.server.WebSession;
+import org.springframework.web.server.session.DefaultWebSessionManager;
 import org.springframework.web.server.session.InMemoryWebSessionStore;
 import org.springframework.web.server.session.WebSessionIdResolver;
+import org.springframework.web.server.session.WebSessionManager;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Configuration(proxyBeanMethods = false)
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
@@ -25,18 +28,18 @@ public class RuntimeWebSessionConfiguration {
 
     private final ServerProperties serverProperties;
 
-
     @Bean(name = WEB_SESSION_MANAGER_BEAN_NAME)
-    public RuntimeWebSessionManager runtimeWebSessionManager(RuntimeRequestResolver runtimeRequestResolver,
-            ObjectProvider<WebSessionIdResolver> webSessionIdResolver) {
-        var webSessionManager = new RuntimeWebSessionManager(runtimeRequestResolver);
-
-        // See WebFluxAutoConfiguration
-        var timeout = this.serverProperties.getReactive().getSession().getTimeout();
-        webSessionManager.setSessionStore(new MaxIdleTimeInMemoryWebSessionStore(timeout));
-        webSessionIdResolver.ifAvailable(webSessionManager::setSessionIdResolver);
-
-        return webSessionManager;
+    public WebSessionManager runtimeWebSessionManager(ObjectProvider<WebSessionIdResolver> webSessionIdResolver) {
+        return new PartitionedWebSessionManager<>(
+                WebExchangePartitioner.byHostname(),
+                (partition) -> {
+                    log.debug("Creating new session manager for partition {}", partition);
+                    var delegate = new DefaultWebSessionManager();
+                    var timeout = this.serverProperties.getReactive().getSession().getTimeout();
+                    delegate.setSessionStore(new MaxIdleTimeInMemoryWebSessionStore(timeout));
+                    webSessionIdResolver.ifAvailable(delegate::setSessionIdResolver);
+                    return delegate;
+                });
     }
 
     static final class MaxIdleTimeInMemoryWebSessionStore extends InMemoryWebSessionStore {
