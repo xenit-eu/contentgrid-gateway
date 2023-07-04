@@ -201,7 +201,8 @@ public class GatewayApplication {
                 .matchers(new AndServerWebExchangeMatcher(
                         EndpointRequest.toAnyEndpoint(),
                         mgmtExchange -> {
-                            if (mgmtExchange.getRequest().getRemoteAddress().getAddress().isLoopbackAddress()) {
+                            var remoteAddress = mgmtExchange.getRequest().getRemoteAddress();
+                            if (remoteAddress != null && remoteAddress.getAddress().isLoopbackAddress()) {
                                 return ServerWebExchangeMatcher.MatchResult.match();
                             }
                             return ServerWebExchangeMatcher.MatchResult.notMatch();
