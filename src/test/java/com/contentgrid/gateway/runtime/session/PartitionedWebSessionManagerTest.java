@@ -8,6 +8,8 @@ import com.contentgrid.gateway.GatewayApplication;
 import com.contentgrid.gateway.runtime.session.PartitionedWebSessionManagerTest.TestController;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.WebSession;
 
@@ -37,11 +40,14 @@ class PartitionedWebSessionManagerTest {
 
         @GetMapping("/test")
         @ResponseBody
-        String test(WebSession session) {
-            // explicitly start session to trigger session cookie
-            session.start();
+        Map<String, String> test(WebSession session, @RequestHeader("WebTestClient-Request-Id") String requestId) {
 
-            return "OK";
+            var previousRequestId = Objects.toString(session.getAttribute("requestId"));
+
+            // store current requestId in the session
+            session.getAttributes().put("requestId", requestId);
+
+            return Map.of("previous-request-id", previousRequestId);
         }
     }
 
@@ -67,7 +73,7 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentegrid.app/test")
+                .uri("https://app.userapps.contentgrid.app/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
@@ -94,11 +100,12 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentegrid.app/test")
+                .uri("https://app.userapps.contentgrid.app/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
-                .returnResult(Void.class).getResponseCookies().getFirst(SESSION_COOKIE_NAME);
+                .expectBody().jsonPath("$.previous-request-id").isEqualTo("null")
+                .returnResult().getResponseCookies().getFirst(SESSION_COOKIE_NAME);
 
         assertThat(sessionCookie).isNotNull();
 
@@ -107,11 +114,12 @@ class PartitionedWebSessionManagerTest {
         client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentegrid.app/test")
+                .uri("https://app.userapps.contentgrid.app/test")
                 .cookie("SESSION", sessionCookie.getValue())
                 .exchange()
                 .expectStatus().isOk()
-                .expectHeader().doesNotExist("Set-Cookie");
+                .expectHeader().doesNotExist("Set-Cookie")
+                .expectBody().jsonPath("$.previous-request-id").isEqualTo("1");
     }
 
 
@@ -120,7 +128,7 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentegrid.app/test")
+                .uri("https://app.userapps.contentgrid.app/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
@@ -132,7 +140,7 @@ class PartitionedWebSessionManagerTest {
         client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://other.userapps.contentegrid.app/test")
+                .uri("https://other.userapps.contentgrid.app/test")
                 .cookie("SESSION", sessionCookie.getValue())
                 .exchange()
                 .expectStatus().isOk()
