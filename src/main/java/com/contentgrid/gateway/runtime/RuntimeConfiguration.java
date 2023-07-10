@@ -40,7 +40,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
 
 @Slf4j
 @Configuration(proxyBeanMethods = false)
@@ -118,7 +120,7 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    OpaQueryProvider opaQueryProvider(ServiceCatalog serviceCatalog, ContentGridDeploymentMetadata deploymentMetadata) {
+    OpaQueryProvider<ServerWebExchange> opaQueryProvider(ServiceCatalog serviceCatalog, ContentGridDeploymentMetadata deploymentMetadata) {
         return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
     }
 
