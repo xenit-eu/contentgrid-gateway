@@ -9,8 +9,6 @@ import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.thunx.pdp.RequestContext;
-import com.contentgrid.thunx.spring.security.ServerWebExchangeRequestContext;
 import java.util.Optional;
 import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.ServerWebExchange;
 
 class RuntimeOpaQueryProviderTest {
 
@@ -84,12 +83,11 @@ class RuntimeOpaQueryProviderTest {
     }
 
     @NonNull
-    private static RequestContext createRequestContext(DeploymentId deployId) {
-        var request = MockServerHttpRequest.get("http://foo.userapps.contentgrid.com").build();
-        var exchange = MockServerWebExchange.from(request);
+    private static ServerWebExchange createRequestContext(DeploymentId deployId) {
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("http://foo.userapps.contentgrid.com").build());
         if (deployId != null) {
             exchange.getAttributes().put(CONTENTGRID_DEPLOY_ID_ATTR, deployId);
         }
-        return new ServerWebExchangeRequestContext(exchange);
+        return exchange;
     }
 }

@@ -3,12 +3,12 @@ package com.contentgrid.gateway;
 import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
-import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.security.opa.ContentgridOpaInputProvider;
 import com.contentgrid.opa.client.OpaClient;
 import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
 import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
+import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
@@ -47,6 +47,7 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -64,6 +65,7 @@ import org.springframework.security.web.server.util.matcher.AndServerWebExchange
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
 
 @Slf4j
 @SpringBootApplication
@@ -145,21 +147,26 @@ public class GatewayApplication {
 
     @Bean
     @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
-    OpaQueryProvider opaQueryProvider(OpaProperties opaProperties) {
+    OpaQueryProvider<ServerWebExchange> opaQueryProvider(OpaProperties opaProperties) {
         return request -> opaProperties.getQuery();
     }
 
     @Bean
+    OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
+        return new ContentgridOpaInputProvider();
+    }
+
+    @Bean
     @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient pdpClient(OpaClient opaClient, OpaQueryProvider opaQueryProvider) {
-        return new OpenPolicyAgentPDPClient(opaClient, opaQueryProvider);
+    public PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient(OpaClient opaClient, OpaQueryProvider<ServerWebExchange> opaQueryProvider, OpaInputProvider<Authentication, ServerWebExchange> inputProvider) {
+        return new OpenPolicyAgentPDPClient<>(opaClient, opaQueryProvider, inputProvider);
     }
 
     @Bean
     @ConditionalOnBean(PolicyDecisionPointClient.class)
     public ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthenticationManager(
-            PolicyDecisionPointClient pdpClient) {
-        return new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl(pdpClient));
+            PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient) {
+        return new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(pdpClient));
     }
 
     @Bean
