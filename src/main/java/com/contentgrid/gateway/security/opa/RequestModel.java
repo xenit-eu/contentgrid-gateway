@@ -2,10 +2,13 @@ package com.contentgrid.gateway.security.opa;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Value;
-import org.springframework.web.server.ServerWebExchange;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 
 @Value
 @Builder
@@ -15,13 +18,17 @@ public class RequestModel {
     Map<String, List<String>> query;
     Map<String, List<String>> headers;
 
-    public static RequestModel from(ServerWebExchange requestContext) {
-        var request = requestContext.getRequest();
+    public static RequestModel from(ServerHttpRequest request) {
         return RequestModel.builder()
                 .method(request.getMethod().name())
                 .path(List.of(uriToPathArray(request.getURI())))
                 .query(request.getQueryParams())
-                .headers(request.getHeaders())
+                .headers(
+                        request.getHeaders()
+                                .entrySet()
+                                .stream()
+                                .collect(Collectors.toMap(e -> e.getKey().toLowerCase(Locale.ROOT), Entry::getValue))
+                )
                 .build();
     }
 

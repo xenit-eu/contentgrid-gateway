@@ -9,7 +9,7 @@ public class ContentgridOpaInputProvider implements OpaInputProvider<Authenticat
 
     @Override
     public Map<String, Object> createInput(Authentication authenticationContext, ServerWebExchange requestContext) {
-        var request = RequestModel.from(requestContext);
+        var request = RequestModel.from(requestContext.getRequest());
         var auth = AuthenticationModel.from(authenticationContext);
         return Map.of(
                 "auth", auth,
