@@ -10,13 +10,6 @@ plugins {
 repositories {
 	mavenCentral()
 	maven { url 'https://repo.spring.io/milestone' }
-
-	maven {
-		url 'https://oss.sonatype.org/content/repositories/snapshots'
-		content {
-			includeGroup 'com.contentgrid.thunx'
-		}
-	}
 }
 
 bootRun {
@@ -65,7 +58,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-	implementation platform('com.contentgrid.thunx:thunx-bom:0.6.2')
+	implementation platform('com.contentgrid.thunx:thunx-bom:0.7.0')
 	implementation 'com.contentgrid.thunx:thunx-spring'
 	implementation 'com.contentgrid.thunx:thunx-pdp-opa'
 
