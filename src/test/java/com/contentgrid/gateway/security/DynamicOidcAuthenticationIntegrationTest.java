@@ -5,14 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import com.nimbusds.oauth2.sdk.GeneralException;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -26,12 +25,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.test.web.reactive.server.StatusAssertions;
-import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.reactive.server.WebTestClient.RequestHeadersSpec;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.netty.http.client.HttpClient;
 
 @Slf4j
 @SpringBootTest(
@@ -47,11 +43,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
     @Autowired
     ComposableApplicationConfigurationRepository applicationConfigurationRepository;
-
-    private final WebTestClient httpClient = WebTestClient
-            .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
-            .responseTimeout(Duration.ofHours(1)) // for interactive debugging
-            .build();
 
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
@@ -195,7 +186,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
     @NonNull
     private StatusAssertions assertRequest(Consumer<RequestHeadersSpec<? extends RequestHeadersSpec<?>>> customizer) {
-        var request = httpClient.get()
+        var request = this.http.get()
                 .uri("http://localhost:%s/me".formatted(this.port));
 
         customizer.accept(request);
