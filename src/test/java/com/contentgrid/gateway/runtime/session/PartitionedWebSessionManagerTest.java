@@ -17,6 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpCookie;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -73,7 +75,7 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentgrid.app/test")
+                .uri("https://app.userapps.contentgrid.cloud/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
@@ -100,7 +102,7 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentgrid.app/test")
+                .uri("https://app.userapps.contentgrid.cloud/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
@@ -114,7 +116,7 @@ class PartitionedWebSessionManagerTest {
         client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentgrid.app/test")
+                .uri("https://app.userapps.contentgrid.cloud/test")
                 .cookie("SESSION", sessionCookie.getValue())
                 .exchange()
                 .expectStatus().isOk()
@@ -128,7 +130,7 @@ class PartitionedWebSessionManagerTest {
         var sessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://app.userapps.contentgrid.app/test")
+                .uri("https://app.userapps.contentgrid.cloud/test")
                 .exchange()
                 .expectStatus().isOk()
                 .expectCookie().exists(SESSION_COOKIE_NAME)
@@ -137,13 +139,21 @@ class PartitionedWebSessionManagerTest {
         assertThat(sessionCookie).isNotNull();
 
         // trying to re-use the session cookie for a different hostname
-        client
+        var otherSessionCookie = client
                 .mutateWith(mockOAuth2Login())
                 .get()
-                .uri("https://other.userapps.contentgrid.app/test")
+                .uri("https://other.userapps.contentgrid.cloud/test")
                 .cookie("SESSION", sessionCookie.getValue())
                 .exchange()
                 .expectStatus().isOk()
-                .expectHeader().exists("Set-Cookie");
+                .expectCookie().exists(SESSION_COOKIE_NAME)
+                .expectBody().jsonPath("$.previous-request-id").isEqualTo("null")
+                .returnResult()
+                .getResponseCookies().getFirst(SESSION_COOKIE_NAME);
+
+        // assert we got a new session id
+        assertThat(otherSessionCookie)
+                .isNotNull()
+                .extracting(HttpCookie::getValue).isNotEqualTo(sessionCookie.getValue());
     }
 }
