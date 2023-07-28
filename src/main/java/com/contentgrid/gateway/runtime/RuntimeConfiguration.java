@@ -154,12 +154,12 @@ public class RuntimeConfiguration {
 
             @Bean
             ApplicationRunner k8sWatchSecrets(KubernetesResourceWatcherBinding watcherBinding) {
-                return args -> watcherBinding.watch(KubernetesClient::secrets, new Fabric8SecretMapper());
+                return args -> watcherBinding.inform(KubernetesClient::secrets, new Fabric8SecretMapper());
             }
 
             @Bean
             ApplicationRunner k8sWatchConfigMaps(KubernetesResourceWatcherBinding watcherBinding) {
-                return args -> watcherBinding.watch(KubernetesClient::configMaps, new Fabric8ConfigMapMapper());
+                return args -> watcherBinding.inform(KubernetesClient::configMaps, new Fabric8ConfigMapMapper());
             }
 
         }

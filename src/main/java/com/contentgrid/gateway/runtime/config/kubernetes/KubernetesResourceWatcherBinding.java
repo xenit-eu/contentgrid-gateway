@@ -5,12 +5,10 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.Watcher;
-import io.fabric8.kubernetes.client.WatcherException;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
-import java.io.Closeable;
-import java.io.IOException;
+import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
@@ -29,29 +27,29 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
             .addToMatchLabels(KubernetesLabels.CONTENTGRID_SERVICETYPE, "gateway")
             .build();
 
-    private final Set<Closeable> watches = new HashSet<>();
+    private final Set<AutoCloseable> closeables = new HashSet<>();
 
-    public <T extends HasMetadata> void watch(Function<KubernetesClient, MixedOperation<T, ?, ?>> resourceSelector,
+    public <T extends HasMetadata> void inform(Function<KubernetesClient, MixedOperation<T, ?, ?>> resourceSelector,
             KubernetesResourceMapper<T> mapper) {
 
-        var watch = resourceSelector.apply(client)
+        var informer = resourceSelector.apply(client)
                 .inNamespace(namespace)
                 .withLabelSelector(selector)
-                .watch(new ApplicationConfigResourceWatcher<>(this.appConfigRepository, mapper));
-        this.watches.add(watch);
+                .inform(new ApplicationConfigResourceHandler<>(this.appConfigRepository, mapper));
+        this.closeables.add(informer);
     }
 
     @Override
     public void close() {
-        var closables = Set.copyOf(this.watches);
-        this.watches.clear();
+        var closables = Set.copyOf(this.closeables);
+        this.closeables.clear();
 
         for (var closable : closables) {
             try {
                 if (closable != null) {
                     closable.close();
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 log.warn("Closing watch failed", e);
             }
         }
@@ -59,30 +57,68 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
 
     @Slf4j
     @RequiredArgsConstructor
-    static class ApplicationConfigResourceWatcher<T extends HasMetadata> implements Watcher<T> {
+    static class ApplicationConfigResourceHandler<T extends HasMetadata> implements ResourceEventHandler<T> {
 
         private final ComposableApplicationConfigurationRepository appConfigRepository;
 
         private final KubernetesResourceMapper<T> resourceMapper;
 
         @Override
-        public void eventReceived(Action action, T resource) {
-            resourceMapper.apply(resource).ifPresent(fragment -> {
-                log.info("{} {} {} [app-id:{}]", action, resource.getKind().toLowerCase(),
-                        resource.getMetadata().getName(), fragment.getApplicationId());
+        public void onNothing() {
+            ResourceEventHandler.super.onNothing();
+        }
 
-                switch (action) {
-                    case ADDED, MODIFIED -> appConfigRepository.merge(fragment);
-                    case DELETED -> appConfigRepository.revoke(fragment);
-                    default -> log.warn("Unknown action {} on secret {}", action, resource);
-                }
+        @Override
+        public void onAdd(T resource) {
+            resourceMapper.apply(resource).ifPresent(fragment -> {
+                log.info("informer: on-add {} {} [app-id:{}]",
+                        resource.getKind().toLowerCase(),
+                        resource.getMetadata().getName(),
+                        fragment.getApplicationId());
+
+                appConfigRepository.merge(fragment);
             });
         }
 
         @Override
-        public void onClose(WatcherException cause) {
-            log.info("Closed configmap watcher", cause);
+        public void onUpdate(T oldResource, T newResource) {
+            var oldFragment = resourceMapper.apply(oldResource);
+            var newFragment = resourceMapper.apply(newResource);
+
+            if (Objects.equals(oldFragment, newFragment)) {
+                log.info("informer: on-update {} {} - data has not changed, skipping",
+                        newResource.getKind().toLowerCase(),
+                        newResource.getMetadata().getName());
+
+                return;
+            }
+
+            newFragment.ifPresent(fragment -> {
+                log.info("informer: on-update {} {} [app-id:{}]",
+                        newResource.getKind().toLowerCase(),
+                        newResource.getMetadata().getName(),
+                        fragment.getApplicationId());
+                appConfigRepository.merge(fragment);
+            });
+        }
+
+        @Override
+        public void onDelete(T resource, boolean deletedFinalStateUnknown) {
+            resourceMapper.apply(resource).ifPresent(fragment -> {
+
+                if (deletedFinalStateUnknown) {
+                    log.warn("MISSED DELETE EVENT - informer: on-delete {} {} [app-id:{}]",
+                            resource.getKind().toLowerCase(),
+                            resource.getMetadata().getName(),
+                            fragment.getApplicationId());
+                } else {
+                    log.info("informer: on-delete {} {} [app-id:{}]",
+                            resource.getKind().toLowerCase(),
+                            resource.getMetadata().getName(),
+                            fragment.getApplicationId());
+                }
+                appConfigRepository.revoke(fragment);
+            });
         }
     }
-
 }
