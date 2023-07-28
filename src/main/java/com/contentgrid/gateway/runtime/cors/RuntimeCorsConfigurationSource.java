@@ -19,7 +19,7 @@ public class RuntimeCorsConfigurationSource implements CorsConfigurationSource {
     @NonNull
     private final ApplicationConfigurationRepository appConfigRepository;
 
-    private final CorsConfigurationMapper corsConfigurationMapper = new DefaultCorsConfigurationMapper();
+    private final CorsConfigurationMapper corsConfigurationMapper = new RuntimeCorsConfigurationMapper();
 
     @Nullable
     @Override

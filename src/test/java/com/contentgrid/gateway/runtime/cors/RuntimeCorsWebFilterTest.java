@@ -9,6 +9,7 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,8 @@ class RuntimeCorsWebFilterTest {
         var request = MockServerHttpRequest.options("https://my-app.contentgrid.cloud/documents")
                 .header(HttpHeaders.ORIGIN, "https://frontend-domain.test")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION,
+                        ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID)
                 .build();
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
@@ -51,17 +54,18 @@ class RuntimeCorsWebFilterTest {
         new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
 
         var response = exchange.getResponse();
+        var headers = response.getHeaders();
 
-        assertThat(response.getHeaders())
-                .containsEntry(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, List.of("https://frontend-domain.test"))
-                .containsEntry(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, List.of(HttpMethod.POST.name()))
-                .containsEntry(HttpHeaders.VARY, List.of(
+        assertThat(headers.getAccessControlAllowOrigin()).isEqualTo("https://frontend-domain.test");
+        assertThat(headers.getAccessControlAllowMethods()).contains(HttpMethod.POST);
+        assertThat(headers.getAccessControlAllowHeaders()).contains(HttpHeaders.AUTHORIZATION, ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID);
+        assertThat(headers.getVary()).contains(
                         HttpHeaders.ORIGIN,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
-                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS))
+                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS);
 
-                // We do NOT allow CORS requests using cookies, authorization headers or TLS client certificates
-                .doesNotContainKey(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS);
+        // We do NOT allow CORS requests using cookies, authorization headers or TLS client certificates
+        assertThat(headers.getAccessControlAllowCredentials()).isFalse();
     }
 
     @Test
