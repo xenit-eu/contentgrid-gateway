@@ -9,17 +9,21 @@ import com.contentgrid.gateway.runtime.config.ComposableApplicationConfiguration
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding.ApplicationConfigResourceHandler;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.NonNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-class KubernetesApplicationSecretsWatcherTest {
+class KubernetesResourceWatcherBindingTest {
+
 
     @Test
     void secret_added() {
@@ -68,6 +72,21 @@ class KubernetesApplicationSecretsWatcherTest {
     }
 
     @Test
+    void secret_updated_no_changes() {
+        var configs = Mockito.mock(ComposableApplicationConfigurationRepository.class);
+        var handler = new ApplicationConfigResourceHandler<>(configs, new Fabric8SecretMapper());
+
+        var appId = ApplicationId.random();
+        var fragmentId = UUID.randomUUID().toString();
+
+        var oldSecret = createSecret(appId, fragmentId);
+        var newSecret = createSecret(appId, fragmentId);
+        handler.onUpdate(oldSecret, newSecret);
+
+        Mockito.verifyNoMoreInteractions(configs);
+    }
+
+    @Test
     void secret_removed() {
         var configs = new ComposableApplicationConfigurationRepository();
         var handler = new ApplicationConfigResourceHandler<>(configs, new Fabric8SecretMapper());
@@ -90,7 +109,29 @@ class KubernetesApplicationSecretsWatcherTest {
     }
 
     @Test
-    void secret_unknown_operation() {
+    void secret_removed_resync() {
+        var configs = new ComposableApplicationConfigurationRepository();
+        var handler = new ApplicationConfigResourceHandler<>(configs, new Fabric8SecretMapper());
+
+        var appId = ApplicationId.random();
+        var fragmentId = UUID.randomUUID().toString();
+
+        configs.merge(new ApplicationConfigurationFragment(fragmentId, appId, Map.of("foo", "bar")));
+
+        var secret = createSecret(appId, fragmentId);
+
+        // verify the starting condition
+        assertThat(configs.getApplicationConfiguration(appId)).isNotNull();
+
+        // process DELETED event of secret with UUID='fragmentId'
+        handler.onDelete(secret, true);
+
+        // verify config has been deleted
+        assertThat(configs.getApplicationConfiguration(appId)).isNull();
+    }
+
+    @Test
+    void secret_nothingChanged() {
         var configs = Mockito.mock(ComposableApplicationConfigurationRepository.class);
         var handler = new ApplicationConfigResourceHandler<>(configs, new Fabric8SecretMapper());
 
@@ -100,7 +141,23 @@ class KubernetesApplicationSecretsWatcherTest {
         Mockito.verifyNoMoreInteractions(configs);
     }
 
-    @NonNull
+    @Test
+    void onClose() {
+        var binding = new KubernetesResourceWatcherBinding(
+                new ComposableApplicationConfigurationRepository(),
+                Mockito.mock(KubernetesClient.class),
+                "default", 0);
+
+        var informer = Mockito.mock(SharedIndexInformer.class);
+
+        binding.informInternal(kubernetesClient ->  informer, secret -> Optional.empty());
+        binding.close();
+
+        Mockito.verify(informer).close();
+    }
+
+
+        @NonNull
     private static Secret createSecret(ApplicationId appId, String fragmentId) {
         return createSecret(appId, fragmentId, Map.of("foo", "bar"));
     }
@@ -120,9 +177,11 @@ class KubernetesApplicationSecretsWatcherTest {
         var secret = new Secret();
         secret.setMetadata(metadata);
         var data = properties.entrySet().stream()
-                .map(entry -> entry(entry.getKey(), encoder.encodeToString(entry.getValue().getBytes(StandardCharsets.UTF_8))))
-                .collect(Collectors.toMap(Entry::getKey, Map.Entry::getValue));
+                .map(entry -> entry(entry.getKey(), encoder.encodeToString(entry.getValue().getBytes(
+                        StandardCharsets.UTF_8))))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
         secret.setData(data);
         return secret;
     }
+
 }

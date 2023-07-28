@@ -7,6 +7,7 @@ import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
+import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -21,6 +22,7 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
     private final ComposableApplicationConfigurationRepository appConfigRepository;
     private final KubernetesClient client;
     private final String namespace;
+    private final long resyncSecs;
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
             .addToMatchLabels(KubernetesLabels.K8S_MANAGEDBY, "contentgrid")
@@ -29,13 +31,24 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
 
     private final Set<AutoCloseable> closeables = new HashSet<>();
 
-    public <T extends HasMetadata> void inform(Function<KubernetesClient, MixedOperation<T, ?, ?>> resourceSelector,
+    public <T extends HasMetadata> void inform(
+            Function<KubernetesClient, MixedOperation<T, ?, ?>> resourceSelector,
             KubernetesResourceMapper<T> mapper) {
 
-        var informer = resourceSelector.apply(client)
-                .inNamespace(namespace)
-                .withLabelSelector(selector)
-                .inform(new ApplicationConfigResourceHandler<>(this.appConfigRepository, mapper));
+        this.informInternal(kubernetesClient -> resourceSelector.apply(kubernetesClient)
+                        .inNamespace(namespace)
+                        .withLabelSelector(selector)
+                        .runnableInformer(resyncSecs),
+                mapper);
+    }
+
+    <T extends HasMetadata> void informInternal(Function<KubernetesClient, SharedIndexInformer<T>> informerFunction,
+            KubernetesResourceMapper<T> mapper) {
+
+        var informer = informerFunction.apply(client);
+        informer.addEventHandler(new ApplicationConfigResourceHandler<>(this.appConfigRepository, mapper));
+        informer.run();
+
         this.closeables.add(informer);
     }
 
@@ -46,9 +59,7 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
 
         for (var closable : closables) {
             try {
-                if (closable != null) {
-                    closable.close();
-                }
+                closable.close();
             } catch (Exception e) {
                 log.warn("Closing watch failed", e);
             }

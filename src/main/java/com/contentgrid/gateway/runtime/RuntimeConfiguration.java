@@ -149,7 +149,7 @@ public class RuntimeConfiguration {
                     ComposableApplicationConfigurationRepository appConfigRepository,
                     KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
                 return new KubernetesResourceWatcherBinding(appConfigRepository, kubernetesClient,
-                        properties.getNamespace());
+                        properties.getNamespace(), properties.getResync());
             }
 
             @Bean

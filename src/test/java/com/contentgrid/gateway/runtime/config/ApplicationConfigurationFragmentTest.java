@@ -61,8 +61,9 @@ class ApplicationConfigurationFragmentTest {
         props2.put(Keys.CORS_ORIGINS, "https://my-app.contentgrid.app");
         props2.put(Keys.ROUTING_DOMAINS, "my-app.contentgrid.cloud");
 
-        assertThat(SIMPLE).isEqualTo(new ApplicationConfigurationFragment(configId, appId, props1));
-        assertThat(SIMPLE).isEqualTo(new ApplicationConfigurationFragment(configId, appId, props2));
+        assertThat(SIMPLE)
+                .isEqualTo(new ApplicationConfigurationFragment(configId, appId, props1))
+                .isEqualTo(new ApplicationConfigurationFragment(configId, appId, props2));
 
         assertThat(new ApplicationConfigurationFragment(configId, appId, props1)).isEqualTo(SIMPLE);
         assertThat(new ApplicationConfigurationFragment(configId, appId, props2)).isEqualTo(SIMPLE);
