@@ -149,17 +149,17 @@ public class RuntimeConfiguration {
                     ComposableApplicationConfigurationRepository appConfigRepository,
                     KubernetesClient kubernetesClient, ServiceDiscoveryProperties properties) {
                 return new KubernetesResourceWatcherBinding(appConfigRepository, kubernetesClient,
-                        properties.getNamespace());
+                        properties.getNamespace(), properties.getResync());
             }
 
             @Bean
             ApplicationRunner k8sWatchSecrets(KubernetesResourceWatcherBinding watcherBinding) {
-                return args -> watcherBinding.watch(KubernetesClient::secrets, new Fabric8SecretMapper());
+                return args -> watcherBinding.inform(KubernetesClient::secrets, new Fabric8SecretMapper());
             }
 
             @Bean
             ApplicationRunner k8sWatchConfigMaps(KubernetesResourceWatcherBinding watcherBinding) {
-                return args -> watcherBinding.watch(KubernetesClient::configMaps, new Fabric8ConfigMapMapper());
+                return args -> watcherBinding.inform(KubernetesClient::configMaps, new Fabric8ConfigMapMapper());
             }
 
         }

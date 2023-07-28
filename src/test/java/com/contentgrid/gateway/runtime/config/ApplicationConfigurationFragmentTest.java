@@ -2,8 +2,11 @@ package com.contentgrid.gateway.runtime.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ApplicationConfigurationFragmentTest {
@@ -27,7 +30,6 @@ class ApplicationConfigurationFragmentTest {
     ));
 
 
-
     @Test
     void getRoutingDomains() {
         assertThat(SIMPLE.getDomains()).singleElement().isEqualTo("my-app.contentgrid.cloud");
@@ -44,6 +46,30 @@ class ApplicationConfigurationFragmentTest {
                 "https://my-app.contentgrid.app", "http://localhost:*", "https://*.domain.test");
         assertThat(EMPTY.getCorsOrigins()).isNotNull().isEmpty();
         assertThat(MISSING.getCorsOrigins()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void testEquals() {
+        var configId = SIMPLE.getConfigurationId();
+        var appId = SIMPLE.getApplicationId();
+
+        var props1 = new LinkedHashMap<String, String>();
+        props1.put(Keys.ROUTING_DOMAINS, "my-app.contentgrid.cloud");
+        props1.put(Keys.CORS_ORIGINS, "https://my-app.contentgrid.app");
+
+        var props2 = new LinkedHashMap<String, String>();
+        props2.put(Keys.CORS_ORIGINS, "https://my-app.contentgrid.app");
+        props2.put(Keys.ROUTING_DOMAINS, "my-app.contentgrid.cloud");
+
+        assertThat(SIMPLE)
+                .isEqualTo(new ApplicationConfigurationFragment(configId, appId, props1))
+                .isEqualTo(new ApplicationConfigurationFragment(configId, appId, props2));
+
+        assertThat(new ApplicationConfigurationFragment(configId, appId, props1)).isEqualTo(SIMPLE);
+        assertThat(new ApplicationConfigurationFragment(configId, appId, props2)).isEqualTo(SIMPLE);
+
+        assertThat(new ApplicationConfigurationFragment(configId, appId, props1))
+                .isEqualTo(new ApplicationConfigurationFragment(configId, appId, props2));
     }
 
 }
