@@ -38,7 +38,7 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
         this.informInternal(kubernetesClient -> resourceSelector.apply(kubernetesClient)
                         .inNamespace(namespace)
                         .withLabelSelector(selector)
-                        .runnableInformer(resyncSecs),
+                        .runnableInformer(resyncSecs * 1000L),
                 mapper);
     }
 
@@ -97,7 +97,7 @@ public class KubernetesResourceWatcherBinding implements AutoCloseable {
             var newFragment = resourceMapper.apply(newResource);
 
             if (Objects.equals(oldFragment, newFragment)) {
-                log.info("informer: on-update {} {} - data has not changed, skipping",
+                log.debug("informer: on-update {} {} - data has not changed, skipping",
                         newResource.getKind().toLowerCase(),
                         newResource.getMetadata().getName());
 
