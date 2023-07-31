@@ -45,8 +45,7 @@ class RuntimeCorsWebFilterTest {
         var request = MockServerHttpRequest.options("https://my-app.contentgrid.cloud/documents")
                 .header(HttpHeaders.ORIGIN, "https://frontend-domain.test")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
-                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION,
-                        ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION)
                 .build();
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
@@ -58,8 +57,8 @@ class RuntimeCorsWebFilterTest {
 
         assertThat(headers.getAccessControlAllowOrigin()).isEqualTo("https://frontend-domain.test");
         assertThat(headers.getAccessControlAllowMethods()).contains(HttpMethod.POST);
-        assertThat(headers.getAccessControlAllowHeaders()).contains(HttpHeaders.AUTHORIZATION, ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID);
-        assertThat(headers.getVary()).contains(
+        assertThat(headers.getAccessControlAllowHeaders()).contains(HttpHeaders.AUTHORIZATION);
+        assertThat(headers.getVary()).containsExactly(
                         HttpHeaders.ORIGIN,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS);
@@ -85,6 +84,7 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getStatusCode())
                 .isNotNull()
                 .satisfies(status -> assertThat(status).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).isEmpty();
     }
 
     @Test
@@ -104,6 +104,7 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getStatusCode())
                 .isNotNull()
                 .satisfies(status -> assertThat(status).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).isEmpty();
     }
 
     @Test
@@ -123,10 +124,11 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getStatusCode())
                 .isNotNull()
                 .satisfies(status -> assertThat(status).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).isEmpty();
     }
 
     @Test
-    void corsRequest_denied_validOrigin() {
+    void corsRequest_allowed_validOrigin() {
 
         var request = MockServerHttpRequest.post("https://my-app.contentgrid.cloud/documents")
                 .header(HttpHeaders.ORIGIN, "https://frontend-domain.test")
@@ -144,5 +146,6 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getHeaders()).containsEntry(HttpHeaders.VARY,
                 List.of(HttpHeaders.ORIGIN, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).contains(ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID, ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID);
     }
 }
