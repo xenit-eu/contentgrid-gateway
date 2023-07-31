@@ -13,8 +13,12 @@ public class ContentGridResponseHeadersWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 
-        copyAttributeToResponseHeader(exchange, ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR, "ContentGrid-Application-Id");
-        copyAttributeToResponseHeader(exchange, ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR, "ContentGrid-Deployment-Id");
+        copyAttributeToResponseHeader(exchange,
+                ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR,
+                ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID);
+        copyAttributeToResponseHeader(exchange,
+                ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR,
+                ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID);
 
         return chain.filter(exchange);
     }
