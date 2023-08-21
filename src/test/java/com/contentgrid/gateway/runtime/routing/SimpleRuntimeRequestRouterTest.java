@@ -4,10 +4,8 @@ import static com.contentgrid.gateway.test.assertj.MonoAssert.assertThat;
 
 import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
-import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
@@ -21,7 +19,6 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 
 class SimpleRuntimeRequestRouterTest {
 
-    protected ContentGridApplicationMetadata applicationMetadata;
     protected ComposableApplicationConfigurationRepository appConfigRepo;
     protected ServiceCatalog serviceCatalog;
     protected RuntimeRequestRouter requestRouter;
@@ -29,7 +26,6 @@ class SimpleRuntimeRequestRouterTest {
     @BeforeEach
     void setup() {
         var deployMetadata = new SimpleContentGridDeploymentMetadata();
-        this.applicationMetadata = new SimpleContentGridApplicationMetadata(deployMetadata);
         this.appConfigRepo = new ComposableApplicationConfigurationRepository();
         this.serviceCatalog = new ServiceCatalog(event -> { }, deployMetadata, appConfigRepo);
         this.requestRouter = new SimpleRuntimeRequestRouter(this.serviceCatalog, deployMetadata, appConfigRepo);
