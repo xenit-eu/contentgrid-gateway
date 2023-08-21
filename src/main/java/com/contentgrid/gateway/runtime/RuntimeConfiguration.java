@@ -3,10 +3,8 @@ package com.contentgrid.gateway.runtime;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
-import com.contentgrid.gateway.runtime.application.ContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
-import com.contentgrid.gateway.runtime.application.SimpleContentGridApplicationMetadata;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -40,7 +38,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -59,11 +56,6 @@ public class RuntimeConfiguration {
     @Bean
     ContentGridDeploymentMetadata deploymentMetadata() {
         return new SimpleContentGridDeploymentMetadata();
-    }
-
-    @Bean
-    ContentGridApplicationMetadata applicationMetadata(ContentGridDeploymentMetadata deploymentMetadata) {
-        return new SimpleContentGridApplicationMetadata(deploymentMetadata);
     }
 
     @Bean
