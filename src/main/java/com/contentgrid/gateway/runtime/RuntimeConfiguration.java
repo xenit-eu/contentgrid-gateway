@@ -12,6 +12,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
+import com.contentgrid.gateway.runtime.routing.RuntimeDeploymentGatewayFilter;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
 import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver;
@@ -33,6 +34,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.GatewayFilterSpec;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -45,12 +49,25 @@ import org.springframework.web.server.ServerWebExchange;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
 public class RuntimeConfiguration {
-
+    @Bean
+    RuntimeDeploymentGatewayFilter deploymentGatewayFilter() {
+        return new RuntimeDeploymentGatewayFilter();
+    }
 
     @Bean
-    public ServiceCatalog serviceTracker(ApplicationEventPublisher publisher,
-            ContentGridDeploymentMetadata deploymentMetadata, ApplicationConfigurationRepository appConfigRepository) {
-        return new ServiceCatalog(publisher, deploymentMetadata, appConfigRepository);
+    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, RuntimeRequestResolver requestResolver) {
+        return builder.routes()
+                .route(r -> r
+                        .predicate(exchange -> requestResolver.resolveDeploymentId(exchange).isPresent())
+                        .filters(GatewayFilterSpec::preserveHostHeader)
+                        .uri("cg://ignored")
+                )
+                .build();
+    }
+
+    @Bean
+    public ServiceCatalog serviceTracker(ContentGridDeploymentMetadata deploymentMetadata) {
+        return new ServiceCatalog(deploymentMetadata);
     }
 
     @Bean

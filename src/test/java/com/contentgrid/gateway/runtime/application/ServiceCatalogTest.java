@@ -10,11 +10,10 @@ import org.mockito.Mockito;
 class ServiceCatalogTest {
 
     ContentGridDeploymentMetadata deploymentMetadata = new SimpleContentGridDeploymentMetadata();
-    ApplicationConfigurationRepository appConfigRepo = Mockito.mock(ApplicationConfigurationRepository.class);
 
     @Test
     void services() {
-        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, appConfigRepo);
+        var catalog = new ServiceCatalog(deploymentMetadata);
 
         var appId1 = ApplicationId.random();
         var deploy1 = DeploymentId.random();
@@ -35,7 +34,7 @@ class ServiceCatalogTest {
 
     @Test
     void findByApplicationId_empty() {
-        var catalog = new ServiceCatalog(event -> {}, deploymentMetadata, appConfigRepo);
+        var catalog = new ServiceCatalog(deploymentMetadata);
 
         var result = catalog.findByApplicationId(ApplicationId.random());
         assertThat(result).isEmpty();

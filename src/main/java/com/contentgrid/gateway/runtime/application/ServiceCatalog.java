@@ -29,29 +29,21 @@ import reactor.util.Loggers;
 
 @Slf4j
 public class ServiceCatalog implements
-        ServiceAddedHandler, ServiceDeletedHandler,
-        RouteDefinitionLocator /* replace this later with DiscoveryClientRouteDefinitionLocator */ {
-
-    @NonNull
-    private final ApplicationEventPublisher publisher;
-
+        ServiceAddedHandler, ServiceDeletedHandler
+{
     @NonNull
     private final ContentGridDeploymentMetadata deploymentMetadata;
-
     @NonNull
-    private final ApplicationConfigurationRepository appConfigRepository;
-
     private final ConcurrentLookup<String, ServiceInstance> services;
+    @NonNull
     private final Lookup<ApplicationId, ServiceInstance> lookupByApplicationId;
-
+    @NonNull
     private final Lookup<DeploymentId, ServiceInstance> lookupByDeploymentId;
 
-    public ServiceCatalog(@NonNull ApplicationEventPublisher publisher,
-            @NonNull ContentGridDeploymentMetadata deploymentMetadata,
-            @NonNull ApplicationConfigurationRepository appConfigRepository) {
-        this.publisher = publisher;
+    public ServiceCatalog(
+            @NonNull ContentGridDeploymentMetadata deploymentMetadata
+            ) {
         this.deploymentMetadata = deploymentMetadata;
-        this.appConfigRepository = appConfigRepository;
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
         this.lookupByApplicationId = this.services.createLookup(
@@ -61,48 +53,14 @@ public class ServiceCatalog implements
 
     }
 
-    private RouteDefinition createRouteDefinition(ServiceInstance service) {
-        var routeDef = new RouteDefinition();
-        routeDef.setId("k8s-" + service.getServiceId());
-        routeDef.setUri(service.getUri());
-
-        var hostnamePredicate = new PredicateDefinition();
-        hostnamePredicate.setName("Host");
-
-        var domainNames = this.deploymentMetadata.getApplicationId(service)
-                .map(this.appConfigRepository::getApplicationConfiguration)
-                .map(ApplicationConfiguration::getDomains)
-                .orElse(Set.of())
-                .stream()
-                // also accept Host headers on the current server port
-                .flatMap(domain -> Stream.of(domain + ":*", domain))
-                .toList();
-
-        for (int i = 0; i < domainNames.size(); i++) {
-            hostnamePredicate.addArg("index_"+i, domainNames.get(i));
-        }
-
-        routeDef.setPredicates(List.of(hostnamePredicate));
-
-        return routeDef;
-    }
-
-    @Override
-    public Flux<RouteDefinition> getRouteDefinitions() {
-        return Flux.fromStream(() -> this.services().map(this::createRouteDefinition))
-                .log(Loggers.getLogger(ServiceCatalog.class), Level.FINE, false);
-    }
-
     @Override
     public void handleServiceAdded(ServiceInstance service) {
         services.add(service);
-        publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
     @Override
     public void handleServiceDeleted(ServiceInstance service) {
         services.remove(service.getInstanceId());
-        publisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
     public Stream<ServiceInstance> services() {
@@ -111,7 +69,7 @@ public class ServiceCatalog implements
 
     public Collection<ServiceInstance> findByApplicationId(@NonNull ApplicationId applicationId) {
         var services = this.lookupByApplicationId.apply(applicationId);
-        if (log.isDebugEnabled()){
+        if (log.isDebugEnabled()) {
             log.debug("findByApplicationId({}) -> [{}]", applicationId,
                     services.stream().map(ServiceInstance::getServiceId).collect(Collectors.joining(", ")));
         }

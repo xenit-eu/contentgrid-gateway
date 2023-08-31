@@ -34,7 +34,7 @@ class DefaultRuntimeRequestRouterTest {
     @BeforeEach
     void setup() {
         ApplicationConfigurationRepository appConfigRepository = Mockito.mock(ApplicationConfigurationRepository.class);
-        this.serviceCatalog = new ServiceCatalog(event -> { }, deployMetadata, appConfigRepository);
+        this.serviceCatalog = new ServiceCatalog(deployMetadata);
         RuntimeServiceInstanceSelector serviceInstanceSelector = new SimpleRuntimeServiceInstanceSelector(
                 deployMetadata);
         this.requestRouter = new DefaultRuntimeRequestRouter(this.serviceCatalog, this.virtualHostResolver,

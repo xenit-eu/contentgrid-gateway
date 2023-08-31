@@ -74,6 +74,8 @@ dependencies {
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock'
+
 	testImplementation 'io.rest-assured:rest-assured'
 	testImplementation 'io.projectreactor:reactor-test'
 

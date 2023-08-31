@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -148,10 +149,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             var appId = ApplicationId.random();
             var deploymentId = DeploymentId.random();
 
-            List<Route> routes = routeLocator.getRoutes().collectList().block();
-            assertThat(routes).isNotNull();
-            assertThat(routes).isEmpty();
-
             webTestClient
                     .mutateWith(mockOidcLogin())
                     .get()
@@ -212,9 +209,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                                 .expectBody(String.class)
                                 .value(body -> assertThat(body).isEqualTo("Hello ContentGrid!"));
                     });
-
-            var newRoutes = routeLocator.getRoutes().collectList().block();
-            assertThat(newRoutes).isNotEmpty();
         }
     }
 

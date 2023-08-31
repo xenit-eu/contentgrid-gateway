@@ -20,6 +20,9 @@ spring:
           filters:
             - RedirectTo=302, /me
 
+logging.level:
+  com.contentgrid.gateway.runtime.routing: DEBUG
+
 #opa:
 #  service:
 #    url: http://localhost:8181
