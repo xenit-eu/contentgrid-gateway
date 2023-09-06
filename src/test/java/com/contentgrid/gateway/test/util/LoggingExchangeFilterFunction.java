@@ -107,7 +107,7 @@ public class LoggingExchangeFilterFunction implements ExchangeFilterFunction {
                             })
                             .build();
                 })
-                .doOnSuccess(response -> logger.accept(sb.toString()));
+                .doOnNext(response -> logger.accept(sb.toString()));
     }
 
     private static final List<MediaType> JSON_MEDIATYPES = List.of(

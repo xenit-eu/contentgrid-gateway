@@ -40,9 +40,7 @@ public class ServiceCatalog implements
     @NonNull
     private final Lookup<DeploymentId, ServiceInstance> lookupByDeploymentId;
 
-    public ServiceCatalog(
-            @NonNull ContentGridDeploymentMetadata deploymentMetadata
-            ) {
+    public ServiceCatalog(@NonNull ContentGridDeploymentMetadata deploymentMetadata) {
         this.deploymentMetadata = deploymentMetadata;
 
         this.services = new ConcurrentLookup<>(ServiceInstance::getInstanceId);
