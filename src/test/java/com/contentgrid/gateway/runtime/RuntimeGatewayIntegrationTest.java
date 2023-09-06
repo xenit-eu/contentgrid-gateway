@@ -6,8 +6,13 @@ import static com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders.CONT
 import static com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
+import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_HOST_HEADER;
+import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_PORT_HEADER;
+import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_PROTO_HEADER;
+import static org.springframework.http.HttpHeaders.HOST;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
@@ -27,6 +32,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -132,20 +138,60 @@ class RuntimeGatewayIntegrationTest {
     @Autowired
     WebTestClient webTestClient;
 
-    @Test
-    void happy_path_http200() {
-        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+    @Nested
+    class HappyPath {
 
-        webTestClient
-                .mutateWith(mockOidcLogin())
-                .get().uri("https://{hostname}/test", hostname(APP_ID))
-                .header("Host", hostname(APP_ID))
-                .exchange()
-                .expectStatus().isEqualTo(HttpStatus.OK)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
+        @Test
+        void contentgridHeaders_expected() {
+            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
 
-        wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
+            webTestClient
+                    .mutateWith(mockOidcLogin())
+                    .get().uri("https://{hostname}/test", hostname(APP_ID))
+                    .header("Host", hostname(APP_ID))
+                    .exchange()
+                    .expectStatus().isEqualTo(HttpStatus.OK)
+                    .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
+                    .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
+
+            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
+        }
+
+        @Test
+        void xForwardedHeaders_expected() {
+            var hostname = hostname(APP_ID);
+            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+
+            webTestClient
+                    .mutateWith(mockOidcLogin())
+                    .get().uri("https://{hostname}/test", hostname)
+                    .header("Host", hostname)
+                    .exchange()
+                    .expectStatus().isEqualTo(HttpStatus.OK);
+
+            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
+                    .withHeader(X_FORWARDED_HOST_HEADER, equalTo(hostname))
+                    .withHeader(X_FORWARDED_PROTO_HEADER, equalTo("https"))
+                    .withHeader(X_FORWARDED_PORT_HEADER, equalTo("443"))
+            );
+        }
+
+        @Test
+        void preserveHostHeader_expected() {
+            var hostname = hostname(APP_ID);
+            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+
+            webTestClient
+                    .mutateWith(mockOidcLogin())
+                    .get().uri("https://{hostname}/test", hostname)
+                    .header("Host", hostname)
+                    .exchange()
+                    .expectStatus().isEqualTo(HttpStatus.OK);
+
+            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
+                    .withHeader(HOST, equalTo(hostname))
+            );
+        }
     }
 
     @Test
