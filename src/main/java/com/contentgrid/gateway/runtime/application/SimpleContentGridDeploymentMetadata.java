@@ -9,20 +9,24 @@ import org.springframework.util.StringUtils;
 @Slf4j
 public class SimpleContentGridDeploymentMetadata implements ContentGridDeploymentMetadata {
 
+    public static final String LABEL_APPLICATION_ID = "app.contentgrid.com/application-id";
+    public static final String LABEL_DEPLOYMENT_ID = "app.contentgrid.com/deployment-id";
+    public static final String LABEL_POLICY_PACKAGE = "authz.contentgrid.com/policy-package";
+
     public Optional<ApplicationId> getApplicationId(@NonNull ServiceInstance service) {
-        return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/application-id"))
+        return Optional.ofNullable(service.getMetadata().get(LABEL_APPLICATION_ID))
                 .map(ApplicationId::from);
     }
 
     @Override
     public Optional<DeploymentId> getDeploymentId(ServiceInstance service) {
-        return Optional.ofNullable(service.getMetadata().get("app.contentgrid.com/deployment-id"))
+        return Optional.ofNullable(service.getMetadata().get(LABEL_DEPLOYMENT_ID))
                 .map(DeploymentId::from);
     }
 
     @Override
     public Optional<String> getPolicyPackage(ServiceInstance service) {
-        var policyPackage = service.getMetadata().get("authz.contentgrid.com/policy-package");
+        var policyPackage = service.getMetadata().get(LABEL_POLICY_PACKAGE);
         if (!StringUtils.hasText(policyPackage)) {
             log.warn("Service {} (deployment:{}) has no policy package defined",
                     service.getServiceId(), this.getDeploymentId(service));

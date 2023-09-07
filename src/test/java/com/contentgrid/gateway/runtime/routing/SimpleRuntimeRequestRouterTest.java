@@ -27,7 +27,7 @@ class SimpleRuntimeRequestRouterTest {
     void setup() {
         var deployMetadata = new SimpleContentGridDeploymentMetadata();
         this.appConfigRepo = new ComposableApplicationConfigurationRepository();
-        this.serviceCatalog = new ServiceCatalog(event -> { }, deployMetadata, appConfigRepo);
+        this.serviceCatalog = new ServiceCatalog(deployMetadata);
         this.requestRouter = new SimpleRuntimeRequestRouter(this.serviceCatalog, deployMetadata, appConfigRepo);
     }
 

@@ -1,6 +1,5 @@
 package com.contentgrid.gateway;
 
-
 import static io.fabric8.kubernetes.client.Config.fromKubeconfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
@@ -148,10 +147,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             var appId = ApplicationId.random();
             var deploymentId = DeploymentId.random();
 
-            List<Route> routes = routeLocator.getRoutes().collectList().block();
-            assertThat(routes).isNotNull();
-            assertThat(routes).isEmpty();
-
             webTestClient
                     .mutateWith(mockOidcLogin())
                     .get()
@@ -212,9 +207,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                                 .expectBody(String.class)
                                 .value(body -> assertThat(body).isEqualTo("Hello ContentGrid!"));
                     });
-
-            var newRoutes = routeLocator.getRoutes().collectList().block();
-            assertThat(newRoutes).isNotEmpty();
         }
     }
 
