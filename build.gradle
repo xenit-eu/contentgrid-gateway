@@ -82,7 +82,7 @@ dependencies {
 	testImplementation platform('org.testcontainers:testcontainers-bom:1.19.0')
 	testImplementation 'org.testcontainers:testcontainers'
 	testImplementation 'org.testcontainers:junit-jupiter'
-	testImplementation 'com.github.dasniko:testcontainers-keycloak:2.6.0'
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.0.0'
 
 	testImplementation 'org.testcontainers:k3s'
 	testImplementation 'org.awaitility:awaitility'
