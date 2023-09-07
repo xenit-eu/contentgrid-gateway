@@ -146,6 +146,10 @@ class RuntimeCorsWebFilterTest {
         assertThat(response.getHeaders()).containsEntry(HttpHeaders.VARY,
                 List.of(HttpHeaders.ORIGIN, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
-        assertThat(response.getHeaders().getAccessControlExposeHeaders()).contains(ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID, ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID);
+        assertThat(response.getHeaders().getAccessControlExposeHeaders())
+                .containsExactlyInAnyOrder(
+                        ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID,
+                        ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID,
+                        HttpHeaders.CONTENT_DISPOSITION);
     }
 }

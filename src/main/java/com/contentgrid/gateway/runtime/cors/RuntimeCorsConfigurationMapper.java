@@ -5,6 +5,7 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.cors.CorsConfiguration;
 
 @RequiredArgsConstructor
@@ -12,7 +13,9 @@ class RuntimeCorsConfigurationMapper implements CorsConfigurationMapper {
 
     private final List<String> exposedHeaders = List.of(
             ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID,
-            ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID
+            ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID,
+
+            HttpHeaders.CONTENT_DISPOSITION
     );
 
     @Override
