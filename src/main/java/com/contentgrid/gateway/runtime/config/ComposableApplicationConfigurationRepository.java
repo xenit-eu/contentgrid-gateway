@@ -39,9 +39,11 @@ public class ComposableApplicationConfigurationRepository implements
         this.configs.clear();
     }
 
-    public void merge(@NonNull ApplicationConfiguration fragment) {
+    public ComposableApplicationConfigurationRepository merge(@NonNull ApplicationConfiguration fragment) {
         var merged = this.getOrDefault(fragment.getApplicationId()).withAdditionalConfiguration(fragment);
         this.put(merged);
+
+        return this;
     }
 
     public void revoke(@NonNull ApplicationConfiguration fragment) {

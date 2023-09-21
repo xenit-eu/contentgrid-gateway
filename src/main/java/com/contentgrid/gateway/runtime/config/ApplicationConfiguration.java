@@ -1,7 +1,5 @@
 package com.contentgrid.gateway.runtime.config;
 
-import static com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys.DELIMITER_REGEX;
-
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Arrays;
 import java.util.Map.Entry;
@@ -34,6 +32,10 @@ public interface ApplicationConfiguration {
 
     Optional<String> getProperty(@NonNull String property);
 
+    default Stream<String> getProperties(@NonNull String property) {
+        return this.getProperty(property).stream();
+    }
+
     Stream<String> keys();
 
     Stream<Entry<String, String>> stream();
@@ -51,14 +53,15 @@ public interface ApplicationConfiguration {
     }
 
     default Set<String> getDomains() {
-        return Arrays.stream(this.getProperty(Keys.ROUTING_DOMAINS).orElse("").split(DELIMITER_REGEX))
+        return Arrays.stream(this.getProperty(Keys.ROUTING_DOMAINS).orElse("").split(Keys.DELIMITER_REGEX))
                 .map(String::trim)
                 .filter(str -> !str.isBlank())
                 .collect(Collectors.toSet());
     }
 
     default Set<String> getCorsOrigins() {
-        return Arrays.stream(this.getProperty(Keys.CORS_ORIGINS).orElse("").split(DELIMITER_REGEX))
+        return this.getProperties(Keys.CORS_ORIGINS)
+                .flatMap(value -> Stream.of(value.split(Keys.DELIMITER_REGEX)))
                 .map(String::trim)
                 .filter(str -> !str.isBlank())
                 .collect(Collectors.toSet());
