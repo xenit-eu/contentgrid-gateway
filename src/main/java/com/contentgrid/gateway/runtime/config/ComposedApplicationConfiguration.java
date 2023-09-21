@@ -50,10 +50,16 @@ public class ComposedApplicationConfiguration implements ApplicationConfiguratio
 
     @Override
     public Optional<String> getProperty(@NonNull String property) {
-        return this.fragments.values().stream()
-                .flatMap(frag -> frag.getProperty(property).stream())
-                .findFirst();
+        return this.getProperties(property).findFirst();
     }
+
+    @Override
+    public Stream<String> getProperties(@NonNull String property) {
+        return this.fragments.values().stream()
+                .flatMap(frag -> frag.getProperty(property).stream());
+    }
+
+
 
     public Stream<Entry<String, String>> stream() {
         return this.keys().flatMap(key -> this.getProperty(key).stream().map(prop -> Map.entry(key, prop)));
