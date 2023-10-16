@@ -44,6 +44,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -59,7 +60,9 @@ public class KubernetesServiceDiscoveryIntegrationTest {
 
     @Container
     private static final K3sContainer K8S = new K3sContainer(DockerImageName.parse("rancher/k3s:latest"))
-            .withCommand("server", "--disable=traefik");
+            // See https://github.com/testcontainers/testcontainers-java/issues/6770
+            .withCommand("server", "--disable=traefik",
+                    "--tls-san=" + DockerClientFactory.instance().dockerHostIpAddress());
 
     @Container
     public static final GenericContainer<?> NGINX = new GenericContainer<>(DockerImageName.parse("docker.io/nginx"))
