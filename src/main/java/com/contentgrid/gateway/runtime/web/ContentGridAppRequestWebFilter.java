@@ -6,7 +6,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -38,7 +37,7 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         return this.requestRouter.route(exchange)
-                .switchIfEmpty(Mono.defer(() -> this.logServiceInstanceNotFound(exchange)))
+                .switchIfEmpty(Mono.defer(() -> this.logServiceInstanceNotFound(exchange).then(Mono.empty())))
                 .doOnNext(service ->
                 {
                     var appId = serviceMetadata.getApplicationId(service);
@@ -56,7 +55,7 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                 .then(chain.filter(exchange));
     }
 
-    private Mono<ServiceInstance> logServiceInstanceNotFound(ServerWebExchange exchange) {
+    private Mono<?> logServiceInstanceNotFound(ServerWebExchange exchange) {
         // EndpointRequest requires application context
         // but application context is always null in a MockServerWebExchange (from tests)
         if (exchange.getApplicationContext() == null) {
