@@ -5,6 +5,7 @@ import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -36,14 +37,21 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         return this.requestRouter.route(exchange)
-                .switchIfEmpty(Mono.defer(() -> {
-                    log.info("-- {} {} no route found", exchange.getRequest().getMethod(),
-                            exchange.getRequest().getURI().getHost());
 
-                    // potentially return HTTP 503 early here in the future
-                    return Mono.empty();
-                }))
-                .doOnNext(service -> {
+                // check if this is a request to a gateway actuator
+                .switchIfEmpty(EndpointRequest.toAnyEndpoint().matches(exchange)
+                        .doOnNext(result -> {
+                            // if it is not an actuator request, we might want to log this
+                            if (!result.isMatch()) {
+                                // potentially return HTTP 503 early here in the future ?
+                                var method = exchange.getRequest().getMethod();
+                                var uri = exchange.getRequest().getURI();
+                                log.warn("No route found: {} {}", method, uri);
+                            }
+                        })
+                        .flatMap(result -> Mono.empty()))
+                .doOnNext(service ->
+                {
                     var appId = serviceMetadata.getApplicationId(service);
                     var deployId = serviceMetadata.getDeploymentId(service);
 
