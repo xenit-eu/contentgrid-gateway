@@ -59,7 +59,7 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
 
         var registrations = this.lookupByDomain.apply(requestHost);
         if (registrations.isEmpty()) {
-            log.debug("resolving {} failed", requestHost);
+            log.debug("No app-domain-registration found for '{}'", requestHost);
             return Optional.empty();
         }
 
@@ -73,7 +73,7 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
         }
 
         var appId = registrations.iterator().next().applicationId();
-        log.debug("resolving {} -> {}", requestHost, appId);
+        log.debug("Resolved {} -> {}", requestHost, appId);
         return Optional.of(appId);
     }
 

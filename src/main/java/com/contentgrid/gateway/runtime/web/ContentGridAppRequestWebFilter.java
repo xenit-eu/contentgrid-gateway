@@ -5,6 +5,7 @@ import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -36,14 +37,9 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         return this.requestRouter.route(exchange)
-                .switchIfEmpty(Mono.defer(() -> {
-                    log.info("-- {} {} no route found", exchange.getRequest().getMethod(),
-                            exchange.getRequest().getURI().getHost());
-
-                    // potentially return HTTP 503 early here in the future
-                    return Mono.empty();
-                }))
-                .doOnNext(service -> {
+                .switchIfEmpty(Mono.defer(() -> this.logServiceInstanceNotFound(exchange).then(Mono.empty())))
+                .doOnNext(service ->
+                {
                     var appId = serviceMetadata.getApplicationId(service);
                     var deployId = serviceMetadata.getDeploymentId(service);
 
@@ -57,6 +53,27 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                     deployId.ifPresent(value -> attributes.put(CONTENTGRID_DEPLOY_ID_ATTR, value));
                 })
                 .then(chain.filter(exchange));
+    }
+
+    private Mono<?> logServiceInstanceNotFound(ServerWebExchange exchange) {
+        // EndpointRequest requires application context
+        // but application context is always null in a MockServerWebExchange (from tests)
+        if (exchange.getApplicationContext() == null) {
+            return Mono.empty();
+        }
+
+        return EndpointRequest.toAnyEndpoint().matches(exchange)
+                .doOnNext(result -> {
+                    // if it is not an actuator request, we want to log this
+                    if (!result.isMatch()) {
+                        var method = exchange.getRequest().getMethod();
+                        var uri = exchange.getRequest().getURI();
+
+                        log.warn("No service found for {} {}", method, uri);
+                        // return HTTP 503 early here in the future ?
+                    }
+                })
+                .flatMap(result -> Mono.empty());
     }
 
 }
