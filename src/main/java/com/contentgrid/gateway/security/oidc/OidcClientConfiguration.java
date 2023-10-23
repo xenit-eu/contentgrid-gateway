@@ -1,7 +1,7 @@
 package com.contentgrid.gateway.security.oidc;
 
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oidc.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
 import java.net.URI;
 import java.util.Collections;
@@ -40,7 +40,7 @@ class OidcClientConfiguration {
 
         @Bean
         ReactiveClientRegistrationIdResolver clientRegistrationIdResolver(
-                RuntimeRequestResolver runtimeRequestResolver,
+                ApplicationIdRequestResolver applicationIdResolver,
                 OAuth2ClientProperties oauth2ClientProperties) {
 
             // uses the app-id as registration-id !!
@@ -72,11 +72,11 @@ class OidcClientConfiguration {
         @Bean
         @ConditionalOnBean(ReactiveClientRegistrationIdResolver.class)
         ContentGridApplicationOAuth2AuthorizationRequestResolver runtimePlatformOAuth2AuthorizationRequestResolver(
-                RuntimeRequestResolver runtimeRequestResolver,
+                ApplicationIdRequestResolver applicationIdResolver,
                 ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
                 ReactiveClientRegistrationRepository clientRegistrationRepository) {
             return new ContentGridApplicationOAuth2AuthorizationRequestResolver(
-                    runtimeRequestResolver, clientRegistrationIdResolver,
+                    applicationIdResolver, clientRegistrationIdResolver,
                     clientRegistrationRepository);
         }
 
@@ -92,10 +92,10 @@ class OidcClientConfiguration {
         @ConditionalOnBean(ReactiveClientRegistrationIdResolver.class)
         Customizer<List<DelegateEntry>> customizerDynamicOAuth2Entrypoint(
                 ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
-                RuntimeRequestResolver runtimeRequestResolver) {
+                ApplicationIdRequestResolver applicationIdResolver) {
             return entryPoints -> {
                 var matcher = new AndServerWebExchangeMatcher(
-                        runtimeRequestResolver.matcher(),
+                        applicationIdResolver.matcher(),
                         oauth2loginMatcher()
                 );
 
@@ -105,7 +105,7 @@ class OidcClientConfiguration {
                     // Note: the actual registration-id is cosmetic at this stage, because when handling
                     // the request to the above URI, the `authorizationRequestResolver` will resolve
                     // application-id to registration-id again
-                    return Mono.justOrEmpty(runtimeRequestResolver.resolveApplicationId(exchange))
+                    return Mono.justOrEmpty(applicationIdResolver.resolveApplicationId(exchange))
                             .switchIfEmpty(Mono.fromRunnable(() -> log.warn(
                                     "Entered oauth2login entrypoint, but could not resolve app-id for request {} {}",
                                     exchange.getRequest().getMethod(), exchange.getRequest().getURI())))

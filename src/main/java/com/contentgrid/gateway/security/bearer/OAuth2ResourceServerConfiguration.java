@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.security.bearer;
 
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
@@ -25,12 +25,12 @@ public class OAuth2ResourceServerConfiguration {
 
         @Bean
         Customizer<OAuth2ResourceServerSpec> runtimeJwtAuthenticationManagerResolver(
-                RuntimeRequestResolver runtimeRequestResolver,
+                ApplicationIdRequestResolver applicationIdResolver,
                 ReactiveClientRegistrationIdResolver registrationIdResolver,
                 ReactiveClientRegistrationRepository clientRegistrationRepository) {
             return spec -> {
                 var resolver = new DynamicJwtAuthenticationManagerResolver(
-                        runtimeRequestResolver,
+                        applicationIdResolver,
                         registrationIdResolver,
                         clientRegistrationRepository);
                 spec.authenticationManagerResolver(resolver);
