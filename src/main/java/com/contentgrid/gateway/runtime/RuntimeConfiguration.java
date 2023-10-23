@@ -56,10 +56,10 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, RuntimeRequestResolver requestResolver) {
+    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, ApplicationIdRequestResolver appIdResolver) {
         return builder.routes()
                 .route(r -> r
-                        .predicate(exchange -> requestResolver.resolveDeploymentId(exchange).isPresent())
+                        .predicate(exchange -> appIdResolver.resolveApplicationId(exchange).isPresent())
                         .filters(GatewayFilterSpec::preserveHostHeader)
                         .uri("cg://ignored")
                 )
