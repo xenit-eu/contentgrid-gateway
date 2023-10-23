@@ -12,6 +12,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.RuntimeDeploymentGatewayFilter;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
@@ -55,10 +56,10 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, RuntimeRequestResolver requestResolver) {
+    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, ApplicationIdRequestResolver appIdResolver) {
         return builder.routes()
                 .route(r -> r
-                        .predicate(exchange -> requestResolver.resolveDeploymentId(exchange).isPresent())
+                        .predicate(exchange -> appIdResolver.resolveApplicationId(exchange).isPresent())
                         .filters(GatewayFilterSpec::preserveHostHeader)
                         .uri("cg://ignored")
                 )
@@ -123,9 +124,9 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    CorsConfigurationSource runtimeCorsConfigurationSource(RuntimeRequestResolver runtimeRequestResolver,
+    CorsConfigurationSource runtimeCorsConfigurationSource(ApplicationIdRequestResolver applicationIdResolver,
             ApplicationConfigurationRepository appConfigRepository) {
-        return new RuntimeCorsConfigurationSource(runtimeRequestResolver, appConfigRepository);
+        return new RuntimeCorsConfigurationSource(applicationIdResolver, appConfigRepository);
     }
 
     @Bean

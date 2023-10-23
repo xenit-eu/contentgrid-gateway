@@ -3,9 +3,8 @@ package com.contentgrid.gateway.runtime.session;
 import static org.springframework.web.server.adapter.WebHttpHandlerBuilder.WEB_SESSION_MANAGER_BEAN_NAME;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import java.time.Duration;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -15,7 +14,6 @@ import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
 import org.springframework.web.server.session.DefaultWebSessionManager;
 import org.springframework.web.server.session.InMemoryWebSessionStore;
@@ -48,10 +46,10 @@ public class RuntimeWebSessionConfiguration {
     }
 
     @Bean
-    WebExchangePartitioner<String> partitioner(RuntimeRequestResolver runtimeRequestResolver) {
+    WebExchangePartitioner<String> partitioner(ApplicationIdRequestResolver applicationIdResolver) {
         return exchange ->
                 // partition by application-id
-                Mono.justOrEmpty(runtimeRequestResolver.resolveApplicationId(exchange))
+                Mono.justOrEmpty(applicationIdResolver.resolveApplicationId(exchange))
                 .map(ApplicationId::toString)
 
                 // fallback to hostname-based partioning

@@ -3,11 +3,10 @@ package com.contentgrid.gateway.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.nimbusds.oauth2.sdk.GeneralException;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
@@ -27,7 +26,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.StatusAssertions;
 import org.springframework.test.web.reactive.server.WebTestClient.RequestHeadersSpec;
-import org.springframework.web.server.ServerWebExchange;
 
 @Slf4j
 @SpringBootTest(
@@ -49,19 +47,10 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
         @Bean
         @Primary
-        RuntimeRequestResolver testRuntimeRequestResolver() {
-            return new RuntimeRequestResolver() {
-                @Override
-                public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
-                    var header = exchange.getRequest().getHeaders().getFirst("Test-ApplicationId");
-                    return Optional.ofNullable(header).map(ApplicationId::from);
-                }
-
-                @Override
-                public Optional<DeploymentId> resolveDeploymentId(ServerWebExchange exchange) {
-                    var header = exchange.getRequest().getHeaders().getFirst("Test-DeploymentId");
-                    return Optional.ofNullable(header).map(DeploymentId::from);
-                }
+        ApplicationIdRequestResolver applicationIdRequestResolver() {
+            return exchange -> {
+                var header = exchange.getRequest().getHeaders().getFirst("Test-ApplicationId");
+                return Optional.ofNullable(header).map(ApplicationId::from);
             };
         }
     }

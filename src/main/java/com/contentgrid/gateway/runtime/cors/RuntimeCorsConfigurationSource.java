@@ -1,7 +1,7 @@
 package com.contentgrid.gateway.runtime.cors;
 
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import java.util.Optional;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import org.springframework.web.server.ServerWebExchange;
 public class RuntimeCorsConfigurationSource implements CorsConfigurationSource {
 
     @NonNull
-    private final RuntimeRequestResolver requestResolver;
+    private final ApplicationIdRequestResolver applicationIdResolver;
 
     @NonNull
     private final ApplicationConfigurationRepository appConfigRepository;
@@ -24,9 +24,9 @@ public class RuntimeCorsConfigurationSource implements CorsConfigurationSource {
     @Nullable
     @Override
     public CorsConfiguration getCorsConfiguration(@NonNull ServerWebExchange exchange) {
-        return this.requestResolver.resolveApplicationId(exchange)
+        return this.applicationIdResolver.resolveApplicationId(exchange)
                 .flatMap(appId -> Optional.ofNullable(appConfigRepository.getApplicationConfiguration(appId)))
-                .map(this.corsConfigurationMapper::apply)
+                .map(this.corsConfigurationMapper)
                 .orElse(null);
     }
 }

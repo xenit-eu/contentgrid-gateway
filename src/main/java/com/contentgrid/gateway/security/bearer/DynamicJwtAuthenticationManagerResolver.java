@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.security.bearer;
 
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.time.Duration;
 import java.util.Map;
@@ -22,7 +22,7 @@ import reactor.core.scheduler.Schedulers;
 public class DynamicJwtAuthenticationManagerResolver implements
         ReactiveAuthenticationManagerResolver<ServerWebExchange> {
 
-    private final RuntimeRequestResolver runtimeRequestResolver;
+    private final ApplicationIdRequestResolver applicationIdResolver;
     private final ReactiveClientRegistrationIdResolver reactiveClientRegistrationIdResolver;
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
     private final Map<String, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
@@ -30,7 +30,7 @@ public class DynamicJwtAuthenticationManagerResolver implements
     @Override
     public Mono<ReactiveAuthenticationManager> resolve(ServerWebExchange exchange) {
 
-        return Mono.justOrEmpty(this.runtimeRequestResolver.resolveApplicationId(exchange))
+        return Mono.justOrEmpty(this.applicationIdResolver.resolveApplicationId(exchange))
                 .flatMap(this.reactiveClientRegistrationIdResolver::resolveRegistrationId)
                 .flatMap(this.clientRegistrationRepository::findByRegistrationId)
                 .map(clientRegistration -> clientRegistration.getProviderDetails().getIssuerUri())
