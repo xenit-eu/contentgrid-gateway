@@ -15,5 +15,4 @@ public interface ApplicationIdRequestResolver {
                 .map(appId -> MatchResult.match())
                 .orElse(MatchResult.notMatch());
     }
-
 }

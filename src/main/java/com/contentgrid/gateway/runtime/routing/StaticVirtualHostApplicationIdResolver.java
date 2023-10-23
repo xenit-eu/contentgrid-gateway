@@ -6,17 +6,22 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NonNull;
+import org.springframework.web.server.ServerWebExchange;
 
-public class StaticVirtualHostResolver implements RuntimeVirtualHostResolver {
+public class StaticVirtualHostApplicationIdResolver implements ApplicationIdRequestResolver {
 
     private final Map<String, ApplicationId> mapping = new HashMap<>();
 
-    public StaticVirtualHostResolver(@NonNull Map<String, ApplicationId> mapping) {
+    public StaticVirtualHostApplicationIdResolver(@NonNull Map<String, ApplicationId> mapping) {
         this.mapping.putAll(mapping);
     }
 
-    @Override
     public Optional<ApplicationId> resolve(URI requestURI) {
         return Optional.ofNullable(this.mapping.get(requestURI.getHost()));
+    }
+
+    @Override
+    public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
+        return this.resolve(exchange.getRequest().getURI());
     }
 }

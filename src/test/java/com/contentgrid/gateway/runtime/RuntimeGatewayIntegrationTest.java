@@ -19,8 +19,8 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
-import com.contentgrid.gateway.runtime.routing.RuntimeVirtualHostResolver;
-import com.contentgrid.gateway.runtime.routing.StaticVirtualHostResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
+import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -92,8 +92,8 @@ class RuntimeGatewayIntegrationTest {
 
         @Bean
         @Primary
-        RuntimeVirtualHostResolver staticVirtualHostResolver() {
-            return new StaticVirtualHostResolver(Map.of(
+        ApplicationIdRequestResolver applicationIdRequestResolver() {
+            return new StaticVirtualHostApplicationIdResolver(Map.of(
                     hostname(APP_ID), APP_ID,
                     hostname("unavailable"),  APP_ID_UNAVAILABLE // this app has no deployments
             ));

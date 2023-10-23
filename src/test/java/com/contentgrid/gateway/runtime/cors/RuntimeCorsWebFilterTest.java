@@ -8,10 +8,11 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -35,7 +36,9 @@ class RuntimeCorsWebFilterTest {
         ));
         var appConfigRepo = new ComposableApplicationConfigurationRepository();
         appConfigRepo.merge(appConfig);
-        corsSource = new RuntimeCorsConfigurationSource(new DefaultRuntimeRequestResolver(), appConfigRepo);
+
+        var appIdResolver = new CachingApplicationIdRequestResolver(exchange -> Optional.empty());
+        corsSource = new RuntimeCorsConfigurationSource(appIdResolver, appConfigRepo);
     }
 
 
