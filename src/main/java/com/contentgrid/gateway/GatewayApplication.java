@@ -228,8 +228,8 @@ public class GatewayApplication {
 
         // if there are no authentication customizers, fallback to http-basic
         if (oauth2resourceServerCustomizer.isEmpty() && oauth2loginCustomizer.isEmpty()) {
-            http.httpBasic();
-            http.formLogin();
+            http.httpBasic(Customizer.withDefaults());
+            http.formLogin(Customizer.withDefaults());
 
             if (!authenticationEntryPointCustomizer.isEmpty()) {
                 // assuming if there is no oauth2/jwt login, there won't be custom auth-entrypoints either
