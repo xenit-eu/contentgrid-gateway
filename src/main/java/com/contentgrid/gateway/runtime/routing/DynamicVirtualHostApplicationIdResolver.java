@@ -3,7 +3,6 @@ package com.contentgrid.gateway.runtime.routing;
 import com.contentgrid.gateway.collections.ConcurrentLookup;
 import com.contentgrid.gateway.collections.ConcurrentLookup.Lookup;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
-import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,10 +14,11 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 
 @Slf4j
-public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
+public class DynamicVirtualHostApplicationIdResolver implements ApplicationIdRequestResolver {
 
     private final ConcurrentLookup<ApplicationId, ApplicationDomainRegistration> lookup = new ConcurrentLookup<>(
             ApplicationDomainRegistration::applicationId
@@ -28,7 +28,7 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
     @NonNull
     private final ApplicationEventPublisher eventPublisher;
 
-    public DynamicVirtualHostResolver(Flux<ApplicationDomainNameEvent> events, ApplicationEventPublisher eventPublisher) {
+    public DynamicVirtualHostApplicationIdResolver(Flux<ApplicationDomainNameEvent> events, ApplicationEventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
         events.subscribe(this::onApplicationDomainEvent);
 
@@ -49,7 +49,8 @@ public class DynamicVirtualHostResolver implements RuntimeVirtualHostResolver {
     }
 
     @Override
-    public Optional<ApplicationId> resolve(@NonNull URI requestURI) {
+    public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
+        var requestURI = exchange.getRequest().getURI();
 
         var requestHost = requestURI.getHost();
         if (requestHost == null) {

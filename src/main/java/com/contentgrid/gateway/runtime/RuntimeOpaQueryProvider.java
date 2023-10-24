@@ -7,6 +7,7 @@ import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import java.util.Optional;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.server.ServerWebExchange;
@@ -23,8 +24,7 @@ public class RuntimeOpaQueryProvider implements OpaQueryProvider<ServerWebExchan
     @Override
     public String createQuery(ServerWebExchange requestContext) {
 
-        return Optional.ofNullable(requestContext
-                .<DeploymentId>getAttribute(CONTENTGRID_DEPLOY_ID_ATTR))
+        return RuntimeOpaQueryProvider.getDeploymentIdFromExchange(requestContext)
                 .flatMap(serviceCatalog::findByDeploymentId)
                 .flatMap(deploymentMetadata::getPolicyPackage)
                 .map("data.%s.allow == true"::formatted)
@@ -32,5 +32,12 @@ public class RuntimeOpaQueryProvider implements OpaQueryProvider<ServerWebExchan
                     log.warn("No policy found for request to '{}'", requestContext.getRequest().getURI().getHost());
                     return NO_MATCH_QUERY;
                 });
+    }
+
+    // Eventually this should use RequestDeploymentIdResolver, but this will return a Mono<DeploymentId>
+    // OpaQueryProvider should be converted into an async API before we can do that
+    @NonNull
+    private static Optional<DeploymentId> getDeploymentIdFromExchange(ServerWebExchange requestContext) {
+        return Optional.ofNullable(requestContext.getAttribute(CONTENTGRID_DEPLOY_ID_ATTR));
     }
 }

@@ -13,15 +13,13 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
-import com.contentgrid.gateway.runtime.routing.RuntimeDeploymentGatewayFilter;
-import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
-import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver;
-import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostResolver.ApplicationDomainNameEvent;
-import com.contentgrid.gateway.runtime.routing.RuntimeRequestResolver;
+import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostApplicationIdResolver;
+import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostApplicationIdResolver.ApplicationDomainNameEvent;
+import com.contentgrid.gateway.runtime.routing.RuntimeDeploymentGatewayFilter;
 import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import com.contentgrid.gateway.runtime.routing.RuntimeServiceInstanceSelector;
-import com.contentgrid.gateway.runtime.routing.RuntimeVirtualHostResolver;
 import com.contentgrid.gateway.runtime.routing.SimpleRuntimeServiceInstanceSelector;
 import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
@@ -42,6 +40,7 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -77,11 +76,6 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RuntimeRequestResolver runtimeRequestResolver() {
-        return new DefaultRuntimeRequestResolver();
-    }
-
-    @Bean
     @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER)
     ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(
             ContentGridDeploymentMetadata serviceMetadata,
@@ -96,14 +90,15 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RuntimeVirtualHostResolver runtimeVirtualHostResolver(ApplicationConfigurationRepository appConfigRepository,
+    ApplicationIdRequestResolver virtualHostApplicationIdResolver(ApplicationConfigurationRepository appConfigRepository,
             ApplicationEventPublisher eventPublisher) {
-        return new DynamicVirtualHostResolver(appConfigRepository.observe()
+        var delegate = new DynamicVirtualHostApplicationIdResolver(appConfigRepository.observe()
                 .map(update -> switch (update.getType()) {
                             case PUT -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains());
                             case REMOVE -> ApplicationDomainNameEvent.delete(update.getKey());
                             case CLEAR -> ApplicationDomainNameEvent.clear();
                         }), eventPublisher);
+        return new CachingApplicationIdRequestResolver(delegate);
     }
 
     @Bean
@@ -113,9 +108,9 @@ public class RuntimeConfiguration {
 
     @Bean
     RuntimeRequestRouter requestRouter(ServiceCatalog serviceCatalog,
-            RuntimeVirtualHostResolver runtimeVirtualHostResolver,
+            ApplicationIdRequestResolver applicationIdRequestResolver,
             RuntimeServiceInstanceSelector serviceInstanceSelector) {
-        return new DefaultRuntimeRequestRouter(serviceCatalog, runtimeVirtualHostResolver, serviceInstanceSelector);
+        return new DefaultRuntimeRequestRouter(serviceCatalog, applicationIdRequestResolver, serviceInstanceSelector);
     }
 
     @Bean

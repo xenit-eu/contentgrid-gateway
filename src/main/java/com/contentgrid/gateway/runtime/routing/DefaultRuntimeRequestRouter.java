@@ -1,7 +1,5 @@
 package com.contentgrid.gateway.runtime.routing;
 
-import static org.springframework.http.HttpHeaders.HOST;
-
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,14 +12,12 @@ import reactor.core.publisher.Mono;
 public class DefaultRuntimeRequestRouter implements RuntimeRequestRouter {
 
     private final ServiceCatalog serviceCatalog;
-    private final RuntimeVirtualHostResolver virtualHostResolver;
+    private final ApplicationIdRequestResolver applicationIdResolver;
     private final RuntimeServiceInstanceSelector serviceInstanceSelector;
 
     @Override
     public Mono<ServiceInstance> route(ServerWebExchange exchange) {
-        return Mono.just(exchange.getRequest().getURI())
-                .map(this.virtualHostResolver::resolve)
-                .flatMap(Mono::justOrEmpty)
+        return Mono.justOrEmpty(this.applicationIdResolver.resolveApplicationId(exchange))
                 .switchIfEmpty(Mono.defer(() -> {
                     log.debug("Could not resolve Host:'{}' to app-id",
                             exchange.getRequest().getURI().getHost());

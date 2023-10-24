@@ -6,14 +6,12 @@ import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -26,18 +24,17 @@ class DefaultRuntimeRequestRouterTest {
     private RuntimeRequestRouter requestRouter;
     private ServiceCatalog serviceCatalog;
 
-    private final RuntimeVirtualHostResolver virtualHostResolver = new StaticVirtualHostResolver(Map.of(
-        "my-app.contentgrid.cloud", APP_ID_1
-    ));
+    private final ApplicationIdRequestResolver applicationIdResolver = new StaticVirtualHostApplicationIdResolver(
+            Map.of("my-app.contentgrid.cloud", APP_ID_1)
+    );
     private final SimpleContentGridDeploymentMetadata deployMetadata = new SimpleContentGridDeploymentMetadata();
 
     @BeforeEach
     void setup() {
-        ApplicationConfigurationRepository appConfigRepository = Mockito.mock(ApplicationConfigurationRepository.class);
         this.serviceCatalog = new ServiceCatalog(deployMetadata);
         RuntimeServiceInstanceSelector serviceInstanceSelector = new SimpleRuntimeServiceInstanceSelector(
                 deployMetadata);
-        this.requestRouter = new DefaultRuntimeRequestRouter(this.serviceCatalog, this.virtualHostResolver,
+        this.requestRouter = new DefaultRuntimeRequestRouter(this.serviceCatalog, this.applicationIdResolver,
                 serviceInstanceSelector);
     }
 
