@@ -3,6 +3,7 @@ package com.contentgrid.gateway.runtime.config;
 import com.contentgrid.gateway.collections.ObservableMap;
 import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
+import java.util.stream.Stream;
 import lombok.NonNull;
 import lombok.Synchronized;
 import org.springframework.lang.Nullable;
@@ -61,5 +62,10 @@ public class ComposableApplicationConfigurationRepository implements
     public Flux<MapUpdate<ApplicationId, ApplicationConfiguration>> observe() {
         return this.configs.observe()
                 .map(update -> new MapUpdate<>(update.getType(), update.getKey(), update.getValue()));
+    }
+
+    @Override
+    public Stream<ApplicationId> applicationIds() {
+        return this.configs.keySet().stream();
     }
 }

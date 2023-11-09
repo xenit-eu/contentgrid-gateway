@@ -2,7 +2,8 @@ package com.contentgrid.gateway.security.oidc;
 
 import static com.contentgrid.gateway.test.assertj.MonoAssert.assertThat;
 
-import com.contentgrid.gateway.security.oidc.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
+import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository;
+import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;

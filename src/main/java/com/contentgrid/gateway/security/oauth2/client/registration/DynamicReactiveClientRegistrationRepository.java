@@ -1,7 +1,10 @@
-package com.contentgrid.gateway.security.oidc;
+package com.contentgrid.gateway.security.oauth2.client.registration;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +16,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
-public class DynamicReactiveClientRegistrationRepository implements ReactiveClientRegistrationRepository {
+public class DynamicReactiveClientRegistrationRepository implements ReactiveClientRegistrationRepository,
+        IterableClientRegistrationIds {
 
-    private final Map<String, Mono<ClientRegistration>> clientIdToClientRegistration = new HashMap<>();
+    private final Map<String, Mono<ClientRegistration>> clientIdToClientRegistration = new ConcurrentHashMap<>();
 
     public DynamicReactiveClientRegistrationRepository(Flux<ClientRegistrationEvent> events) {
         events.subscribe(this::onClientRegistrationEvent);
@@ -47,6 +51,15 @@ public class DynamicReactiveClientRegistrationRepository implements ReactiveClie
                         registrationId, clientRegistration.getClientId(),
                         clientRegistration.getProviderDetails().getIssuerUri())
                 );
+    }
+
+    /**
+     * Returns an {@code Stream} of {@code String}, representing a {@link ClientRegistration} id.
+     * @return an {@code Stream<String>}
+     */
+    @Override
+    public Stream<String> registrationIds() {
+        return this.clientIdToClientRegistration.keySet().stream();
     }
 
 

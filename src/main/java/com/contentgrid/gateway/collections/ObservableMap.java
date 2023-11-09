@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.Value;
 import lombok.experimental.Delegate;
 import reactor.core.publisher.Flux;
@@ -15,10 +16,9 @@ import reactor.core.publisher.Sinks;
 public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
 
     @Delegate(types = MapReadOperations.class)
-    private final Map<K, V> map = new LinkedHashMap<>();
+    private final Map<K, V> map = new ConcurrentHashMap<>();
 
     private final Sinks.Many<MapUpdate<K, V>> updates = Sinks.many().multicast().onBackpressureBuffer();
-
 
     @Override
     public V get(Object key) {
@@ -30,6 +30,11 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         V previousValue = map.put(key, value);
         updates.emitNext(MapUpdate.put(key, value), FAIL_FAST);
         return previousValue;
+    }
+
+    @Override
+    public Set<K> keySet() {
+        return this.map.keySet();
     }
 
     @Override
@@ -116,8 +121,6 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         boolean containsKey(Object key);
 
         boolean containsValue(Object value);
-
-        Set<K> keySet();
 
         Collection<V> values();
 
