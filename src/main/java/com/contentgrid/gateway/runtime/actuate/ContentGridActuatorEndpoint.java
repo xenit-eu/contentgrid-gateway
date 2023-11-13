@@ -138,7 +138,7 @@ public class ContentGridActuatorEndpoint {
             return new ApplicationConfigurationDescriptor(
                     config.getApplicationId().toString(),
                     config.getClientId(),
-                    obscure(config.getClientSecret()),
+                    mask(config.getClientSecret()),
                     config.getIssuerUri(),
                     config.getDomains(),
                     config.getCorsOrigins(),
@@ -152,16 +152,9 @@ public class ContentGridActuatorEndpoint {
                     ));
         }
 
-        static String obscure(String value) {
-            if (value == null || value.isBlank()) {
-                return value;
-            }
-
-            if (value.length() <= 10) {
-                return "*".repeat(value.length());
-            }
-
-            return value.charAt(0) + "*".repeat(value.length() - 1);
+        static String mask(String value) {
+            int length = (value == null) ? 0 : value.length();
+            return "*".repeat(length);
         }
 
     }
