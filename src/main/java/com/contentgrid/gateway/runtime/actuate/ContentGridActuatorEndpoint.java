@@ -4,12 +4,20 @@ import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
@@ -20,12 +28,15 @@ import org.springframework.boot.actuate.endpoint.OperationResponseBody;
 import org.springframework.boot.actuate.endpoint.web.Link;
 import org.springframework.boot.actuate.endpoint.web.annotation.RestControllerEndpoint;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistration.ProviderDetails;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
@@ -46,8 +57,7 @@ public class ContentGridActuatorEndpoint {
 
     @ResponseBody
     @GetMapping(value = {"", "/"})
-    public Map<String, Map<String, Link>> links(
-            ServerWebExchange exchange) {
+    public Map<String, Map<String, Link>> links() {
 
         var basePath = endpointProperties.getBasePath();
         Map<String, Link> links = new LinkedHashMap<>();
@@ -101,9 +111,21 @@ public class ContentGridActuatorEndpoint {
     }
 
     @GetMapping("/applications/{applicationId}/client-registration")
-    public Mono<ClientRegistration> clientRegistration(@PathVariable ApplicationId applicationId) {
+    public Mono<ClientRegistrationDescriptor> clientRegistration(@PathVariable ApplicationId applicationId) {
         return this.reactiveClientRegistrationIdResolver.resolveRegistrationId(applicationId)
-                .flatMap(this.clientRegistrationRepository::findByRegistrationId);
+                .flatMap(registrationId -> this.clientRegistrationRepository
+                        .findByRegistrationId(registrationId)
+                        .map(ClientRegistrationModel::from)
+                        .map(ClientRegistrationDescriptor::success)
+                        .onErrorResume(throwable -> Mono.just(ClientRegistrationDescriptor.failed(registrationId, throwable)))
+                )
+                .map(descriptor -> {
+                    descriptor.addLink("self", "/actuator/contentgrid/applications/%s/client-registration".formatted(applicationId));
+                    descriptor.addLink("application", "/actuator/contentgrid/applications/%s".formatted(applicationId));
+
+                    return descriptor;
+                });
+
     }
 
     /**
@@ -165,5 +187,88 @@ public class ContentGridActuatorEndpoint {
         String id;
         Map<String, Link> _links;
 
+    }
+
+
+    @RequiredArgsConstructor
+    @JsonInclude(Include.NON_NULL)
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    static class ClientRegistrationDescriptor implements OperationResponseBody {
+
+        @Getter
+        @NonNull
+        private final String registrationId;
+
+        @Getter
+        @Nullable
+        private final ClientRegistrationModel clientRegistration;
+
+        @Getter
+        @Nullable
+        private final ThrowableModel error;
+
+        @Getter
+        @JsonProperty("_links")
+        private final Map<String, Link> links = new LinkedHashMap<>();
+
+        static ClientRegistrationDescriptor success(@NonNull ClientRegistrationModel model) {
+            return new ClientRegistrationDescriptor(model.registrationId(), model, null);
+        }
+
+        static ClientRegistrationDescriptor failed(@NonNull String registrationId, @NonNull Throwable throwable) {
+            return new ClientRegistrationDescriptor(registrationId, null, ThrowableModel.from(throwable));
+        }
+
+        public boolean isSuccess() {
+            return this.clientRegistration != null;
+        }
+
+        public ClientRegistrationDescriptor addLink(String name, String href) {
+            return this.addLink(name, new Link(href));
+        }
+        public ClientRegistrationDescriptor addLink(String name, Link link) {
+            this.links.put(name, link);
+            return this;
+        }
+    }
+
+    record ClientRegistrationModel(
+            String registrationId,
+            String clientId,
+            String clientSecret,
+            ClientAuthenticationMethod clientAuthenticationMethod,
+            AuthorizationGrantType authorizationGrantType,
+            String redirectUri,
+            Set<String> scopes,
+            ProviderDetails providerDetails,
+            String clientName
+    ) {
+
+        static ClientRegistrationModel from(ClientRegistration client) {
+            return new ClientRegistrationModel(
+                    client.getRegistrationId(),
+                    client.getClientId(),
+                    "*".repeat(client.getClientSecret() == null ? 0 : client.getClientSecret().length()),
+                    client.getClientAuthenticationMethod(),
+                    client.getAuthorizationGrantType(),
+                    client.getRedirectUri(),
+                    client.getScopes(),
+                    client.getProviderDetails(),
+                    client.getClientName()
+            );
+        }
+    }
+
+    record ThrowableModel(@NonNull String message, @NonNull List<String> causes) {
+
+        static ThrowableModel from(@NonNull Throwable throwable) {
+            var message = throwable.getMessage();
+            var causes = Stream.iterate(throwable, t -> t.getCause() != null && t != t.getCause(), Throwable::getCause)
+                    .map(Throwable::getMessage)
+                    .filter(msg -> msg != null && !msg.isEmpty())
+                    .toList();
+
+            return new ThrowableModel(message, causes);
+        }
     }
 }

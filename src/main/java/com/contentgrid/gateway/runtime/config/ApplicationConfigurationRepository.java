@@ -15,4 +15,5 @@ public interface ApplicationConfigurationRepository {
 
     Stream<ApplicationId> applicationIds();
 
+    void clear();
 }

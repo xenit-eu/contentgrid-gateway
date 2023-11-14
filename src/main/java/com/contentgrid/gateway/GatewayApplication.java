@@ -182,8 +182,6 @@ public class GatewayApplication {
         return new CorsConfigurationResolver(corsResolverProperties);
     }
 
-
-
     @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
