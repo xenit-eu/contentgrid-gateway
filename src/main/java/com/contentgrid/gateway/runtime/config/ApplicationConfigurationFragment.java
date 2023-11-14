@@ -38,6 +38,10 @@ public class ApplicationConfigurationFragment implements ApplicationConfiguratio
         return this.properties.entrySet().stream();
     }
 
+    public static ApplicationConfiguration from(ApplicationId appId, Map<String, String> properties) {
+        return new ApplicationConfigurationFragment(UUID.randomUUID().toString(), appId, Map.copyOf(properties));
+    }
+
     public static ApplicationConfiguration fromProperties(Map<String, String> properties) {
         return new ApplicationConfigurationFragment(UUID.randomUUID().toString(), ApplicationId.random(), Map.copyOf(properties));
     }
