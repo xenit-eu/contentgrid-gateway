@@ -50,18 +50,21 @@ class OidcClientConfiguration {
         }
 
         @Bean
+        ReactiveClientRegistrationResolver oAuth2ClientApplicationConfigurationMapper(ReactiveClientRegistrationIdResolver registrationIdResolver) {
+            return new OAuth2ClientApplicationConfigurationMapper(registrationIdResolver);
+        }
+        @Bean
         ReactiveClientRegistrationRepository clientRegistrationRepository(
                 ReactiveClientRegistrationIdResolver registrationIdResolver,
+                ReactiveClientRegistrationResolver clientRegistrationResolver,
                 ApplicationConfigurationRepository applicationConfigurationRepository,
                 OAuth2ClientProperties properties) {
 
-            var mapper = new OAuth2ClientApplicationConfigurationMapper(registrationIdResolver);
             return new DynamicReactiveClientRegistrationRepository(applicationConfigurationRepository
                     .observe()
-                    .flatMap(update -> registrationIdResolver
-                            .resolveRegistrationId(update.getKey())
+                    .flatMap(update -> registrationIdResolver.resolveRegistrationId(update.getKey())
                             .map(registrationId -> switch (update.getType()) {
-                                case PUT -> ClientRegistrationEvent.put(registrationId, mapper.getClientRegistration(update.getValue()));
+                                case PUT -> ClientRegistrationEvent.put(registrationId, clientRegistrationResolver.buildClientRegistration(update.getValue()));
                                 case REMOVE -> ClientRegistrationEvent.delete(registrationId);
                                 case CLEAR -> ClientRegistrationEvent.clear();
                             }))
