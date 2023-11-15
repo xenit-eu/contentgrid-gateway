@@ -59,10 +59,8 @@ public class ContentGridActuatorEndpoint {
     @ResponseBody
     @GetMapping(value = {"", "/"})
     public Map<String, Map<String, Link>> links() {
-
         var basePath = endpointProperties.getBasePath();
-        Map<String, Link> links = new LinkedHashMap<>();
-        links.put("applications", new Link(basePath + "/contentgrid/applications"));
+        var links = Map.of("applications", new Link(basePath + "/contentgrid/applications"));
 
         return OperationResponseBody.of(Collections.singletonMap("_links", links));
     }
