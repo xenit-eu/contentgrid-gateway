@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.security.oidc;
 
+import com.contentgrid.gateway.collections.ObservableMap.UpdateType;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oidc.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
@@ -50,21 +51,34 @@ class OidcClientConfiguration {
         }
 
         @Bean
+        ReactiveClientRegistrationResolver oAuth2ClientApplicationConfigurationMapper(
+                ReactiveClientRegistrationIdResolver registrationIdResolver) {
+            return new OAuth2ClientApplicationConfigurationMapper(registrationIdResolver);
+        }
+
+        @Bean
         ReactiveClientRegistrationRepository clientRegistrationRepository(
                 ReactiveClientRegistrationIdResolver registrationIdResolver,
+                ReactiveClientRegistrationResolver clientRegistrationResolver,
                 ApplicationConfigurationRepository applicationConfigurationRepository,
                 OAuth2ClientProperties properties) {
 
-            var mapper = new OAuth2ClientApplicationConfigurationMapper(registrationIdResolver);
             return new DynamicReactiveClientRegistrationRepository(applicationConfigurationRepository
                     .observe()
-                    .flatMap(update -> registrationIdResolver
-                            .resolveRegistrationId(update.getKey())
-                            .map(registrationId -> switch (update.getType()) {
-                                case PUT -> ClientRegistrationEvent.put(registrationId, mapper.getClientRegistration(update.getValue()));
-                                case REMOVE -> ClientRegistrationEvent.delete(registrationId);
-                                case CLEAR -> ClientRegistrationEvent.clear();
-                            }))
+                    .flatMap(update -> {
+                        if (update.getType().equals(UpdateType.CLEAR)) {
+                            return Mono.just(ClientRegistrationEvent.clear());
+                        }
+
+                        return registrationIdResolver.resolveRegistrationId(update.getKey()).map(registrationId -> {
+                            if (update.getType().equals(UpdateType.REMOVE)) {
+                                return ClientRegistrationEvent.delete(registrationId);
+                            }
+
+                            var client = clientRegistrationResolver.buildClientRegistration(update.getValue());
+                            return ClientRegistrationEvent.put(registrationId, client);
+                        });
+                    })
                     .doOnNext(event -> log.debug("ReactiveClientRegistrationRepository -> {}", event))
             );
         }

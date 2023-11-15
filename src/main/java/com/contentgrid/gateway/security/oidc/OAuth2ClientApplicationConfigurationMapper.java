@@ -10,7 +10,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
-public class OAuth2ClientApplicationConfigurationMapper {
+public class OAuth2ClientApplicationConfigurationMapper implements ReactiveClientRegistrationResolver {
 
     @NonNull
     private final ReactiveClientRegistrationIdResolver clientRegistrationIdResolver;
@@ -18,7 +18,8 @@ public class OAuth2ClientApplicationConfigurationMapper {
     public static final List<String> DEFAULT_SCOPES = List.of("openid", "profile", "email");
 
 
-    public Mono<ClientRegistration> getClientRegistration(@NonNull ApplicationConfiguration applicationConfiguration) {
+    @Override
+    public Mono<ClientRegistration> buildClientRegistration(@NonNull ApplicationConfiguration applicationConfiguration) {
 
         return this.clientRegistrationIdResolver.resolveRegistrationId(applicationConfiguration.getApplicationId())
                 .map(clientRegistrationId -> ClientRegistrations
