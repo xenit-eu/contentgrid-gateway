@@ -189,7 +189,6 @@ public class ContentGridActuatorEndpoint {
 
     }
 
-
     @RequiredArgsConstructor
     @JsonInclude(Include.NON_NULL)
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

@@ -179,6 +179,37 @@ class ContentGridActuatorEndpointTest {
 
     @Test
     @WithMockUser
+    void getApplicationConfigById_missingIssuerUri() {
+        var appId = ApplicationId.random();
+
+        var clientSecret = UUID.randomUUID().toString();
+
+        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of(
+                "foo", "bar",
+                Keys.CLIENT_ID, "my-oidc-client",
+                Keys.CLIENT_SECRET, clientSecret,
+                Keys.ROUTING_DOMAINS, "foo.contentgrid.cloud, bar.contentgrid.cloud",
+                Keys.CORS_ORIGINS, "https://frontend.contentgrid.app"
+        )));
+
+        testClient.get()
+                .uri("http://localhost:" + port + "/actuator/contentgrid/applications/" + appId + "/config")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().json("""
+                        {
+                            "applicationId": "{APP_ID}",
+                            "clientId": "my-oidc-client",
+                            "clientSecret": "************************************",
+                            "issuerUri": null
+                        }
+                        """
+                        .replaceAll("\\{APP_ID}", appId.toString())
+                );
+    }
+
+    @Test
+    @WithMockUser
     void getClientRegistration_success() {
         wiremock.stubFor(WireMock.get("/realms/contentgrid/.well-known/openid-configuration")
                 .willReturn(WireMock.aResponse()
