@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.runtime.actuate;
 
+import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint.ApplicationsCollectionDescriptor.ApplicationConfigurationDescriptor;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
@@ -137,48 +138,67 @@ public class ContentGridActuatorEndpoint {
         @Getter
         private final Set<ApplicationDescriptor> applications;
 
-    }
 
-    /**
-     * Representation of a single ContentGrid application
-     */
-    @Getter
-    @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
-    public static final class ApplicationConfigurationDescriptor implements OperationResponseBody {
+        /**
+         * Representation of a single ContentGrid application
+         */
+        @Getter
+        @JsonInclude
+        @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
+        public static final class ApplicationConfigurationDescriptor implements OperationResponseBody {
 
-        private final String applicationId;
-        private final String clientId;
-        private final String clientSecret;
-        private final String issuerUri;
-        private final Set<String> domains;
-        private final Set<String> corsOrigins;
+            private final String applicationId;
+            private final String clientId;
+            private final String clientSecret;
+            private final String issuerUri;
+            private final Set<String> domains;
+            private final Set<String> corsOrigins;
 
-        private final Map<String, Object> _links;
+            @JsonProperty("_links")
+            private final Map<String, Object> links = new LinkedHashMap<>();
 
+            static ApplicationConfigurationDescriptor from(ApplicationConfiguration config) {
+                return new ApplicationConfigurationDescriptor(
+                        config.getApplicationId().toString(),
+                        config.getClientId(),
+                        mask(config.getClientSecret()),
+                        config.getIssuerUri(),
+                        config.getDomains(),
+                        config.getCorsOrigins())
+                        .addLinks("api", config.getDomains().stream()
+                                .map(domain -> "https://" + domain)
+                                .map(Link::new)
+                                .toList())
+                        .addLink("application", "/actuator/contentgrid/applications/" + config.getApplicationId())
+                        .addLinkIf(config.getIssuerUri() != null, "issuer-uri", config.getIssuerUri());
+            }
 
-        static ApplicationConfigurationDescriptor from(ApplicationConfiguration config) {
-            return new ApplicationConfigurationDescriptor(
-                    config.getApplicationId().toString(),
-                    config.getClientId(),
-                    mask(config.getClientSecret()),
-                    config.getIssuerUri(),
-                    config.getDomains(),
-                    config.getCorsOrigins(),
-                    Map.of(
-                            "api", config.getDomains().stream()
-                                    .map(domain -> "https://" + domain)
-                                    .map(Link::new)
-                                    .toList(),
-                            "application", new Link("/actuator/contentgrid/applications/" + config.getApplicationId()),
-                            "issuer-uri", new Link(config.getIssuerUri())
-                    ));
+            public ApplicationConfigurationDescriptor addLink(String name, String href) {
+                return this.addLink(name, new Link(href));
+            }
+            public ApplicationConfigurationDescriptor addLink(String name, Link link) {
+                this.links.put(name, link);
+                return this;
+            }
+
+            public ApplicationConfigurationDescriptor addLinks(String name, List<Link> links) {
+                this.links.put(name, links);
+                return this;
+            }
+
+            public ApplicationConfigurationDescriptor addLinkIf(boolean guard, String name, String href) {
+                if (guard) {
+                    this.addLink(name, href);
+                }
+                return this;
+            }
+
+            static String mask(String value) {
+                int length = (value == null) ? 0 : value.length();
+                return "*".repeat(length);
+            }
+
         }
-
-        static String mask(String value) {
-            int length = (value == null) ? 0 : value.length();
-            return "*".repeat(length);
-        }
-
     }
 
     @Value
