@@ -10,11 +10,11 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.nimbusds.oauth2.sdk.Response;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,9 +59,7 @@ public class ContentGridActuatorEndpoint {
     @ResponseBody
     @GetMapping(value = {"", "/"})
     public Map<String, Map<String, Link>> links() {
-        var basePath = endpointProperties.getBasePath();
-        var links = Map.of("applications", new Link(basePath + "/contentgrid/applications"));
-
+        var links = Map.of("applications", new Link(this.getBasePath()));
         return OperationResponseBody.of(Collections.singletonMap("_links", links));
     }
 
@@ -94,19 +92,21 @@ public class ContentGridActuatorEndpoint {
         }
 
         var links = new LinkedHashMap<String, Link>();
-        links.put("self", new Link("/actuator/contentgrid/applications/" + applicationId));
-        links.put("config", new Link("/actuator/contentgrid/applications/" + applicationId + "/config"));
-        links.put("client-registration",
-                new Link("/actuator/contentgrid/applications/" + applicationId + "/client-registration"));
+        links.put("self", new Link(this.getBasePath() + "/" + applicationId));
+        links.put("config", new Link(this.getBasePath() + "/" + applicationId + "/config"));
+        links.put("client-registration", new Link(this.getBasePath() + "/" + applicationId + "/client-registration"));
 
         var model = new ApplicationDescriptor(applicationId.getValue(), links);
         return Optional.of(model);
     }
 
     @GetMapping("/applications/{applicationId}/config")
-    public ApplicationConfigurationDescriptor getApplicationConfig(@PathVariable ApplicationId applicationId) {
+    public ResponseEntity<ApplicationConfigurationDescriptor> getApplicationConfig(@PathVariable ApplicationId applicationId) {
         var config = this.applicationConfigurationRepository.getApplicationConfiguration(applicationId);
-        return ApplicationConfigurationDescriptor.from(config);
+        return Optional.ofNullable(config)
+                .map(cfg -> ApplicationConfigurationDescriptor.from(cfg, endpointProperties))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/applications/{applicationId}/client-registration")
@@ -116,16 +116,28 @@ public class ContentGridActuatorEndpoint {
                         .findByRegistrationId(registrationId)
                         .map(ClientRegistrationModel::from)
                         .map(ClientRegistrationDescriptor::success)
-                        .onErrorResume(throwable -> Mono.just(ClientRegistrationDescriptor.failed(registrationId, throwable)))
+                        .onErrorResume(
+                                throwable -> Mono.just(ClientRegistrationDescriptor.failed(registrationId, throwable)))
                 )
                 .map(descriptor -> {
-                    descriptor.addLink("self", "/actuator/contentgrid/applications/%s/client-registration".formatted(applicationId));
-                    descriptor.addLink("application", "/actuator/contentgrid/applications/%s".formatted(applicationId));
+                    descriptor.addLink("self", this.getBasePath() + "/%s/client-registration".formatted(applicationId));
+                    descriptor.addLink("application", this.getBasePath() + "/%s".formatted(applicationId));
 
                     return descriptor;
                 });
 
     }
+
+    @NonNull
+    private String getBasePath() {
+        return getBasePath(endpointProperties);
+    }
+
+    @NonNull
+    private static String getBasePath(WebEndpointProperties endpointProperties) {
+        return endpointProperties.getBasePath() + "/contentgrid/applications";
+    }
+
 
     /**
      * Descriptor of {@link ApplicationId}s
@@ -155,7 +167,10 @@ public class ContentGridActuatorEndpoint {
             @JsonProperty("_links")
             private final Map<String, Object> links = new LinkedHashMap<>();
 
-            static ApplicationConfigurationDescriptor from(ApplicationConfiguration config) {
+            static ApplicationConfigurationDescriptor from(
+                    @NonNull ApplicationConfiguration config,
+                    @NonNull WebEndpointProperties endpointProperties) {
+
                 return new ApplicationConfigurationDescriptor(
                         config.getApplicationId().toString(),
                         config.getClientId(),
@@ -167,13 +182,14 @@ public class ContentGridActuatorEndpoint {
                                 .map(domain -> "https://" + domain)
                                 .map(Link::new)
                                 .toList())
-                        .addLink("application", "/actuator/contentgrid/applications/" + config.getApplicationId())
+                        .addLink("application", getBasePath(endpointProperties) + "/" + config.getApplicationId())
                         .addLinkIf(config.getIssuerUri() != null, "issuer-uri", config.getIssuerUri());
             }
 
             public ApplicationConfigurationDescriptor addLink(String name, String href) {
                 return this.addLink(name, new Link(href));
             }
+
             public ApplicationConfigurationDescriptor addLink(String name, Link link) {
                 this.links.put(name, link);
                 return this;
@@ -203,7 +219,9 @@ public class ContentGridActuatorEndpoint {
     static class ApplicationDescriptor implements OperationResponseBody {
 
         String id;
-        Map<String, Link> _links;
+
+        @JsonProperty("_links")
+        Map<String, Link> links;
 
     }
 
@@ -243,6 +261,7 @@ public class ContentGridActuatorEndpoint {
         public ClientRegistrationDescriptor addLink(String name, String href) {
             return this.addLink(name, new Link(href));
         }
+
         public ClientRegistrationDescriptor addLink(String name, Link link) {
             this.links.put(name, link);
             return this;

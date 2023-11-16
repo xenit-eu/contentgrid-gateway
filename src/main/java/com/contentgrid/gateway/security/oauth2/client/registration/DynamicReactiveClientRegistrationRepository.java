@@ -1,7 +1,5 @@
 package com.contentgrid.gateway.security.oauth2.client.registration;
 
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
