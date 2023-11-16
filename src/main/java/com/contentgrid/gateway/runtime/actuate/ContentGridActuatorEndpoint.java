@@ -280,7 +280,7 @@ public class ContentGridActuatorEndpoint {
 
         static ThrowableModel from(@NonNull Throwable throwable) {
             var message = throwable.getMessage();
-            var causes = Stream.iterate(throwable, t -> t.getCause() != null && t != t.getCause(), Throwable::getCause)
+            var causes = Stream.iterate(throwable, t -> t.getCause() != null, Throwable::getCause)
                     .map(Throwable::getMessage)
                     .filter(msg -> msg != null && !msg.isEmpty())
                     .toList();
