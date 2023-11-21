@@ -19,7 +19,6 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
 
     private final Sinks.Many<MapUpdate<K, V>> updates = Sinks.many().multicast().onBackpressureBuffer();
 
-
     @Override
     public V get(Object key) {
         return this.map.get(key);
@@ -30,6 +29,11 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         V previousValue = map.put(key, value);
         updates.emitNext(MapUpdate.put(key, value), FAIL_FAST);
         return previousValue;
+    }
+
+    @Override
+    public Set<K> keySet() {
+        return this.map.keySet();
     }
 
     @Override
@@ -116,8 +120,6 @@ public class ObservableMap<K, V> implements Map<K, V>, AutoCloseable {
         boolean containsKey(Object key);
 
         boolean containsValue(Object value);
-
-        Set<K> keySet();
 
         Collection<V> values();
 

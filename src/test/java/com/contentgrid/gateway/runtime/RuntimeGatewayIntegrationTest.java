@@ -99,7 +99,8 @@ class RuntimeGatewayIntegrationTest {
             ));
         }
 
-        // fix wiremock logging - see https://github.com/spring-cloud/spring-cloud-contract/issues/1916
+        // workaround for wiremock logging - see https://github.com/spring-cloud/spring-cloud-contract/issues/1916
+        // fixed in spring-cloud-contract-wiremock:4.0.5 (now:4.0.4)
         @Bean
         WireMockConfigurationCustomizer optionsCustomizer() {
             return config -> config.notifier(new ConsoleNotifier(true));

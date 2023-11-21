@@ -3,6 +3,7 @@ package com.contentgrid.gateway.runtime;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER;
 
 import com.contentgrid.gateway.ServiceDiscoveryProperties;
+import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
@@ -25,11 +26,13 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
@@ -40,8 +43,8 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -49,6 +52,7 @@ import org.springframework.web.server.ServerWebExchange;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
 public class RuntimeConfiguration {
+
     @Bean
     RuntimeDeploymentGatewayFilter deploymentGatewayFilter() {
         return new RuntimeDeploymentGatewayFilter();
@@ -71,6 +75,15 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    public ContentGridActuatorEndpoint contentGridActuatorEndpoint(WebEndpointProperties endpointProperties,
+            ApplicationConfigurationRepository applicationConfigurationRepository,
+            ReactiveClientRegistrationIdResolver clientRegistrationIdResolver,
+            ReactiveClientRegistrationRepository clientRegistrationRepository) {
+        return new ContentGridActuatorEndpoint(endpointProperties, applicationConfigurationRepository,
+                clientRegistrationIdResolver, clientRegistrationRepository);
+    }
+
+    @Bean
     ContentGridDeploymentMetadata deploymentMetadata() {
         return new SimpleContentGridDeploymentMetadata();
     }
@@ -90,19 +103,21 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    ApplicationIdRequestResolver virtualHostApplicationIdResolver(ApplicationConfigurationRepository appConfigRepository,
+    ApplicationIdRequestResolver virtualHostApplicationIdResolver(
+            ApplicationConfigurationRepository appConfigRepository,
             ApplicationEventPublisher eventPublisher) {
         var delegate = new DynamicVirtualHostApplicationIdResolver(appConfigRepository.observe()
                 .map(update -> switch (update.getType()) {
-                            case PUT -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains());
-                            case REMOVE -> ApplicationDomainNameEvent.delete(update.getKey());
-                            case CLEAR -> ApplicationDomainNameEvent.clear();
-                        }), eventPublisher);
+                    case PUT -> ApplicationDomainNameEvent.put(update.getKey(), update.getValue().getDomains());
+                    case REMOVE -> ApplicationDomainNameEvent.delete(update.getKey());
+                    case CLEAR -> ApplicationDomainNameEvent.clear();
+                }), eventPublisher);
         return new CachingApplicationIdRequestResolver(delegate);
     }
 
     @Bean
-    RuntimeServiceInstanceSelector simpleRuntimeServiceInstanceSelector(ContentGridDeploymentMetadata deploymentMetadata) {
+    RuntimeServiceInstanceSelector simpleRuntimeServiceInstanceSelector(
+            ContentGridDeploymentMetadata deploymentMetadata) {
         return new SimpleRuntimeServiceInstanceSelector(deploymentMetadata);
     }
 
@@ -125,7 +140,8 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    OpaQueryProvider<ServerWebExchange> opaQueryProvider(ServiceCatalog serviceCatalog, ContentGridDeploymentMetadata deploymentMetadata) {
+    OpaQueryProvider<ServerWebExchange> opaQueryProvider(ServiceCatalog serviceCatalog,
+            ContentGridDeploymentMetadata deploymentMetadata) {
         return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
     }
 
