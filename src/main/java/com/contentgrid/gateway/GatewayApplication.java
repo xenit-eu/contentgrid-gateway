@@ -12,16 +12,10 @@ import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
+import com.contentgrid.thunx.spring.security.DefaultOpaInputProvider;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
@@ -66,6 +60,14 @@ import org.springframework.security.web.server.util.matcher.ServerWebExchangeMat
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @SpringBootApplication
@@ -152,8 +154,15 @@ public class GatewayApplication {
     }
 
     @Bean
-    OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
+    @ConditionalOnProperty(value = "contentgrid.gateway.contentgrid-input-provider.enabled", havingValue = "true", matchIfMissing = true)
+    OpaInputProvider<Authentication, ServerWebExchange> contentGridOpaInputProvider() {
         return new ContentgridOpaInputProvider();
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "contentgrid.gateway.contentgrid-input-provider.enabled", havingValue = "false")
+    OpaInputProvider<Authentication, ServerWebExchange> deafultOpaInputProvider() {
+        return new DefaultOpaInputProvider();
     }
 
     @Bean
@@ -254,10 +263,12 @@ public class GatewayApplication {
 
         return http.build();
     }
+
     @Bean
     public AbacGatewayFilterFactory abacGatewayFilterFactory() {
         return new AbacGatewayFilterFactory();
     }
+
     @Bean
     public GlobalFilter proxyUpstreamUnavailableWebFilter() {
         return new ProxyUpstreamUnavailableWebFilter();
