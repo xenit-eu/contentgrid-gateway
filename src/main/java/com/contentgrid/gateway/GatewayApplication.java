@@ -156,7 +156,7 @@ public class GatewayApplication {
 
     @Bean
     @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
-    OpaInputProvider<Authentication, ServerWebExchange> deafultOpaInputProvider() {
+    OpaInputProvider<Authentication, ServerWebExchange> defaultOpaInputProvider() {
         return new DefaultOpaInputProvider();
     }
 
