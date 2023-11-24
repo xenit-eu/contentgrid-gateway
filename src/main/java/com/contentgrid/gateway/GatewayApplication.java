@@ -3,7 +3,7 @@ package com.contentgrid.gateway;
 import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
-import com.contentgrid.gateway.security.opa.ContentgridOpaInputProvider;
+import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
 import com.contentgrid.opa.client.OpaClient;
 import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
 import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
@@ -12,6 +12,7 @@ import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
+import com.contentgrid.thunx.spring.security.DefaultOpaInputProvider;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -151,15 +152,23 @@ public class GatewayApplication {
         return request -> opaProperties.getQuery();
     }
 
+
+
     @Bean
-    OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
-        return new ContentgridOpaInputProvider();
+    @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
+    OpaInputProvider<Authentication, ServerWebExchange> defaultOpaInputProvider() {
+        return new DefaultOpaInputProvider();
     }
 
     @Bean
     @ConditionalOnBean(OpaClient.class)
     public PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient(OpaClient opaClient, OpaQueryProvider<ServerWebExchange> opaQueryProvider, OpaInputProvider<Authentication, ServerWebExchange> inputProvider) {
         return new OpenPolicyAgentPDPClient<>(opaClient, opaQueryProvider, inputProvider);
+    }
+
+    @Bean
+    public AbacGatewayFilterFactory abacGatewayFilterFactory() {
+        return new AbacGatewayFilterFactory();
     }
 
     @Bean
@@ -254,10 +263,7 @@ public class GatewayApplication {
 
         return http.build();
     }
-    @Bean
-    public AbacGatewayFilterFactory abacGatewayFilterFactory() {
-        return new AbacGatewayFilterFactory();
-    }
+
     @Bean
     public GlobalFilter proxyUpstreamUnavailableWebFilter() {
         return new ProxyUpstreamUnavailableWebFilter();

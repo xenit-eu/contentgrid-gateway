@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security.opa;
+package com.contentgrid.gateway.runtime.authorization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

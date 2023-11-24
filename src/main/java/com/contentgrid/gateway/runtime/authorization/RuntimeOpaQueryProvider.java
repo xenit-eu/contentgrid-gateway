@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.runtime;
+package com.contentgrid.gateway.runtime.authorization;
 
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
 
