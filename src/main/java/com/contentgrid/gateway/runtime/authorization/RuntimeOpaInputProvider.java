@@ -1,11 +1,11 @@
-package com.contentgrid.gateway.security.opa;
+package com.contentgrid.gateway.runtime.authorization;
 
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import java.util.Map;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ServerWebExchange;
 
-public class ContentgridOpaInputProvider implements OpaInputProvider<Authentication, ServerWebExchange> {
+public class RuntimeOpaInputProvider implements OpaInputProvider<Authentication, ServerWebExchange> {
 
     @Override
     public Map<String, Object> createInput(Authentication authenticationContext, ServerWebExchange requestContext) {

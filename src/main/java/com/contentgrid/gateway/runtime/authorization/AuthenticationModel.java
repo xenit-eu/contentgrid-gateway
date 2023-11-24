@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security.opa;
+package com.contentgrid.gateway.runtime.authorization;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
