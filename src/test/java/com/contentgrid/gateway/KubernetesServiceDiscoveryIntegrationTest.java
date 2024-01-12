@@ -8,9 +8,12 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -49,6 +53,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.k3s.K3sContainer;
+import org.testcontainers.shaded.org.awaitility.core.ConditionTimeoutException;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -233,6 +238,87 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             List<Route> routes = routeLocator.getRoutes().collectList().block();
             assertThat(routes).isNotNull();
             assertThat(routes.get(0).getUri().toString()).isEqualTo("http://example.com:80");
+        }
+    }
+
+    @Nested
+    @Import(KindClientConfiguration.class)
+    @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.runtime-platform.enabled=true",
+            "spring.main.cloud-platform=kubernetes",
+            "servicediscovery.namespace=resynctest",
+            "servicediscovery.enabled=true",
+            "servicediscovery.resync=1",
+
+            // https://github.com/spring-cloud/spring-cloud-gateway/issues/2909
+            "spring.cloud.gateway.default-filters=PreserveHostHeader"
+    })
+    @AutoConfigureWebTestClient
+    public class ResyncTest {
+
+        @Autowired
+        ApplicationContext context;
+
+        @Autowired
+        ServiceCatalog serviceCatalog;
+
+        @Test
+        public void testNoDuplicateServicesAfterResync() {
+            var appId = ApplicationId.random();
+            var deploymentId = DeploymentId.random();
+
+            Service service = new ServiceBuilder()
+                    .withNewMetadata()
+                    .withName("integration-test-dummy-service")
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "api",
+                            "app.contentgrid.com/application-id", appId.toString(),
+                            "app.contentgrid.com/deployment-id", deploymentId.toString(),
+                            "authz.contentgrid.com/policy-package", "contentgrid.userapps.deployment%s"
+                                    .formatted(deploymentId.toString().replace("-", ""))
+                    ))
+                    .endMetadata()
+                    .withNewSpec()
+                    .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
+                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
+                    .endSpec()
+                    .build();
+
+            ConfigMap configMap = new ConfigMapBuilder()
+                    .withNewMetadata()
+                    .withName("app-" + UUID.randomUUID())
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "gateway",
+                            "app.contentgrid.com/application-id", appId.toString()
+                    ))
+                    .endMetadata()
+                    .addToData(Map.of(Keys.ROUTING_DOMAINS, "%s.userapps.contentgrid.com".formatted(appId)))
+                    .build();
+
+            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml()))
+                    .build()) {
+                client.resource(new NamespaceBuilder().withNewMetadata().withName("resynctest").endMetadata().build()).create();
+                client.resource(service).inNamespace("resynctest").create();
+                client.resource(configMap).inNamespace("resynctest").create();
+                logger.info("Created k8s resources");
+            }
+
+            // Wait until the first service is registerd
+            await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        assertThat(serviceCatalog.findByApplicationId(appId)).hasSize(1);
+                    });
+            // Wait another 5 seconds, which should cause a few resyncs, and check that it doesn't make duplicate
+            // services appear
+            Assertions.assertThrows(ConditionTimeoutException.class, () ->
+                    await()
+                            .atMost(Duration.ofSeconds(5))
+                            .until(() -> serviceCatalog.findByApplicationId(appId).size() > 1)
+            );
         }
     }
 

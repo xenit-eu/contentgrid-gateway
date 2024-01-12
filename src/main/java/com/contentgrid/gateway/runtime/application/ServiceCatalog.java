@@ -2,30 +2,15 @@ package com.contentgrid.gateway.runtime.application;
 
 import com.contentgrid.gateway.collections.ConcurrentLookup;
 import com.contentgrid.gateway.collections.ConcurrentLookup.Lookup;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceAddedHandler;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDeletedHandler;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.cloud.client.ServiceInstance;
-import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
-import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
-import org.springframework.cloud.gateway.route.RouteDefinition;
-import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
-import org.springframework.context.ApplicationEventPublisher;
-import reactor.core.publisher.Flux;
-import reactor.util.Loggers;
 
 @Slf4j
 public class ServiceCatalog implements

@@ -4,9 +4,11 @@ package com.contentgrid.gateway.runtime.servicediscovery;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
+import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import java.io.Closeable;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
@@ -16,17 +18,17 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 
 @Slf4j
 @RequiredArgsConstructor
-public class KubernetesServiceDiscovery implements ServiceDiscovery, Closeable {
+public class KubernetesServiceDiscovery implements ServiceDiscovery {
 
     private final KubernetesClient client;
     private final String namespace;
+    private final long resyncInterval;
 
     private final ServiceAddedHandler serviceAddedHandler;
     private final ServiceDeletedHandler serviceDeletedHandler;
 
     private final Fabric8ServiceInstanceMapper mapper;
 
-    private Closeable watch = null;
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
             .addToMatchLabels("app.kubernetes.io/managed-by", "contentgrid")
@@ -36,43 +38,28 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, Closeable {
     // TODO this should by a bean-init method
     @Override
     public void discoverApis() {
-        this.watch = client.services()
+        client.services()
                 .inNamespace(namespace)
                 .withLabelSelector(selector)
-                .watch(new Watcher<Service>() {
-            @Override
-            public void eventReceived(Action action, Service resource) {
-                ServiceInstance service = mapper.map(resource);
-                if (service == null) {
-                    log.warn("Service (action:{}) {} not mapped", action, resource);
-                    return;
-                }
+                .inform(new ResourceEventHandler<Service>() {
+                    @Override
+                    public void onAdd(Service obj) {
+                        var service = mapper.map(obj);
+                        serviceAddedHandler.handleServiceAdded(service);
+                        log.info("{} discovered", service);
+                    }
 
-                if (action == Action.ADDED || action == Action.MODIFIED) {
-                    serviceAddedHandler.handleServiceAdded(service);
-                    log.info("{} discovered", service);
-                } else if (action == Action.DELETED) {
-                    serviceDeletedHandler.handleServiceDeleted(service);
-                    log.info("{} deleted", service);
-                } else {
-                    log.warn("Action {} ignored on {}", action, service);
-                }
-            }
+                    @Override
+                    public void onUpdate(Service oldObj, Service newObj) {
+                        this.onAdd(newObj);
+                    }
 
-            @Override
-            public void onClose(WatcherException cause) {
-                log.info("Closing watcher", cause);
-            }
-        });
-        log.info("Watching k8s namespace '{}' with selector {}", namespace, selector);
-    }
-
-    @Override
-    public void close() throws IOException {
-        var closure = this.watch;
-        if (closure != null) {
-            closure.close();
-            this.watch = null;
-        }
+                    @Override
+                    public void onDelete(Service obj, boolean deletedFinalStateUnknown) {
+                        var service = mapper.map(obj);
+                        serviceDeletedHandler.handleServiceDeleted(service);
+                        log.info("{} deleted", service);
+                    }
+                }, resyncInterval * 1000);
     }
 }

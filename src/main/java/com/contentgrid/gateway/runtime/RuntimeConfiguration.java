@@ -170,8 +170,8 @@ public class RuntimeConfiguration {
             ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
                     ServiceCatalog serviceCatalog, Fabric8ServiceInstanceMapper instanceMapper) {
                 log.info("Enabled k8s service discovery (namespace:{})", properties.getNamespace());
-                return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), serviceCatalog,
-                        serviceCatalog, instanceMapper);
+                return new KubernetesServiceDiscovery(kubernetesClient, properties.getNamespace(), properties.getResync(),
+                        serviceCatalog, serviceCatalog, instanceMapper);
             }
 
             @Bean
