@@ -124,9 +124,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=true",
-
-            // https://github.com/spring-cloud/spring-cloud-gateway/issues/2909
-            "spring.cloud.gateway.default-filters=PreserveHostHeader"
+            "spring.profiles.active=runtime"
     })
     @AutoConfigureWebTestClient
     public class HappyPathTest {

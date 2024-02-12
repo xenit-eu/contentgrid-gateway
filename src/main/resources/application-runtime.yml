@@ -13,6 +13,10 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: app
+          uri: cg://ignored
+          predicates:
+            - ApplicationId=
         - id: root
           uri: https://ignored
           predicates:
