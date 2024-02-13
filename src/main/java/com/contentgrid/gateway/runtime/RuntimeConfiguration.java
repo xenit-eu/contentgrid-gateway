@@ -16,6 +16,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRoutePredicateFactory;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
 import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostApplicationIdResolver;
@@ -39,6 +40,8 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointPr
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.cloud.gateway.config.GatewayProperties;
+import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabledPredicate;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.GatewayFilterSpec;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
@@ -63,14 +66,9 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    RouteLocator runtimeAppRouteLocator(RouteLocatorBuilder builder, ApplicationIdRequestResolver appIdResolver) {
-        return builder.routes()
-                .route(r -> r
-                        .predicate(exchange -> appIdResolver.resolveApplicationId(exchange).isPresent())
-                        .filters(GatewayFilterSpec::preserveHostHeader)
-                        .uri("cg://ignored")
-                )
-                .build();
+    @ConditionalOnEnabledPredicate
+    ApplicationIdRoutePredicateFactory applicationIdRoutePredicateFactory(ApplicationIdRequestResolver applicationIdRequestResolver)  {
+        return new ApplicationIdRoutePredicateFactory(applicationIdRequestResolver);
     }
 
     @Bean

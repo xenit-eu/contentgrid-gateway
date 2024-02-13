@@ -13,12 +13,10 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: root
-          uri: https://ignored
+        - id: app
+          uri: cg://ignored
           predicates:
-            - Path=/
-          filters:
-            - RedirectTo=302, /me
+            - ApplicationId=
 
 servicediscovery:
   namespace: default
