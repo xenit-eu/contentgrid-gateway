@@ -22,18 +22,25 @@ import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
+import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
+import com.contentgrid.thunx.pdp.PolicyDecisions;
+import com.contentgrid.thunx.predicates.model.Comparison;
+import com.contentgrid.thunx.predicates.model.Scalar;
+import com.contentgrid.thunx.predicates.model.SymbolicReference;
+import com.contentgrid.thunx.predicates.model.ThunkExpression;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,7 +52,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.server.ServerWebExchange;
 
 /**
  * Integration tests for ContentGrid Gateway using the Runtime profile.
@@ -72,8 +81,9 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @SpringBootTest(
         webEnvironment = RANDOM_PORT,
         properties = {
-                "contentgrid.gateway.runtime-platform.enabled: true",
-                "wiremock.reset-mappings-after-each-test: true"
+                "wiremock.reset-mappings-after-each-test: true",
+                "spring.profiles.active=runtime",
+                "spring.main.cloud-platform=none"
         })
 @AutoConfigureWireMock(port = 0)
 @AutoConfigureWebTestClient
@@ -83,9 +93,16 @@ class RuntimeGatewayIntegrationTest {
     static final DeploymentId DEPLOY_ID = DeploymentId.random();
 
     static final ApplicationId APP_ID_UNAVAILABLE = ApplicationId.random();
+    static final ThunkExpression<Boolean> PARTIAL_EXPRESSION = Comparison.areEqual(
+            SymbolicReference.parse("input.entity.public"),
+            Scalar.of(true)
+    );
 
     @Autowired
     WireMockServer wireMockServer;
+
+    @Autowired
+    PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient;
 
     @TestConfiguration
     static class RuntimeTestConfiguration {
@@ -97,6 +114,12 @@ class RuntimeGatewayIntegrationTest {
                     hostname(APP_ID), APP_ID,
                     hostname("unavailable"),  APP_ID_UNAVAILABLE // this app has no deployments
             ));
+        }
+
+        @Bean
+        @SuppressWarnings("unchecked")
+        PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpMockClient() {
+            return (PolicyDecisionPointClient<Authentication, ServerWebExchange>) Mockito.mock(PolicyDecisionPointClient.class);
         }
 
         // workaround for wiremock logging - see https://github.com/spring-cloud/spring-cloud-contract/issues/1916
@@ -139,60 +162,100 @@ class RuntimeGatewayIntegrationTest {
     @Autowired
     WebTestClient webTestClient;
 
-    @Nested
-    class HappyPath {
+    @Test
+    void contentgridHeaders_expected() {
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
-        @Test
-        void contentgridHeaders_expected() {
-            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        webTestClient
+                .mutateWith(mockOidcLogin())
+                .get().uri("https://{hostname}/test", hostname(APP_ID))
+                .header("Host", hostname(APP_ID))
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.OK)
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
 
-            webTestClient
-                    .mutateWith(mockOidcLogin())
-                    .get().uri("https://{hostname}/test", hostname(APP_ID))
-                    .header("Host", hostname(APP_ID))
-                    .exchange()
-                    .expectStatus().isEqualTo(HttpStatus.OK)
-                    .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
-                    .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
+        wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
+    }
 
-            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
-        }
+    @Test
+    void xForwardedHeaders_expected() {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
-        @Test
-        void xForwardedHeaders_expected() {
-            var hostname = hostname(APP_ID);
-            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        webTestClient
+                .mutateWith(mockOidcLogin())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.OK);
 
-            webTestClient
-                    .mutateWith(mockOidcLogin())
-                    .get().uri("https://{hostname}/test", hostname)
-                    .header("Host", hostname)
-                    .exchange()
-                    .expectStatus().isEqualTo(HttpStatus.OK);
+        wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
+                .withHeader(X_FORWARDED_HOST_HEADER, equalTo(hostname))
+                .withHeader(X_FORWARDED_PROTO_HEADER, equalTo("https"))
+                .withHeader(X_FORWARDED_PORT_HEADER, equalTo("443"))
+        );
+    }
 
-            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
-                    .withHeader(X_FORWARDED_HOST_HEADER, equalTo(hostname))
-                    .withHeader(X_FORWARDED_PROTO_HEADER, equalTo("https"))
-                    .withHeader(X_FORWARDED_PORT_HEADER, equalTo("443"))
-            );
-        }
+    @Test
+    void preserveHostHeader_expected() {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
-        @Test
-        void preserveHostHeader_expected() {
-            var hostname = hostname(APP_ID);
-            wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        webTestClient
+                .mutateWith(mockOidcLogin())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.OK);
 
-            webTestClient
-                    .mutateWith(mockOidcLogin())
-                    .get().uri("https://{hostname}/test", hostname)
-                    .header("Host", hostname)
-                    .exchange()
-                    .expectStatus().isEqualTo(HttpStatus.OK);
+        wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
+                .withHeader(HOST, equalTo(hostname))
+        );
+    }
 
-            wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
-                    .withHeader(HOST, equalTo(hostname))
-            );
-        }
+    @Test
+    void abacContextHeader_expected_for_conditional_access() {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
+
+        webTestClient
+                .mutateWith(mockOidcLogin())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.OK);
+
+        wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test"))
+                .withHeader("X-Abac-Context", WireMock.matching(".*"))
+        );
+
+    }
+
+    @Test
+    void http403_expected_for_denied_access() {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
+
+        webTestClient
+                .mutateWith(mockOidcLogin())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.FORBIDDEN);
+
+        wireMockServer.verify(0, WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
+
     }
 
     @Test
