@@ -17,12 +17,6 @@ spring:
           uri: cg://ignored
           predicates:
             - ApplicationId=
-        - id: root
-          uri: https://ignored
-          predicates:
-            - Path=/
-          filters:
-            - RedirectTo=302, /me
 
 servicediscovery:
   namespace: default
