@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.boot.actuate.health.HealthEndpoint;
@@ -138,54 +139,6 @@ public class GatewayApplication {
     }
 
     @Bean
-    @ConditionalOnProperty("opa.service.url")
-    public OpaClient opaClient(OpaProperties opaProperties) {
-        return OpaClient.builder()
-                .httpLogging(LogSpecification::all)
-                .url(opaProperties.getService().getUrl())
-                .build();
-    }
-
-    @Bean
-    @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
-    OpaQueryProvider<ServerWebExchange> opaQueryProvider(OpaProperties opaProperties) {
-        return request -> opaProperties.getQuery();
-    }
-
-
-
-    @Bean
-    @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
-    OpaInputProvider<Authentication, ServerWebExchange> defaultOpaInputProvider() {
-        return new DefaultOpaInputProvider();
-    }
-
-    @Bean
-    @ConditionalOnBean(OpaClient.class)
-    public PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient(OpaClient opaClient, OpaQueryProvider<ServerWebExchange> opaQueryProvider, OpaInputProvider<Authentication, ServerWebExchange> inputProvider) {
-        return new OpenPolicyAgentPDPClient<>(opaClient, opaQueryProvider, inputProvider);
-    }
-
-    @Bean
-    public AbacGatewayFilterFactory abacGatewayFilterFactory() {
-        return new AbacGatewayFilterFactory();
-    }
-
-    @Bean
-    @ConditionalOnBean(PolicyDecisionPointClient.class)
-    public ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthenticationManager(
-            PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient) {
-        return new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(pdpClient));
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(ReactiveAuthorizationManager.class)
-    public ReactiveAuthorizationManager<AuthorizationContext> fallbackReactiveAuthenticationManager() {
-        log.warn("OpenPolicyAgent not configured, authorization disabled");
-        return AuthenticatedReactiveAuthorizationManager.authenticated();
-    }
-
-    @Bean
     @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled", havingValue = "false", matchIfMissing = true)
     public CorsConfigurationSource corsConfigurationSource(CorsResolverProperties corsResolverProperties) {
         return new CorsConfigurationResolver(corsResolverProperties);
@@ -195,7 +148,7 @@ public class GatewayApplication {
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
             Environment environment,
-            ReactiveAuthorizationManager<AuthorizationContext> authorizationManager,
+            ObjectProvider<ReactiveAuthorizationManager<AuthorizationContext>> authorizationManager,
             ServerLogoutSuccessHandler logoutSuccessHandler,
             CorsConfigurationSource corsConfig,
             List<Customizer<OAuth2LoginSpec>> oauth2loginCustomizer,
@@ -224,7 +177,10 @@ public class GatewayApplication {
                 ).permitAll()
 
                 // other requests must pass through the authorizationManager (opa/keycloak)
-                .anyExchange().access(authorizationManager)
+                .anyExchange().access(authorizationManager.getIfAvailable(() -> {
+                    log.warn("OpenPolicyAgent not configured, authorization disabled");
+                    return AuthenticatedReactiveAuthorizationManager.authenticated();
+                }))
         );
 
         // Bearer token auth
