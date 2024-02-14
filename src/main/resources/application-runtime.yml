@@ -10,13 +10,6 @@ testing:
 spring:
   main:
     cloud-platform: kubernetes # bypass detection this is running on K8S
-  cloud:
-    gateway:
-      routes:
-        - id: app
-          uri: cg://ignored
-          predicates:
-            - ApplicationId=
 
 servicediscovery:
   namespace: default

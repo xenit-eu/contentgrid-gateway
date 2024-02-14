@@ -16,7 +16,6 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
-import com.contentgrid.gateway.runtime.routing.ApplicationIdRoutePredicateFactory;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
 import com.contentgrid.gateway.runtime.routing.DynamicVirtualHostApplicationIdResolver;
@@ -32,6 +31,7 @@ import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
+import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -40,10 +40,7 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointPr
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
-import org.springframework.cloud.gateway.config.GatewayProperties;
-import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabledPredicate;
 import org.springframework.cloud.gateway.route.RouteLocator;
-import org.springframework.cloud.gateway.route.builder.GatewayFilterSpec;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 import org.springframework.context.ApplicationEventPublisher;
@@ -66,9 +63,23 @@ public class RuntimeConfiguration {
     }
 
     @Bean
-    @ConditionalOnEnabledPredicate
-    ApplicationIdRoutePredicateFactory applicationIdRoutePredicateFactory(ApplicationIdRequestResolver applicationIdRequestResolver)  {
-        return new ApplicationIdRoutePredicateFactory(applicationIdRequestResolver);
+    RouteLocator runtimeRouteLocator(
+            RouteLocatorBuilder builder,
+            ApplicationIdRequestResolver applicationIdRequestResolver,
+            AbacGatewayFilterFactory abacGatewayFilterFactory
+    ) {
+        return builder.routes()
+                .route(r -> r
+                        .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
+                        .filters(f -> f
+                                .tokenRelay()
+                                .preserveHostHeader()
+                                .removeRequestHeader("Cookie")
+                                .filter(abacGatewayFilterFactory.apply(c -> {}))
+                        )
+                        .uri("cg://ignored")
+                )
+                .build();
     }
 
     @Bean

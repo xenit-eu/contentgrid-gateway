@@ -123,8 +123,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "contentgrid.gateway.runtime-platform.enabled=true",
             "spring.main.cloud-platform=kubernetes",
             "servicediscovery.namespace=default",
-            "servicediscovery.enabled=true",
-            "spring.profiles.active=runtime"
+            "servicediscovery.enabled=true"
     })
     @AutoConfigureWebTestClient
     public class HappyPathTest {
