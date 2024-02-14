@@ -81,9 +81,8 @@ import org.springframework.web.server.ServerWebExchange;
 @SpringBootTest(
         webEnvironment = RANDOM_PORT,
         properties = {
-                "wiremock.reset-mappings-after-each-test: true",
-                "spring.profiles.active=runtime",
-                "spring.main.cloud-platform=none"
+                "contentgrid.gateway.runtime-platform.enabled: true",
+                "wiremock.reset-mappings-after-each-test: true"
         })
 @AutoConfigureWireMock(port = 0)
 @AutoConfigureWebTestClient
