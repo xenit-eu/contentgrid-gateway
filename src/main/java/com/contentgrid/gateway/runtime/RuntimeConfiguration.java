@@ -15,6 +15,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
+import com.contentgrid.gateway.runtime.jwt.issuer.RuntimeJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
@@ -28,6 +29,9 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilter;
+import com.contentgrid.gateway.security.jwt.issuer.SignedJwtIssuer;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
@@ -40,6 +44,8 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointPr
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.cloud.gateway.filter.GatewayFilter;
+import org.springframework.cloud.gateway.filter.factory.TokenRelayGatewayFilterFactory;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
@@ -66,16 +72,23 @@ public class RuntimeConfiguration {
     RouteLocator runtimeRouteLocator(
             RouteLocatorBuilder builder,
             ApplicationIdRequestResolver applicationIdRequestResolver,
-            AbacGatewayFilterFactory abacGatewayFilterFactory
+            AbacGatewayFilterFactory abacGatewayFilterFactory,
+            TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
+            JwtSignerRegistry jwtSignerRegistry
     ) {
+        GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
+                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, new RuntimeJwtClaimsResolver()))
+                .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
+                .orElseGet(tokenRelayGatewayFilterFactory::apply);
+
         return builder.routes()
                 .route(r -> r
                         .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
                         .filters(f -> f
-                                .tokenRelay()
                                 .preserveHostHeader()
                                 .removeRequestHeader("Cookie")
                                 .filter(abacGatewayFilterFactory.apply(c -> {}))
+                                .filter(tokenFilter)
                         )
                         .uri("cg://ignored")
                 )

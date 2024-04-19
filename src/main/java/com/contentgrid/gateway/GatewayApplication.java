@@ -3,17 +3,7 @@ package com.contentgrid.gateway;
 import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
-import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
-import com.contentgrid.opa.client.OpaClient;
-import com.contentgrid.opa.client.rest.RestClientConfiguration.LogSpecification;
-import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
-import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
-import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
-import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
-import com.contentgrid.thunx.pdp.opa.OpenPolicyAgentPDPClient;
-import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
-import com.contentgrid.thunx.spring.security.DefaultOpaInputProvider;
-import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
+import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -33,8 +23,6 @@ import org.springframework.boot.actuate.info.InfoEndpoint;
 import org.springframework.boot.actuate.metrics.MetricsEndpoint;
 import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -49,7 +37,6 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -64,10 +51,9 @@ import org.springframework.security.web.server.authentication.logout.ServerLogou
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
-import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.server.ServerWebExchange;
 
 @Slf4j
 @SpringBootApplication
@@ -161,7 +147,8 @@ public class GatewayApplication {
                         InfoEndpoint.class,
                         HealthEndpoint.class,
                         MetricsEndpoint.class,
-                        PrometheusScrapeEndpoint.class
+                        PrometheusScrapeEndpoint.class,
+                        JWKSetEndpoint.class
                 )).permitAll()
 
                 // requests FROM localhost to actuator endpoints are all permitted
@@ -170,9 +157,9 @@ public class GatewayApplication {
                         mgmtExchange -> {
                             var remoteAddress = mgmtExchange.getRequest().getRemoteAddress();
                             if (remoteAddress != null && remoteAddress.getAddress().isLoopbackAddress()) {
-                                return ServerWebExchangeMatcher.MatchResult.match();
+                                return MatchResult.match();
                             }
-                            return ServerWebExchangeMatcher.MatchResult.notMatch();
+                            return MatchResult.notMatch();
                         })
                 ).permitAll()
 
