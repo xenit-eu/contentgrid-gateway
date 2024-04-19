@@ -7,6 +7,8 @@ import static com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders.CONT
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_HOST_HEADER;
@@ -21,6 +23,7 @@ import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
+import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.PolicyDecisions;
@@ -31,6 +34,12 @@ import com.contentgrid.thunx.predicates.model.ThunkExpression;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
+import com.nimbusds.jose.JWSAlgorithm.Family;
+import com.nimbusds.jose.proc.JWSVerificationKeySelector;
+import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +62,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -82,6 +92,7 @@ import org.springframework.web.server.ServerWebExchange;
         webEnvironment = RANDOM_PORT,
         properties = {
                 "contentgrid.gateway.runtime-platform.enabled: true",
+                "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "wiremock.reset-mappings-after-each-test: true"
         })
 @AutoConfigureWireMock(port = 0)
@@ -96,6 +107,8 @@ class RuntimeGatewayIntegrationTest {
             SymbolicReference.parse("input.entity.public"),
             Scalar.of(true)
     );
+
+    static final String OIDC_ISSUER = "https://auth.contentgrid.example/realms/abc";
 
     @Autowired
     WireMockServer wireMockServer;
@@ -143,6 +156,11 @@ class RuntimeGatewayIntegrationTest {
 
     }
 
+    static OidcLoginMutator mockOidcLoginWithIssuer() {
+        return mockOidcLogin()
+                .idToken(idToken -> idToken.issuer(OIDC_ISSUER));
+    }
+
     @BeforeAll
     public static void setup(@Autowired ServiceCatalog catalog, @Autowired WireMockServer wiremock) {
         // register the wire-mock-server in the service catalog
@@ -168,7 +186,7 @@ class RuntimeGatewayIntegrationTest {
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname(APP_ID))
                 .header("Host", hostname(APP_ID))
                 .exchange()
@@ -187,7 +205,7 @@ class RuntimeGatewayIntegrationTest {
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname)
                 .header("Host", hostname)
                 .exchange()
@@ -208,7 +226,7 @@ class RuntimeGatewayIntegrationTest {
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname)
                 .header("Host", hostname)
                 .exchange()
@@ -227,7 +245,7 @@ class RuntimeGatewayIntegrationTest {
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
 
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname)
                 .header("Host", hostname)
                 .exchange()
@@ -240,6 +258,50 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @Test
+    void internalJwt_expected(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:app:"+ APP_ID +":"+DEPLOY_ID), // We are working from the perspective of the client application here
+
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertThat(request.getHeader("authorization")).satisfies(authorization -> {
+                assertThat(authorization).startsWith("Bearer ");
+                assertThat(authorization.replaceFirst("Bearer ", "")).satisfies(receivedJwt -> {
+                    assertThat(SignedJWT.parse(receivedJwt)).satisfies(signedJwt -> {
+                        assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                            assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
+                            assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                            assertThat(claims.getSubject()).isEqualTo("user");
+                        });
+                        assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                                .doesNotThrowAnyException();
+                    });
+                });
+            });
+        });
+    }
+
+    @Test
     void http403_expected_for_denied_access() {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
@@ -247,7 +309,7 @@ class RuntimeGatewayIntegrationTest {
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
 
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname)
                 .header("Host", hostname)
                 .exchange()
@@ -262,7 +324,7 @@ class RuntimeGatewayIntegrationTest {
         webTestClient
                 // slightly fictive test: if the domain is unknown,
                 // we would not know how to map to a Keycloak realm anyway
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
 
                 .get().uri("https://{hostname}/test", hostname("unknown"))
                 .header("Host", hostname("unknown"))
@@ -279,7 +341,7 @@ class RuntimeGatewayIntegrationTest {
     void service_unavailable_http503() {
         // application is provisioned, but no deployments available in the service catalog
         webTestClient
-                .mutateWith(mockOidcLogin())
+                .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname("unavailable"))
                 .header("Host", hostname("unknown"))
                 .exchange()
@@ -297,7 +359,7 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
 
         webTestClient
-                // DISABLED: .mutateWith(mockOidcLogin())
+                // DISABLED: .mutateWith(mockOidcLoginWithIssuer())
                 .get().uri("https://{hostname}/test", hostname(APP_ID))
                 .header("Host", hostname(APP_ID))
                 .exchange()
