@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
+import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.security.jwt.issuer.PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties;
@@ -13,19 +14,11 @@ import com.nimbusds.jose.crypto.factories.DefaultJWSVerifierFactory;
 import com.nimbusds.jose.jwk.AsymmetricJWK;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jwt.JWTClaimsSet;
-import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -34,56 +27,12 @@ import lombok.Builder.Default;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import lombok.Singular;
-import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.experimental.Delegate;
-import org.bouncycastle.util.io.pem.PemObject;
-import org.bouncycastle.util.io.pem.PemWriter;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.AbstractResource;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
-import org.springframework.security.util.InMemoryResource;
-import org.springframework.util.AntPathMatcher;
-import org.springframework.util.PathMatcher;
 
 class PropertiesBasedJwtClaimsSignerTest {
-
-    @SneakyThrows
-    static KeyPair createKeyPair(String algorithm, int size) {
-        var generator = KeyPairGenerator.getInstance(algorithm);
-        generator.initialize(size);
-        return generator.generateKeyPair();
-    }
-
-    @SneakyThrows
-    static Resource toKeyResource(List<PemObject> objects) {
-
-        var privateKeyOutput = new ByteArrayOutputStream();
-        try(var writer = new OutputStreamWriter(privateKeyOutput)) {
-            try(var pemWriter = new PemWriter(writer)) {
-                for (PemObject object : objects) {
-                    pemWriter.writeObject(object);
-                }
-            }
-        }
-        return new InMemoryResource(privateKeyOutput.toByteArray());
-
-    }
-
-    static Resource toPrivateKeyResource(KeyPair keyPair) {
-        return toKeyResource(List.of(
-                new PemObject("PRIVATE KEY", keyPair.getPrivate().getEncoded()),
-                new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded()))
-        );
-    }
-
-    static Resource toPublicKeyResource(KeyPair keyPair) {
-        return toKeyResource(List.of(
-                new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded())
-        ));
-    }
 
     static Random createDeterministicRandom() {
         // This is a random that will always start from the same seed
@@ -277,55 +226,6 @@ class PropertiesBasedJwtClaimsSignerTest {
         @Setter
         @NonNull
         private ResourcePatternResolver delegate;
-    }
-
-    @RequiredArgsConstructor
-    @Builder
-    private static class MockResourcePatternResolver implements ResourcePatternResolver {
-        @Singular
-        private final Map<String, Resource> resources;
-
-        private final PathMatcher pathMatcher = new AntPathMatcher();
-
-
-        @Override
-        public Resource getResource(String location) {
-            return resources.getOrDefault(location, new NonExistingResource(location));
-        }
-
-        @Override
-        public ClassLoader getClassLoader() {
-            return null;
-        }
-
-        @Override
-        public Resource[] getResources(String locationPattern) throws IOException {
-            return resources.keySet()
-                    .stream()
-                    .filter(path -> pathMatcher.match(locationPattern, path))
-                    .map(this::getResource)
-                    .toArray(Resource[]::new);
-        }
-
-        @RequiredArgsConstructor
-        private static class NonExistingResource extends AbstractResource {
-            private final String path;
-
-            @Override
-            public String getDescription() {
-                return "NonExistingResource [%s]".formatted(path);
-            }
-
-            @Override
-            public InputStream getInputStream() throws IOException {
-                throw new FileNotFoundException(getDescription()+" can not be opened because it does not exist");
-            }
-
-            @Override
-            public boolean exists() {
-                return false;
-            }
-        }
     }
 
     @Value

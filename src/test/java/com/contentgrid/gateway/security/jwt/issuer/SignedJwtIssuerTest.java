@@ -2,6 +2,8 @@ package com.contentgrid.gateway.security.jwt.issuer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.within;
+import static org.assertj.core.api.InstanceOfAssertFactories.DURATION;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -15,6 +17,7 @@ import com.nimbusds.jwt.SignedJWT;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -95,6 +98,44 @@ class SignedJwtIssuerTest {
             assertThat(token.getIssuedAt()).isBeforeOrEqualTo(Instant.now());
             assertThat(token.getExpiresAt()).isBetween(Instant.now().plus(4, ChronoUnit.MINUTES), Instant.now().plus(5, ChronoUnit.MINUTES));
             assertThat(token.getTokenValue()).satisfies(verifyJwtSignedBy(issuer));
+        });
+    }
+
+    @Test
+    void new_jwt_with_expiry_longer_than_max() {
+        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+
+        var exchange = createExchange(
+                new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
+                        .header("alg", "RS256")
+                        .claim("typ", "Bearer")
+                        .issuer("https://upstream-issuer.example")
+                        .subject("my-user")
+                        .expiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
+                        .build())
+        );
+        assertThat(issuer.issueSubstitutionToken(exchange).block()).isInstanceOfSatisfying(Jwt.class, token -> {
+            assertThat(token.getExpiresAt()).isBetween(Instant.now().plus(4, ChronoUnit.MINUTES), Instant.now().plus(5, ChronoUnit.MINUTES));
+        });
+    }
+
+    @Test
+    void new_jwt_with_expiry_shorter_than_max() {
+        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+
+        var expiry = Instant.now().plus(10, ChronoUnit.SECONDS);
+        var exchange = createExchange(
+                new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
+                        .header("alg", "RS256")
+                        .claim("typ", "Bearer")
+                        .issuer("https://upstream-issuer.example")
+                        .subject("my-user")
+                        .expiresAt(expiry)
+                        .build())
+        );
+
+        assertThat(issuer.issueSubstitutionToken(exchange).block()).isInstanceOfSatisfying(Jwt.class, token -> {
+            assertThat(token.getExpiresAt()).isCloseTo(expiry, within(1, ChronoUnit.SECONDS));
         });
     }
 
