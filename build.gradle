@@ -60,6 +60,7 @@ dependencies {
 
 	implementation platform('com.contentgrid.thunx:thunx-bom:0.10.0')
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
+	implementation 'com.contentgrid.thunx:thunx-encoding-json'
 
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
 

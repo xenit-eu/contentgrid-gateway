@@ -74,10 +74,11 @@ public class RuntimeConfiguration {
             ApplicationIdRequestResolver applicationIdRequestResolver,
             AbacGatewayFilterFactory abacGatewayFilterFactory,
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
-            JwtSignerRegistry jwtSignerRegistry
+            JwtSignerRegistry jwtSignerRegistry,
+            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver
     ) {
         GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, new RuntimeJwtClaimsResolver()))
+                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
                 .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
                 .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
@@ -93,6 +94,11 @@ public class RuntimeConfiguration {
                         .uri("cg://ignored")
                 )
                 .build();
+    }
+
+    @Bean
+    RuntimeJwtClaimsResolver runtimeJwtClaimsResolver() {
+        return new RuntimeJwtClaimsResolver();
     }
 
     @Bean
