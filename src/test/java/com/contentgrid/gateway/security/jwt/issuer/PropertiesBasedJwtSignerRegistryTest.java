@@ -3,7 +3,6 @@ package com.contentgrid.gateway.security.jwt.issuer;
 import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.createKeyPair;
 import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.toPrivateKeyResource;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
