@@ -258,7 +258,7 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @Test
-    void internalJwt_expected(ApplicationContext applicationContext) {
+    void internalJwt_expected_policy_allow(ApplicationContext applicationContext) {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
         var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
@@ -292,6 +292,51 @@ class RuntimeGatewayIntegrationTest {
                             assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
                             assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
                             assertThat(claims.getSubject()).isEqualTo("user");
+                        });
+                        assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                                .doesNotThrowAnyException();
+                    });
+                });
+            });
+        });
+    }
+
+    @Test
+    void internalJwt_expected_policy_conditional(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:app:"+ APP_ID +":"+DEPLOY_ID), // We are working from the perspective of the client application here
+
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertThat(request.getHeader("authorization")).satisfies(authorization -> {
+                assertThat(authorization).startsWith("Bearer ");
+                assertThat(authorization.replaceFirst("Bearer ", "")).satisfies(receivedJwt -> {
+                    assertThat(SignedJWT.parse(receivedJwt)).satisfies(signedJwt -> {
+                        assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                            assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
+                            assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                            assertThat(claims.getSubject()).isEqualTo("user");
+                            assertThat(claims.getClaim("x-abac-context")).isNotNull().isInstanceOf(String.class);
                         });
                         assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
                                 .doesNotThrowAnyException();
