@@ -11,21 +11,28 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.ClaimAccessor;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
 public class SignedJwtIssuer implements JwtIssuer {
+    private static final ReactiveJwtDecoder nonValidatingJwtDecoder = new NimbusReactiveJwtDecoder(jwt -> Mono.fromCallable(jwt::getJWTClaimsSet));
+
     private final JwtClaimsSigner claimsSigner;
     private final JwtClaimsResolver jwtClaimsResolver;
+    private final ReactiveOAuth2AuthorizedClientManager clientManager;
     private final Duration maxValidity;
 
-    public SignedJwtIssuer(JwtClaimsSigner claimsSigner, JwtClaimsResolver claimsResolver) {
-        this(claimsSigner, claimsResolver, Duration.ofMinutes(5));
+    public SignedJwtIssuer(JwtClaimsSigner claimsSigner, JwtClaimsResolver claimsResolver, ReactiveOAuth2AuthorizedClientManager clientManager) {
+        this(claimsSigner, claimsResolver, clientManager, Duration.ofMinutes(5));
     }
 
     @Override
@@ -33,18 +40,31 @@ public class SignedJwtIssuer implements JwtIssuer {
         return claimsSigner.getSigningKeys().toPublicJWKSet();
     }
 
+    private Mono<Jwt> retrieveAccessToken(OAuth2AuthenticationToken oauth2Authentication) {
+        var authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId(oauth2Authentication.getAuthorizedClientRegistrationId())
+                .principal(oauth2Authentication)
+                .build();
+
+        return clientManager.authorize(authorizeRequest)
+                .map(client -> client.getAccessToken())
+                .flatMap(accessToken -> nonValidatingJwtDecoder.decode(accessToken.getTokenValue()));
+    }
+
     @Override
     public Mono<OAuth2Token> issueSubstitutionToken(ServerWebExchange exchange) {
         return exchange.getPrincipal()
-                .flatMap(principal -> {
-                    if (principal instanceof Authentication authentication && authentication.getPrincipal() instanceof ClaimAccessor claimAccessor) {
-                        return Mono.just(AuthenticationInformation.fromClaims(claimAccessor));
+                .flatMap(authentication -> {
+                    if(authentication instanceof OAuth2AuthenticationToken oAuth2AuthenticationToken) {
+                        return retrieveAccessToken(oAuth2AuthenticationToken)
+                                .map(AuthenticationInformation::fromClaims);
+                    } else if (authentication instanceof JwtAuthenticationToken jwt) {
+                        return Mono.just(AuthenticationInformation.fromClaims(jwt.getToken()));
                     }
 
                     return Mono.just(new AuthenticationInformation(
                             null,
-                            principal.getName(),
-                            null,
+                            authentication.getName(),
+                            Instant.now().plus(maxValidity),
                             null
                     ));
                 })
@@ -88,9 +108,10 @@ public class SignedJwtIssuer implements JwtIssuer {
                                 // Expiration is a required attribute of a JWT. If we don't have expiration information,
                                 // set it to expire at the maximum validity
                                 var maxExpiration = Instant.now().plus(this.maxValidity);
-                                return Date.from(Optional.ofNullable(authenticationInformation.getExpiration())
-                                        .filter(exp -> exp.compareTo(maxExpiration) <= 0)
-                                        .orElse(maxExpiration));
+                                if(authenticationInformation.getExpiration().compareTo(maxExpiration) <= 0) {
+                                    return Date.from(authenticationInformation.getExpiration());
+                                }
+                                return Date.from(maxExpiration);
                             }))
                             .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), Date::new))
                             .build();

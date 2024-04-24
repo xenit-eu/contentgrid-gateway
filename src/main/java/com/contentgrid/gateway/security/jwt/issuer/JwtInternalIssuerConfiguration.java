@@ -21,6 +21,7 @@ import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabled
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 
 @RequiredArgsConstructor
 @Configuration(proxyBeanMethods = false)
@@ -41,8 +42,8 @@ public class JwtInternalIssuerConfiguration {
 
     @Bean
     @ConditionalOnEnabledFilter
-    LocallyIssuedJwtGatewayFilterFactory internalJwtIssuerTokenRelayGatewayFilterFactory(ApplicationContext applicationContext, JwtSignerRegistry jwtSignerRegistry) {
-        return new LocallyIssuedJwtGatewayFilterFactory(applicationContext, jwtSignerRegistry::getRequiredSigner);
+    LocallyIssuedJwtGatewayFilterFactory locallyIssuedJwtGatewayFilterFactory(ApplicationContext applicationContext, JwtSignerRegistry jwtSignerRegistry, ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
+        return new LocallyIssuedJwtGatewayFilterFactory(applicationContext, jwtSignerRegistry::getRequiredSigner, authorizedClientManager);
     }
 
     @ConfigurationProperties("contentgrid.gateway.jwt")

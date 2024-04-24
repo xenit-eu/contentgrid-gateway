@@ -9,6 +9,7 @@ import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.support.AbstractConfigurable;
 import org.springframework.cloud.gateway.support.GatewayToStringStyler;
 import org.springframework.context.ApplicationContext;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -17,11 +18,13 @@ public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<C
         GatewayFilterFactory<Config> {
     private final ApplicationContext applicationContext;
     private final Function<String, JwtClaimsSigner> signerLocator;
+    private final ReactiveOAuth2AuthorizedClientManager authorizedClientManager;
 
-    public LocallyIssuedJwtGatewayFilterFactory(ApplicationContext applicationContext, Function<String, JwtClaimsSigner> signerLocator) {
+    public LocallyIssuedJwtGatewayFilterFactory(ApplicationContext applicationContext, Function<String, JwtClaimsSigner> signerLocator, ReactiveOAuth2AuthorizedClientManager authorizedClientManager) {
         super(Config.class);
         this.applicationContext = applicationContext;
         this.signerLocator = signerLocator;
+        this.authorizedClientManager = authorizedClientManager;
     }
 
     @Override
@@ -39,7 +42,7 @@ public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<C
 
         Assert.notNull(signer, "No signer found with name %s".formatted(config.getSigner()));
 
-        return new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(signer, claimsResolver)) {
+        return new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(signer, claimsResolver, this.authorizedClientManager)) {
             @Override
             public String toString() {
                 return GatewayToStringStyler.filterToStringCreator(this)

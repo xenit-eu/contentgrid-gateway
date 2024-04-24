@@ -54,6 +54,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -75,10 +76,11 @@ public class RuntimeConfiguration {
             AbacGatewayFilterFactory abacGatewayFilterFactory,
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
             JwtSignerRegistry jwtSignerRegistry,
-            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver
+            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver,
+            ReactiveOAuth2AuthorizedClientManager authorizedClientManager
     ) {
         GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
+                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver, authorizedClientManager))
                 .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
                 .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
