@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.test.assertj;
 
 import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.ThrowingConsumer;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -29,6 +30,14 @@ public class MonoAssert<T> extends AbstractAssert<MonoAssert<T>, Mono<T>> {
     public MonoAssert<T> hasValue() {
         this.isNotNull();
         StepVerifier.create(actual).expectNextCount(1).verifyComplete();
+        return this;
+    }
+
+    public MonoAssert<T> hasValueSatisfying(ThrowingConsumer<T> verifier) {
+        this.isNotNull();
+        StepVerifier.create(actual)
+                .consumeNextWith(verifier)
+                .verifyComplete();
         return this;
     }
 }

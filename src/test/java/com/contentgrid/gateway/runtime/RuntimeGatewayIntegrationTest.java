@@ -21,9 +21,18 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
+import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
+import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
+import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.ComposedApplicationConfiguration;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
+import com.contentgrid.gateway.security.jwt.issuer.AuthenticationInformationResolver;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
+import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository;
+import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
+import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationResolver;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.PolicyDecisions;
@@ -39,6 +48,7 @@ import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
+import com.nimbusds.openid.connect.sdk.OIDCClaimsRequest;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import java.time.Duration;
 import java.util.Map;
@@ -50,6 +60,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -62,9 +73,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcReactiveOAuth2UserService;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.InMemoryReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.userinfo.ReactiveOAuth2UserService;
+import org.springframework.security.oauth2.client.web.DefaultReactiveOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.server.WebSessionServerOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.oidc.IdTokenClaimNames;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 /**
  * Integration tests for ContentGrid Gateway using the Runtime profile.
@@ -120,15 +144,6 @@ class RuntimeGatewayIntegrationTest {
     static class RuntimeTestConfiguration {
 
         @Bean
-        @Primary
-        ApplicationIdRequestResolver applicationIdRequestResolver() {
-            return new StaticVirtualHostApplicationIdResolver(Map.of(
-                    hostname(APP_ID), APP_ID,
-                    hostname("unavailable"),  APP_ID_UNAVAILABLE // this app has no deployments
-            ));
-        }
-
-        @Bean
         @SuppressWarnings("unchecked")
         PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpMockClient() {
             return (PolicyDecisionPointClient<Authentication, ServerWebExchange>) Mockito.mock(PolicyDecisionPointClient.class);
@@ -154,11 +169,67 @@ class RuntimeGatewayIntegrationTest {
                 .build();
         }
 
+        @Bean
+        ReactiveOAuth2AuthorizedClientManager oAuth2AuthorizedClientManager(ReactiveClientRegistrationRepository clientRegistrationRepository) {
+            return new DefaultReactiveOAuth2AuthorizedClientManager(
+                    clientRegistrationRepository,
+                    new WebSessionServerOAuth2AuthorizedClientRepository()
+            );
+        }
+
+        @Bean
+        ReactiveOAuth2UserService<OidcUserRequest, OidcUser> fakeOAuth2UserService() {
+            return new OidcReactiveOAuth2UserService();
+        }
+
+        @Bean
+        @Primary
+        ReactiveClientRegistrationResolver fakeReactiveClientRegistrationResolver(ReactiveClientRegistrationIdResolver registrationIdResolver) {
+            return applicationConfiguration -> registrationIdResolver.resolveRegistrationId(applicationConfiguration.getApplicationId())
+                    .map(registrationId -> ClientRegistration.withRegistrationId(registrationId)
+                            .userNameAttributeName(IdTokenClaimNames.SUB)
+                            .issuerUri(applicationConfiguration.getIssuerUri())
+                            .clientId(applicationConfiguration.getClientId())
+                            .clientSecret(applicationConfiguration.getClientSecret())
+                            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                            .redirectUri("{baseUrl}/{action}/oauth2/code/{registrationId}")
+                            .authorizationUri("http://example.invalid/authorize")
+                            .tokenUri("http://example.invalid/token")
+                    .build());
+        }
+
+        @Bean
+        InitializingBean initializeApplicationConfiguration(ComposableApplicationConfigurationRepository applicationConfigurationRepository) {
+            return () -> {
+                applicationConfigurationRepository.put(new ComposedApplicationConfiguration(APP_ID)
+                        .withAdditionalConfiguration(new ApplicationConfigurationFragment(APP_ID+"-config", APP_ID, Map.of(
+                                Keys.ROUTING_DOMAINS, hostname(APP_ID),
+                                Keys.ISSUER_URI, OIDC_ISSUER,
+                                Keys.CLIENT_ID, "mock-client-id",
+                                Keys.CLIENT_SECRET, "secret"
+                        )))
+                );
+                applicationConfigurationRepository.put(new ComposedApplicationConfiguration(APP_ID_UNAVAILABLE)
+                        .withAdditionalConfiguration(new ApplicationConfigurationFragment(APP_ID_UNAVAILABLE+"-config", APP_ID_UNAVAILABLE, Map.of(
+                                Keys.ROUTING_DOMAINS, hostname("unavailable"),
+                                Keys.ISSUER_URI, OIDC_ISSUER,
+                                Keys.CLIENT_ID, "mock-client-id",
+                                Keys.CLIENT_SECRET, "secret"
+                        )))
+                );
+            };
+        }
     }
 
-    static OidcLoginMutator mockOidcLoginWithIssuer() {
+    @Autowired
+    ReactiveClientRegistrationRepository clientRegistrationRepository;
+    @Autowired
+    ReactiveClientRegistrationIdResolver clientRegistrationIdResolver;
+
+    OidcLoginMutator mockOidcLoginWithIssuer() {
         return mockOidcLogin()
-                .idToken(idToken -> idToken.issuer(OIDC_ISSUER));
+                .idToken(idToken -> idToken.issuer(OIDC_ISSUER))
+                .clientRegistration(clientRegistrationRepository.findByRegistrationId(clientRegistrationIdResolver.resolveRegistrationId(APP_ID).block()).block());
     }
 
     @BeforeAll

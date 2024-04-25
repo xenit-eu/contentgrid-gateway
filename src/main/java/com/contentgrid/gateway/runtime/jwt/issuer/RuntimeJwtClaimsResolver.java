@@ -3,6 +3,7 @@ package com.contentgrid.gateway.runtime.jwt.issuer;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.security.jwt.issuer.AuthenticationInformation;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
 import com.contentgrid.thunx.encoding.json.ExpressionJsonConverter;
 import com.contentgrid.thunx.predicates.model.ThunkExpression;
@@ -33,8 +34,8 @@ public class RuntimeJwtClaimsResolver implements JwtClaimsResolver {
         return Mono.just(
                 jwtClaimsBuilder
                         .audience("contentgrid:app:"+applicationId+":"+deploymentId)
-                        .claim(StandardClaimNames.NAME, authenticationInformation.getClaim(StandardClaimNames.NAME))
-                        .claim("act", authenticationInformation.getClaim("act")) // RFC 8693
+                        .claim(StandardClaimNames.NAME, authenticationInformation.getStaleClaims().getClaim(StandardClaimNames.NAME))
+                        .claim("act", authenticationInformation.getStaleClaims().getClaim("act")) // RFC 8693
                         .build()
         );
     }

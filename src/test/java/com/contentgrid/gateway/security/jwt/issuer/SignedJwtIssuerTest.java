@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import lombok.SneakyThrows;
 import org.assertj.core.api.ThrowingConsumer;
 import org.jetbrains.annotations.NotNull;
@@ -32,14 +33,22 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.userinfo.ReactiveOAuth2UserService;
+import org.springframework.security.oauth2.client.web.DefaultReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken.TokenType;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -49,9 +58,18 @@ import reactor.core.publisher.Mono;
 
 class SignedJwtIssuerTest {
 
+    static SignedJwtIssuer createIssuer(ReactiveOAuth2AuthorizedClientManager clientManager) {
+        var authenticationInfoResolver = new PlainOAuth2UserDetailsAuthenticationInformationResolver(clientManager, new SimpleOAuth2UserService());
+        return new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), authenticationInfoResolver);
+    }
+
+    static SignedJwtIssuer createIssuer() {
+        return new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new JwtAuthenticationTokenAuthenticationInformationResolver());
+    }
+
     @Test
     void creates_derived_jwt_for_authentication_token() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new RejectingReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer();
         var exchange = createExchange(
                 new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
                         .header("alg", "RS256")
@@ -73,7 +91,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void creates_derived_jwt_for_fresh_oidc_user() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new SimpleReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer(new SimpleReactiveOAuth2AuthorizedClientManager());
         var issued = Instant.now().minus(1, ChronoUnit.MINUTES);
         var expiry = Instant.now().plus(4, ChronoUnit.MINUTES);
         var oidcUser = new DefaultOidcUser(
@@ -100,7 +118,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void creates_derived_jwt_for_stale_oidc_user() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new SimpleReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer(new SimpleReactiveOAuth2AuthorizedClientManager());
         var issued = Instant.now().minus(10, ChronoUnit.MINUTES);
         var expiry = Instant.now().minus(2, ChronoUnit.MINUTES);
         var oidcUser = new DefaultOidcUser(
@@ -127,7 +145,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void creates_derived_jwt_for_other_authentication() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new RejectingReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer();
 
         var exchange = createExchange(UsernamePasswordAuthenticationToken.authenticated("bob", null, List.of()));
 
@@ -142,7 +160,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void new_jwt_with_expiry_longer_than_max() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new RejectingReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer();
 
         var exchange = createExchange(
                 new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
@@ -160,7 +178,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void new_jwt_with_expiry_shorter_than_max() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty(), new RejectingReactiveOAuth2AuthorizedClientManager());
+        var issuer = createIssuer();
 
         var expiry = Instant.now().plus(10, ChronoUnit.SECONDS);
         var exchange = createExchange(
@@ -240,6 +258,7 @@ class SignedJwtIssuerTest {
         public Mono<OAuth2AuthorizedClient> authorize(OAuth2AuthorizeRequest authorizeRequest) {
             var clientRegistration = ClientRegistration.withRegistrationId(authorizeRequest.getClientRegistrationId())
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                    .issuerUri("https://upstream-issuer.example")
                     .build();
             var authenticationToken = (OAuth2AuthenticationToken)authorizeRequest.getPrincipal();
 
@@ -271,6 +290,19 @@ class SignedJwtIssuerTest {
         @Override
         public Mono<OAuth2AuthorizedClient> authorize(OAuth2AuthorizeRequest authorizeRequest) {
             throw new UnsupportedOperationException("Authorizing is not supported");
+        }
+    }
+
+    static class SimpleOAuth2UserService implements ReactiveOAuth2UserService<OAuth2UserRequest, OAuth2User> {
+
+        @Override
+        public Mono<OAuth2User> loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+            return Mono.just(
+                    new DefaultOAuth2User(null, Map.of(
+                            JWTClaimNames.SUBJECT, "my-user",
+                            StandardClaimNames.NAME, "Jos"
+                    ), JWTClaimNames.SUBJECT)
+            );
         }
     }
 }

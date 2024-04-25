@@ -5,8 +5,8 @@ import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.toPriv
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
-import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.JwtSignerProperties;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtAutoConfiguration.ContentgridGatewayJwtProperties;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtAutoConfiguration.JwtSignerProperties;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.RSAKey;
 import java.security.interfaces.RSAPublicKey;

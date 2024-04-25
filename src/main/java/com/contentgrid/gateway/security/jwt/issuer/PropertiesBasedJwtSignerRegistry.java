@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
-import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtAutoConfiguration.ContentgridGatewayJwtProperties;
 import com.nimbusds.jose.jwk.JWKSet;
 import java.util.Map;
 import java.util.Optional;

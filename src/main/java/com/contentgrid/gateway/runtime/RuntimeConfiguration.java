@@ -29,6 +29,7 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.security.jwt.issuer.AuthenticationInformationResolver;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilter;
 import com.contentgrid.gateway.security.jwt.issuer.SignedJwtIssuer;
@@ -56,6 +57,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.userinfo.ReactiveOAuth2UserService;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -77,10 +81,10 @@ public class RuntimeConfiguration {
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
             JwtSignerRegistry jwtSignerRegistry,
             RuntimeJwtClaimsResolver runtimeJwtClaimsResolver,
-            ReactiveOAuth2AuthorizedClientManager authorizedClientManager
+            AuthenticationInformationResolver authenticationInformationResolver
     ) {
         GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver, authorizedClientManager))
+                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver, authenticationInformationResolver))
                 .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
                 .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
