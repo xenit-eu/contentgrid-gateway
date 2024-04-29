@@ -4,6 +4,8 @@ import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
+import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
+import com.contentgrid.gateway.security.refresh.AuthenticationRefreshingServerSecurityContextRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -49,6 +51,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
+import org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository;
 import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
@@ -139,7 +142,8 @@ public class GatewayApplication {
             CorsConfigurationSource corsConfig,
             List<Customizer<OAuth2LoginSpec>> oauth2loginCustomizer,
             List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
-            List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer
+            List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
+            AuthenticationRefresher authenticationRefresher
     ) {
         http.authorizeExchange(exchange -> exchange
                 // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
@@ -195,6 +199,12 @@ public class GatewayApplication {
                 spec.authenticationEntryPoint(new DelegatingServerAuthenticationEntryPoint(entryPoints));
             });
         }
+
+
+        http.securityContextRepository(new AuthenticationRefreshingServerSecurityContextRepository(
+                new WebSessionServerSecurityContextRepository(),
+                authenticationRefresher
+        ));
 
         // do we need to do anything special for logout ?
         http.logout(logout -> logout.logoutSuccessHandler(logoutSuccessHandler));

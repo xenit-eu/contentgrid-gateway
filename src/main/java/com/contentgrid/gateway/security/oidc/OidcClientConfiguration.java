@@ -5,10 +5,13 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository;
 import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
+import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.security.oauth2.client.ClientsConfiguredCondition;
@@ -19,7 +22,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.ReactiveOAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.WebClientReactiveRefreshTokenTokenResponseClient;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcReactiveOAuth2UserService;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.userinfo.ReactiveOAuth2UserService;
+import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
 import org.springframework.security.web.server.util.matcher.AndServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.MediaTypeServerWebExchangeMatcher;
@@ -35,6 +46,21 @@ import reactor.core.publisher.Mono;
 @Configuration(proxyBeanMethods = false)
 class OidcClientConfiguration {
 
+    @Bean
+    AuthenticationRefresher oidcIdTokenAuthenticationRefresher(
+            @Autowired(required = false) ServerOAuth2AuthorizedClientRepository authorizedClientRepository,
+            ObjectProvider<ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>> accessTokenResponseClient,
+            ObjectProvider<ReactiveOAuth2UserService<OidcUserRequest, OidcUser>> userService
+    ) {
+        if(authorizedClientRepository == null) {
+            return null;
+        }
+        return new OidcIdTokenAuthenticationRefresher(
+                authorizedClientRepository,
+                accessTokenResponseClient.getIfAvailable(WebClientReactiveRefreshTokenTokenResponseClient::new),
+                userService.getIfAvailable(OidcReactiveOAuth2UserService::new)
+        );
+    }
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
