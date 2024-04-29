@@ -1,7 +1,8 @@
 package com.contentgrid.gateway.security.oidc;
 
 import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
-import java.time.Instant;
+import java.time.Clock;
+import java.time.Duration;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -46,17 +47,34 @@ public class OidcIdTokenAuthenticationRefresher implements AuthenticationRefresh
     @Setter
     private GrantedAuthoritiesMapper authoritiesMapper = authorities -> authorities;
 
+    @NonNull
+    @Setter
+    private Duration clockSkew = Duration.ofMinutes(1);
+
+    @NonNull
+    @Setter
+    private Clock clock = Clock.systemUTC();
+
     @Override
     public Mono<Authentication> refresh(Authentication authentication, ServerWebExchange exchange) {
         if(authentication instanceof OAuth2AuthenticationToken oAuth2AuthenticationToken &&  oAuth2AuthenticationToken.getPrincipal() instanceof OidcUser oidcUser) {
-            var idTokenExpires = oidcUser.getIdToken().getExpiresAt();
-            if(idTokenExpires != null && idTokenExpires.isBefore(Instant.now())) {
+            if(shouldTokenBeRefreshed(oidcUser.getIdToken())) {
                 return doRefresh(oAuth2AuthenticationToken, exchange).checkpoint("OidcIdTokenAuthenticationRefresher");
             } else {
                 return Mono.just(authentication);
             }
         }
         return Mono.empty();
+    }
+
+    private boolean shouldTokenBeRefreshed(OidcIdToken idToken) {
+        var idTokenExpires = idToken.getExpiresAt();
+        if(idTokenExpires == null) {
+            return false; // Token never expires, so doesn't have to be refreshed
+        }
+
+        // token expires within clockSkew seconds: refresh token now
+        return clock.instant().isAfter(idTokenExpires.minus(clockSkew));
     }
 
     private Mono<Authentication> doRefresh(OAuth2AuthenticationToken oAuth2AuthenticationToken,
@@ -66,6 +84,10 @@ public class OidcIdTokenAuthenticationRefresher implements AuthenticationRefresh
                 .flatMap(authorizedClient -> {
                     // perform a token refresh
                      return accessTokenResponseClient.getTokenResponse(new OAuth2RefreshTokenGrantRequest(authorizedClient.getClientRegistration(), authorizedClient.getAccessToken(), authorizedClient.getRefreshToken()))
+                             // Remove authorized client when token refresh fails
+                             .onErrorResume(OAuth2AuthorizationException.class, ex -> authorizedClientRepository.removeAuthorizedClient(authorizedClient.getClientRegistration().getRegistrationId(), oAuth2AuthenticationToken, exchange)
+                                     .then(Mono.error(ex))
+                             )
                              .onErrorMap(OAuth2AuthorizationException.class, ex -> new OAuth2AuthenticationException(ex.getError(), ex))
                              // store the refreshed client credentials
                              .flatMap(accessTokenResponse -> authorizedClientRepository.saveAuthorizedClient(updateAuthorizedClient(authorizedClient, accessTokenResponse), oAuth2AuthenticationToken, exchange)
