@@ -30,14 +30,16 @@ public class AuthenticationRefreshingServerSecurityContextRepository implements 
                         .flatMap(authentication -> {
                             // Update authentication and context when it has changed
                             if(authentication != context.getAuthentication()) {
+                                log.debug("Authentication has changed. Updating authentication in security context.");
                                 context.setAuthentication(authentication);
                                 return save(exchange, context)
                                         .thenReturn(context);
                             }
+                            log.trace("Authentication did not change. Existing authentication was retained.");
                             return Mono.just(context);
                         })
                         .onErrorResume(AuthenticationException.class, authError -> {
-                            log.debug("Authentication error during token refresh. Session was invalidated.", authError);
+                            log.debug("Authentication error during refresh. Clearing authentication from security context.", authError);
                             context.setAuthentication(null);
                             return save(exchange, context)
                                     .thenReturn(context);
