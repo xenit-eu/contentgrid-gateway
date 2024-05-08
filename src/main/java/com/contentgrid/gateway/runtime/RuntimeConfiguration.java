@@ -44,6 +44,7 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointPr
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.TokenRelayGatewayFilterFactory;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -61,6 +62,7 @@ import org.springframework.web.server.ServerWebExchange;
 @Slf4j
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
+@EnableConfigurationProperties(RuntimePlatformProperties.class)
 public class RuntimeConfiguration {
 
     @Bean
@@ -75,25 +77,48 @@ public class RuntimeConfiguration {
             AbacGatewayFilterFactory abacGatewayFilterFactory,
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
             JwtSignerRegistry jwtSignerRegistry,
-            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver
+            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver,
+            JwtClaimsResolverLocator jwtClaimsResolverLocator,
+            RuntimePlatformProperties runtimePlatformProperties
     ) {
+
+        var routes = builder.routes();
+
+        runtimePlatformProperties.getEndpoints().forEach((endpointId, config) -> {
+            routes.route(endpointId, r -> r
+                    .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
+                    .and()
+                    .path("/.contentgrid/"+endpointId+"/**")
+                    .filters(f -> f
+                            .preserveHostHeader()
+                            .removeRequestHeader("Cookie")
+                            .filter(new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(
+                                    jwtSignerRegistry.getRequiredSigner(endpointId),
+                                    jwtClaimsResolverLocator.findClaimsResolver(endpointId)
+                                            .orElseThrow(() -> new IllegalStateException("No claims resolver found with name '%s'".formatted(endpointId)))
+                            )))
+                    )
+                    .uri(config.getUri())
+            );
+        });
+
         GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
                 .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
                 .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
                 .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
-        return builder.routes()
-                .route(r -> r
-                        .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
-                        .filters(f -> f
-                                .preserveHostHeader()
-                                .removeRequestHeader("Cookie")
-                                .filter(abacGatewayFilterFactory.apply(c -> {}))
-                                .filter(tokenFilter)
-                        )
-                        .uri("cg://ignored")
+        routes.route(r -> r
+                .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
+                .filters(f -> f
+                        .preserveHostHeader()
+                        .removeRequestHeader("Cookie")
+                        .filter(abacGatewayFilterFactory.apply(c -> {}))
+                        .filter(tokenFilter)
                 )
-                .build();
+                .uri("cg://ignored")
+        );
+
+        return routes.build();
     }
 
     @Bean
