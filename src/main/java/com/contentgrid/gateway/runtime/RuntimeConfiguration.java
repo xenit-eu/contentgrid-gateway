@@ -82,6 +82,11 @@ public class RuntimeConfiguration {
             RuntimePlatformProperties runtimePlatformProperties
     ) {
 
+        GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
+                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
+                .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
+                .orElseGet(tokenRelayGatewayFilterFactory::apply);
+
         var routes = builder.routes();
 
         runtimePlatformProperties.getEndpoints().forEach((endpointId, config) -> {
@@ -92,20 +97,15 @@ public class RuntimeConfiguration {
                     .filters(f -> f
                             .preserveHostHeader()
                             .removeRequestHeader("Cookie")
-                            .filter(new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(
+                            .filter(jwtSignerRegistry.hasSigner(endpointId)?new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(
                                     jwtSignerRegistry.getRequiredSigner(endpointId),
                                     jwtClaimsResolverLocator.findClaimsResolver(endpointId)
                                             .orElseThrow(() -> new IllegalStateException("No claims resolver found with name '%s'".formatted(endpointId)))
-                            )))
+                            )): tokenFilter)
                     )
                     .uri(config.getUri())
             );
         });
-
-        GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
-                .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
-                .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
         routes.route(r -> r
                 .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
