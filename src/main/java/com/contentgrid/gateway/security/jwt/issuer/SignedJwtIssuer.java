@@ -93,6 +93,7 @@ public class SignedJwtIssuer implements JwtIssuer {
                                         .orElse(maxExpiration));
                             }))
                             .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), Date::new))
+                            .claim("act", authenticationInformation.getClaim("act")) // RFC 8693
                             .build();
                 });
     }

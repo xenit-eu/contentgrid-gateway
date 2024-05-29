@@ -34,7 +34,6 @@ public class RuntimeJwtClaimsResolver implements JwtClaimsResolver {
                 jwtClaimsBuilder
                         .audience("contentgrid:app:"+applicationId+":"+deploymentId)
                         .claim(StandardClaimNames.NAME, authenticationInformation.getClaim(StandardClaimNames.NAME))
-                        .claim("act", authenticationInformation.getClaim("act")) // RFC 8693
                         .build()
         );
     }
