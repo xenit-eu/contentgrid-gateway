@@ -15,9 +15,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
-import com.contentgrid.gateway.runtime.jwt.issuer.AuthenticationJwtClaimsResolver;
-import com.contentgrid.gateway.runtime.jwt.issuer.JwtClaimsResolverLocator;
-import com.contentgrid.gateway.runtime.jwt.issuer.NamedJwtClaimsResolver;
+import com.contentgrid.gateway.runtime.jwt.issuer.RuntimeAuthenticationJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.jwt.issuer.RuntimeJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
@@ -32,9 +30,10 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolverLocator;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
-import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilter;
-import com.contentgrid.gateway.security.jwt.issuer.SignedJwtIssuer;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
+import com.contentgrid.gateway.security.jwt.issuer.NamedJwtClaimsResolver;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
@@ -86,9 +85,8 @@ public class RuntimeConfiguration {
             ApplicationIdRequestResolver applicationIdRequestResolver,
             AbacGatewayFilterFactory abacGatewayFilterFactory,
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
+            LocallyIssuedJwtGatewayFilterFactory locallyIssuedJwtGatewayFilterFactory,
             JwtSignerRegistry jwtSignerRegistry,
-            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver,
-            JwtClaimsResolverLocator jwtClaimsResolverLocator,
             RuntimePlatformProperties runtimePlatformProperties
     ) {
 
@@ -102,20 +100,21 @@ public class RuntimeConfiguration {
                     .filters(f -> f
                             .preserveHostHeader()
                             .removeRequestHeader("Cookie")
-                            .filter(new LocallyIssuedJwtGatewayFilter(new SignedJwtIssuer(
-                                    jwtSignerRegistry.getRequiredSigner(endpointId),
-                                    jwtClaimsResolverLocator.findClaimsResolver(endpointId)
-                                            .orElseThrow(() -> new IllegalStateException("No claims resolver found with name '%s'".formatted(endpointId)))
-                            )))
+                            .filter(locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                                c.setSigner(endpointId);
+                                c.setClaimsResolver(endpointId);
+                            }))
                     )
                     .uri(config.getUri())
             );
         });
 
-        GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
-                .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
-                .orElseGet(tokenRelayGatewayFilterFactory::apply);
+        GatewayFilter tokenFilter = jwtSignerRegistry.hasSigner("apps")?
+                locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                    c.setSigner("apps");
+                    c.setClaimsResolver("apps");
+                }) :
+                tokenRelayGatewayFilterFactory.apply();
 
         routes.route(r -> r
                 .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
@@ -132,6 +131,7 @@ public class RuntimeConfiguration {
     }
 
     @Bean
+    @NamedJwtClaimsResolver("apps")
     RuntimeJwtClaimsResolver runtimeJwtClaimsResolver() {
         return new RuntimeJwtClaimsResolver();
     }
@@ -140,24 +140,21 @@ public class RuntimeConfiguration {
 
     @Bean(name = AUTHENTICATION_ENCRYPTION)
     @ConfigurationProperties(AUTHENTICATION_ENCRYPTION)
+    @ConditionalOnProperty(prefix = AUTHENTICATION_ENCRYPTION, name = "active-keys")
     TextEncryptorProperties authenticationTextEncryptorProperties() {
         return new TextEncryptorProperties();
     }
 
     @Bean
     @NamedJwtClaimsResolver("authentication")
-    AuthenticationJwtClaimsResolver authorizationJwtClaimsResolver(
+    @ConditionalOnBean(name = AUTHENTICATION_ENCRYPTION)
+    RuntimeAuthenticationJwtClaimsResolver authorizationJwtClaimsResolver(
             ApplicationConfigurationRepository applicationConfigurationRepository,
             @Qualifier(AUTHENTICATION_ENCRYPTION)
             TextEncryptorProperties encryptorProperties,
             ResourcePatternResolver resourcePatternResolver
     ) {
-        return new AuthenticationJwtClaimsResolver(applicationConfigurationRepository, new PropertiesBasedTextEncryptorFactory(resourcePatternResolver, encryptorProperties, new Random()));
-    }
-
-    @Bean
-    JwtClaimsResolverLocator jwtClaimsResolverLocator() {
-        return new JwtClaimsResolverLocator();
+        return new RuntimeAuthenticationJwtClaimsResolver(applicationConfigurationRepository, new PropertiesBasedTextEncryptorFactory(resourcePatternResolver, encryptorProperties, new Random()));
     }
 
     @Bean

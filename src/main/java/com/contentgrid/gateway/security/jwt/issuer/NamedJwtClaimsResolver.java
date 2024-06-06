@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.runtime.jwt.issuer;
+package com.contentgrid.gateway.security.jwt.issuer;
 
 
 import java.lang.annotation.Documented;

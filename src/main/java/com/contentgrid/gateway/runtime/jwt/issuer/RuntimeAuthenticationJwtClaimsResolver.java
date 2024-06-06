@@ -19,7 +19,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
-public class AuthenticationJwtClaimsResolver implements JwtClaimsResolver {
+public class RuntimeAuthenticationJwtClaimsResolver implements JwtClaimsResolver {
 
     private final ApplicationConfigurationRepository applicationConfigurationRepository;
 

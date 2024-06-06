@@ -15,12 +15,15 @@ import org.springframework.util.StringUtils;
 
 public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<Config> implements
         GatewayFilterFactory<Config> {
-    private final ApplicationContext applicationContext;
+    private final Function<String, JwtClaimsResolver> claimsResolverLocator;
     private final Function<String, JwtClaimsSigner> signerLocator;
 
-    public LocallyIssuedJwtGatewayFilterFactory(ApplicationContext applicationContext, Function<String, JwtClaimsSigner> signerLocator) {
+    public LocallyIssuedJwtGatewayFilterFactory(
+            Function<String, JwtClaimsResolver> claimsResolverLocator,
+            Function<String, JwtClaimsSigner> signerLocator
+    ) {
         super(Config.class);
-        this.applicationContext = applicationContext;
+        this.claimsResolverLocator = claimsResolverLocator;
         this.signerLocator = signerLocator;
     }
 
@@ -31,8 +34,8 @@ public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<C
 
     @Override
     public GatewayFilter apply(Config config) {
-        var claimsResolver = StringUtils.hasText(config.getClaimsResolverRef())?
-                applicationContext.getBean(config.claimsResolverRef, JwtClaimsResolver.class):
+        var claimsResolver = StringUtils.hasText(config.getClaimsResolver())?
+                claimsResolverLocator.apply(config.getClaimsResolver()):
                 JwtClaimsResolver.empty();
 
         var signer = signerLocator.apply(config.getSigner());
@@ -44,15 +47,15 @@ public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<C
             public String toString() {
                 return GatewayToStringStyler.filterToStringCreator(this)
                         .append("signer", config.getSigner())
-                        .append("claimsResolver", StringUtils.hasText(config.getClaimsResolverRef())?claimsResolver:"(none)")
+                        .append("claimsResolver", StringUtils.hasText(config.getClaimsResolver())?claimsResolver:"(none)")
                         .toString();
             }
         };
     }
 
     @Data
-    static class Config {
+    public static class Config {
         private String signer;
-        private String claimsResolverRef;
+        private String claimsResolver;
     }
 }

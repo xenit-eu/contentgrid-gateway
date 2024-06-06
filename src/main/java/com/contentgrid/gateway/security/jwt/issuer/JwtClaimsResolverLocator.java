@@ -1,6 +1,5 @@
-package com.contentgrid.gateway.runtime.jwt.issuer;
+package com.contentgrid.gateway.security.jwt.issuer;
 
-import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +15,11 @@ import org.springframework.context.ApplicationContextAware;
 public class JwtClaimsResolverLocator implements ApplicationContextAware {
     private Map<String, Supplier<JwtClaimsResolver>> mapping;
     private final Map<String, JwtClaimsResolver> initialized = new HashMap<>();
+
+    public JwtClaimsResolver getRequiredClaimsResolver(String resolverName) {
+        return findClaimsResolver(resolverName)
+                .orElseThrow(() -> new IllegalArgumentException("No JwtClaimsResolver found with name '%s'".formatted(resolverName)));
+    }
 
     public Optional<JwtClaimsResolver> findClaimsResolver(String resolverName) {
         return Optional.ofNullable(initialized.get(resolverName))
