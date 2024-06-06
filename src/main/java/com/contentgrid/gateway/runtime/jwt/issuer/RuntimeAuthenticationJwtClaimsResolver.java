@@ -44,9 +44,10 @@ public class RuntimeAuthenticationJwtClaimsResolver implements JwtClaimsResolver
             claimsBuilder.claim("context:application:domains", applicationConfiguration.getDomains());
         }
         try {
-            claimsBuilder.claim("restrict:principal_claims", List.of(
-                    principalClaimsEncryptor.newEncryptor().encrypt(createFromClaimAccessor(authenticationInformation.getClaimAccessor()))
-            ));
+            claimsBuilder.claim("restrict:principal_claims",
+                    principalClaimsEncryptor.newEncryptor()
+                            .encrypt(createFromClaimAccessor(authenticationInformation.getClaimAccessor()))
+            );
         } catch (Exception e) {
             return Mono.error(e);
         }

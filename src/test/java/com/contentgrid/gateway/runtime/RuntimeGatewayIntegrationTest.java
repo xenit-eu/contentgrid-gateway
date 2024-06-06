@@ -21,9 +21,15 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
+import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.config.StaticApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
+import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
+import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.PolicyDecisions;
@@ -31,9 +37,12 @@ import com.contentgrid.thunx.predicates.model.Comparison;
 import com.contentgrid.thunx.predicates.model.Scalar;
 import com.contentgrid.thunx.predicates.model.SymbolicReference;
 import com.contentgrid.thunx.predicates.model.ThunkExpression;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import com.nimbusds.jose.JWSAlgorithm.Family;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jwt.SignedJWT;
@@ -41,12 +50,16 @@ import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.assertj.core.api.ThrowingConsumer;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -55,14 +68,14 @@ import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWeb
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cloud.client.DefaultServiceInstance;
-import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
-import org.springframework.cloud.contract.wiremock.WireMockConfigurationCustomizer;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -92,10 +105,11 @@ import org.springframework.web.server.ServerWebExchange;
         webEnvironment = RANDOM_PORT,
         properties = {
                 "contentgrid.gateway.runtime-platform.enabled: true",
+                "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.active-keys: classpath:fixtures/authentication-encryption.bin",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
+                "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
                 "wiremock.reset-mappings-after-each-test: true"
         })
-@AutoConfigureWireMock(port = 0)
 @AutoConfigureWebTestClient
 class RuntimeGatewayIntegrationTest {
 
@@ -110,8 +124,7 @@ class RuntimeGatewayIntegrationTest {
 
     static final String OIDC_ISSUER = "https://auth.contentgrid.example/realms/abc";
 
-    @Autowired
-    WireMockServer wireMockServer;
+    static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
 
     @Autowired
     PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient;
@@ -129,16 +142,24 @@ class RuntimeGatewayIntegrationTest {
         }
 
         @Bean
+        @Primary
+        ApplicationConfigurationRepository staticApplicationConfigurationRepository() {
+            return new StaticApplicationConfigurationRepository(List.of(
+                    ApplicationConfigurationFragment.from(APP_ID, Map.of(
+                            Keys.ISSUER_URI, OIDC_ISSUER,
+                            Keys.ROUTING_DOMAINS, hostname(APP_ID)
+                    )),
+                    ApplicationConfigurationFragment.from(APP_ID_UNAVAILABLE, Map.of(
+                            Keys.ISSUER_URI, OIDC_ISSUER,
+                            Keys.ROUTING_DOMAINS, hostname("unavailable")
+                    ))
+            ));
+        }
+
+        @Bean
         @SuppressWarnings("unchecked")
         PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpMockClient() {
             return (PolicyDecisionPointClient<Authentication, ServerWebExchange>) Mockito.mock(PolicyDecisionPointClient.class);
-        }
-
-        // workaround for wiremock logging - see https://github.com/spring-cloud/spring-cloud-contract/issues/1916
-        // fixed in spring-cloud-contract-wiremock:4.0.5 (now:4.0.4)
-        @Bean
-        WireMockConfigurationCustomizer optionsCustomizer() {
-            return config -> config.notifier(new ConsoleNotifier(true));
         }
 
         @Bean
@@ -162,13 +183,28 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @BeforeAll
-    public static void setup(@Autowired ServiceCatalog catalog, @Autowired WireMockServer wiremock) {
+    static void startWiremock() {
+        wireMockServer.start();
+    }
+
+    @BeforeEach
+    void resetWiremock() {
+        wireMockServer.resetAll();
+    }
+
+    @AfterAll
+    static void shutdownWiremock() {
+        wireMockServer.stop();
+    }
+
+    @BeforeAll
+    public static void setup(@Autowired ServiceCatalog catalog) {
         // register the wire-mock-server in the service catalog
         catalog.handleServiceAdded(new DefaultServiceInstance(
                 "instance-%s".formatted(UUID.randomUUID()),
-                "wiremock-%s".formatted(wiremock.hashCode()),
+                "wiremock-%s".formatted(wireMockServer.hashCode()),
                 "localhost",
-                wiremock.port(),
+                wireMockServer.port(),
                 false,
                 Map.of(
                         LABEL_APPLICATION_ID, APP_ID.toString(),
@@ -178,6 +214,20 @@ class RuntimeGatewayIntegrationTest {
 
     @Autowired
     WebTestClient webTestClient;
+
+    @DynamicPropertySource
+    static void configureMockServerPorts(DynamicPropertyRegistry registry) {
+        registry.add("contentgrid.gateway.runtime-platform.endpoints.authentication.uri", () -> "http://localhost:"+wireMockServer.port());
+    }
+
+    static void assertBearerJwt(LoggedRequest request, ThrowingConsumer<SignedJWT> assertion) {
+        assertThat(request.getHeader("authorization")).satisfies(authorization -> {
+            assertThat(authorization).startsWith("Bearer ");
+            assertThat(authorization.replaceFirst("Bearer ", "")).satisfies(receivedJwt -> {
+                assertThat(SignedJWT.parse(receivedJwt)).satisfies(assertion);
+            });
+        });
+    }
 
     @Test
     void contentgridHeaders_expected() {
@@ -284,19 +334,14 @@ class RuntimeGatewayIntegrationTest {
 
         var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
         assertThat(requests.getRequests()).singleElement().satisfies(request -> {
-            assertThat(request.getHeader("authorization")).satisfies(authorization -> {
-                assertThat(authorization).startsWith("Bearer ");
-                assertThat(authorization.replaceFirst("Bearer ", "")).satisfies(receivedJwt -> {
-                    assertThat(SignedJWT.parse(receivedJwt)).satisfies(signedJwt -> {
-                        assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
-                            assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
-                            assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
-                            assertThat(claims.getSubject()).isEqualTo("user");
-                        });
-                        assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
-                                .doesNotThrowAnyException();
-                    });
+            assertBearerJwt(request, signedJwt -> {
+                assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                    assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
+                    assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                    assertThat(claims.getSubject()).isEqualTo("user");
                 });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
             });
         });
     }
@@ -328,20 +373,83 @@ class RuntimeGatewayIntegrationTest {
 
         var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
         assertThat(requests.getRequests()).singleElement().satisfies(request -> {
-            assertThat(request.getHeader("authorization")).satisfies(authorization -> {
-                assertThat(authorization).startsWith("Bearer ");
-                assertThat(authorization.replaceFirst("Bearer ", "")).satisfies(receivedJwt -> {
-                    assertThat(SignedJWT.parse(receivedJwt)).satisfies(signedJwt -> {
-                        assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
-                            assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
-                            assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
-                            assertThat(claims.getSubject()).isEqualTo("user");
-                            assertThat(claims.getClaim("x-abac-context")).isNotNull().isInstanceOf(String.class);
+            assertBearerJwt(request, signedJwt -> {
+                assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                    assertThat(claims.getAudience()).containsExactly("contentgrid:app:"+ APP_ID+":"+DEPLOY_ID);
+                    assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                    assertThat(claims.getSubject()).isEqualTo("user");
+                    assertThat(claims.getClaim("x-abac-context")).isNotNull().isInstanceOf(String.class);
+                });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+    }
+
+    @Test
+    void authentication_endpoint_jwt(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
+
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
+
+        var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
+        var authenticationEncryptor = new PropertiesBasedTextEncryptorFactory(
+                applicationContext,
+                applicationContext.getBean("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption", TextEncryptorProperties.class)
+        );
+
+        webTestClient
+                .mutateWith(mockOidcLogin().idToken(idToken -> {
+                    idToken
+                            .issuer(OIDC_ISSUER)
+                            .claim("contentgrid:my-claim", "xyz")
+                            .claim("other-claim", "zzz");
+                }))
+                .get().uri("https://{hostname}/.contentgrid/authentication/xyz", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        var jwkSet = authenticationSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:system:endpoints:authentication"), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/.contentgrid/authentication/xyz")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                    assertThat(claims.getAudience()).containsExactly("contentgrid:system:endpoints:authentication");
+                    assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                    assertThat(claims.getSubject()).isEqualTo("user");
+
+                    assertThat(claims.getStringClaim("context:application:id")).isEqualTo(APP_ID.toString());
+                    assertThat(claims.getStringListClaim("context:application:domains")).isEqualTo(List.of(hostname));
+
+                    // Validate that arbitrary user claims are not leaked
+                    assertThat(claims.getClaims()).doesNotContainKeys("contentgrid:my-claim", "other-claim");
+
+                    // Validate encrypted claims to be the claims of the original token
+                    assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
+                        assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
+                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            })).isEqualTo(Map.of(
+                                    "iss", OIDC_ISSUER,
+                                    "sub", "user",
+                                    "contentgrid:my-claim", "xyz"
+                            ));
                         });
-                        assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
-                                .doesNotThrowAnyException();
                     });
                 });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();;
             });
         });
     }
