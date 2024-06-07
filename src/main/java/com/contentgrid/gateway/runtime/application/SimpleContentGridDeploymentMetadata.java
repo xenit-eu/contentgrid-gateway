@@ -11,7 +11,7 @@ public class SimpleContentGridDeploymentMetadata implements ContentGridDeploymen
 
     public static final String LABEL_APPLICATION_ID = "app.contentgrid.com/application-id";
     public static final String LABEL_DEPLOYMENT_ID = "app.contentgrid.com/deployment-id";
-    public static final String LABEL_POLICY_PACKAGE = "authz.contentgrid.com/policy-package";
+    public static final String ANNOTATION_POLICY_PACKAGE = "authz.contentgrid.com/policy-package";
 
     public Optional<ApplicationId> getApplicationId(@NonNull ServiceInstance service) {
         return Optional.ofNullable(service.getMetadata().get(LABEL_APPLICATION_ID))
@@ -26,7 +26,7 @@ public class SimpleContentGridDeploymentMetadata implements ContentGridDeploymen
 
     @Override
     public Optional<String> getPolicyPackage(ServiceInstance service) {
-        var policyPackage = service.getMetadata().get(LABEL_POLICY_PACKAGE);
+        var policyPackage = service.getMetadata().get(ANNOTATION_POLICY_PACKAGE);
         if (!StringUtils.hasText(policyPackage)) {
             log.warn("Service {} (deployment:{}) has no policy package defined",
                     service.getServiceId(), this.getDeploymentId(service));
