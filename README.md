@@ -151,11 +151,11 @@ This way, upstream services only need to trust one set of signing keys, and the 
 of the user-supplied authentication tokens. The gateway is also able to inject (or remove) additional attributes to
 the user-supplied authentication token.
 
-| Property                                        | Type             | Description                                                             |
-|-------------------------------------------------|------------------|-------------------------------------------------------------------------|
-| `contentgrid.gateway.jwt.signers.*.active-keys` | location pattern | File pattern to load active signing keys from                           |
-| `contentgrid.gateway.jwt.signers.*.all-keys`    | location pattern | File pattern to load all signing keys from (for signature verification) |
-| `contentgrid.gateway.jwt.signers.*.algorithms`  | list of strings  | Algorithms to use for signing JWTs (default: `RS256`)                   |
+| Property                                        | Type             | Description                                                                        |
+|-------------------------------------------------|------------------|------------------------------------------------------------------------------------|
+| `contentgrid.gateway.jwt.signers.*.active-keys` | location pattern | File pattern to load active signing keys from (PEM format)                         |
+| `contentgrid.gateway.jwt.signers.*.all-keys`    | location pattern | File pattern to load all signing keys from for signature verification (PEM format) |
+| `contentgrid.gateway.jwt.signers.*.algorithms`  | list of strings  | Algorithms to use for signing JWTs (default: `RS256`)                              |
 
 The location pattern is used with
 the [Spring `ResourcePatternResolver`](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/core/io/support/ResourcePatternResolver.html).
@@ -199,19 +199,24 @@ The runtime platform configuration will configure the gateway to:
 - configure Thunx integration for every ContentGrid application
 - route traffic to the correct ContentGrid application by hostname
 
-| Property                                       | Type    | Description                                                                              |
-|------------------------------------------------|---------|------------------------------------------------------------------------------------------|
-| `contentgrid.gateway.runtime-platform.enabled` | boolean | Enables runtime platform configuration                                                   |
-| `servicediscovery.enabled`                     | boolean | Enables service discovery in kubernetes                                                  |
-| `servicediscovery.namespace`                   | string  | Kubernetes namespace to perform service discovery in (default: `default`)                |
-| `servicediscovery.resync`                      | int     | Re-synchronisation interval of the service discovery informer in seconds (default: `60`) |
+| Property                                                                               | Type             | Description                                                                              |
+|----------------------------------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------|
+| `contentgrid.gateway.runtime-platform.enabled`                                         | boolean          | Enables runtime platform configuration                                                   |
+| `servicediscovery.enabled`                                                             | boolean          | Enables service discovery in kubernetes                                                  |
+| `servicediscovery.namespace`                                                           | string           | Kubernetes namespace to perform service discovery in (default: `default`)                |
+| `servicediscovery.resync`                                                              | int              | Re-synchronisation interval of the service discovery informer in seconds (default: `60`) |
+| `contentgrid.gateway.runtime-platform.endpoints.authentication.uri`                    | string           | URI to the authentication service (tokenmonger)                                          |
+| `contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.active-keys` | location pattern | File pattern to load active AES encryption keys from (16, 32 or 64 byte binary file)     |
+| `contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.all-keys`    | location pattern | File pattern to load all AES keys from for decryption (16, 32 or 64 byte binary file)    |
 
 Additionally, following properties are required to be configured:
 
-| Property                                           | Description                                                                                          |
-|----------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| `opa.service.url`                                  | Must be configured to the shared OPA service that contains policies for all ContentGrid applications |
-| `contentgrid.gateway.jwt.signers.apps.active-keys` | The `apps` JWT Signer will be used for signing all requests to ContentGrid applications              |
+| Property                                                     | Description                                                                                          |
+|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| `opa.service.url`                                            | Must be configured to the shared OPA service that contains policies for all ContentGrid applications |
+| `contentgrid.gateway.jwt.signers.apps.active-keys`           | The `apps` JWT Signer will be used for signing all requests to ContentGrid applications              |
+| `contentgrid.gateway.jwt.signers.authentication.active-keys` | The `authentication` JWT Signer will be used for signing all requests to the authentication service  |
+
 
 To discover ContentGrid applications, following kubernetes objects are required:
 
