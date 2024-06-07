@@ -15,6 +15,7 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
+import com.contentgrid.gateway.runtime.jwt.issuer.RuntimeAuthenticationJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.jwt.issuer.RuntimeJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
@@ -29,21 +30,29 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
+import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolverLocator;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
-import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilter;
-import com.contentgrid.gateway.security.jwt.issuer.SignedJwtIssuer;
+import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
+import com.contentgrid.gateway.security.jwt.issuer.NamedJwtClaimsResolver;
+import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
+import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.TokenRelayGatewayFilterFactory;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -53,6 +62,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
@@ -61,6 +71,7 @@ import org.springframework.web.server.ServerWebExchange;
 @Slf4j
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(value = "contentgrid.gateway.runtime-platform.enabled")
+@EnableConfigurationProperties(RuntimePlatformProperties.class)
 public class RuntimeConfiguration {
 
     @Bean
@@ -74,31 +85,76 @@ public class RuntimeConfiguration {
             ApplicationIdRequestResolver applicationIdRequestResolver,
             AbacGatewayFilterFactory abacGatewayFilterFactory,
             TokenRelayGatewayFilterFactory tokenRelayGatewayFilterFactory,
+            LocallyIssuedJwtGatewayFilterFactory locallyIssuedJwtGatewayFilterFactory,
             JwtSignerRegistry jwtSignerRegistry,
-            RuntimeJwtClaimsResolver runtimeJwtClaimsResolver
+            RuntimePlatformProperties runtimePlatformProperties
     ) {
-        GatewayFilter tokenFilter = jwtSignerRegistry.getSigner("apps")
-                .map(jwtSigner -> new SignedJwtIssuer(jwtSigner, runtimeJwtClaimsResolver))
-                .<GatewayFilter>map(LocallyIssuedJwtGatewayFilter::new)
-                .orElseGet(tokenRelayGatewayFilterFactory::apply);
 
-        return builder.routes()
-                .route(r -> r
-                        .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
-                        .filters(f -> f
-                                .preserveHostHeader()
-                                .removeRequestHeader("Cookie")
-                                .filter(abacGatewayFilterFactory.apply(c -> {}))
-                                .filter(tokenFilter)
-                        )
-                        .uri("cg://ignored")
+        var routes = builder.routes();
+
+        runtimePlatformProperties.getEndpoints().forEach((endpointId, config) -> {
+            routes.route(endpointId, r -> r
+                    .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
+                    .and()
+                    .path("/.contentgrid/"+endpointId+"/**")
+                    .filters(f -> f
+                            .preserveHostHeader()
+                            .removeRequestHeader("Cookie")
+                            .filter(locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                                c.setSigner(endpointId);
+                                c.setClaimsResolver(endpointId);
+                            }))
+                    )
+                    .uri(config.getUri())
+            );
+        });
+
+        GatewayFilter tokenFilter = jwtSignerRegistry.hasSigner("apps")?
+                locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                    c.setSigner("apps");
+                    c.setClaimsResolver("apps");
+                }) :
+                tokenRelayGatewayFilterFactory.apply();
+
+        routes.route(r -> r
+                .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
+                .filters(f -> f
+                        .preserveHostHeader()
+                        .removeRequestHeader("Cookie")
+                        .filter(abacGatewayFilterFactory.apply(c -> {}))
+                        .filter(tokenFilter)
                 )
-                .build();
+                .uri("cg://ignored")
+        );
+
+        return routes.build();
     }
 
     @Bean
+    @NamedJwtClaimsResolver("apps")
     RuntimeJwtClaimsResolver runtimeJwtClaimsResolver() {
         return new RuntimeJwtClaimsResolver();
+    }
+
+    private static final String AUTHENTICATION_ENCRYPTION = "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption";
+
+    @Bean(name = AUTHENTICATION_ENCRYPTION)
+    @ConfigurationProperties(AUTHENTICATION_ENCRYPTION)
+    @ConditionalOnProperty(prefix = AUTHENTICATION_ENCRYPTION, name = "active-keys")
+    TextEncryptorProperties authenticationTextEncryptorProperties() {
+        return new TextEncryptorProperties();
+    }
+
+    @Bean
+    @NamedJwtClaimsResolver("authentication")
+    @ConditionalOnBean(name = AUTHENTICATION_ENCRYPTION)
+    RuntimeAuthenticationJwtClaimsResolver authorizationJwtClaimsResolver(
+            ApplicationConfigurationRepository applicationConfigurationRepository,
+            @Qualifier(AUTHENTICATION_ENCRYPTION)
+            TextEncryptorProperties encryptorProperties,
+            ResourcePatternResolver resourcePatternResolver
+    ) {
+        return new RuntimeAuthenticationJwtClaimsResolver(applicationConfigurationRepository, new PropertiesBasedTextEncryptorFactory(resourcePatternResolver, encryptorProperties, new Random()));
     }
 
     @Bean

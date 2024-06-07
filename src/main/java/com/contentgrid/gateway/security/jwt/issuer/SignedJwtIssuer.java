@@ -8,6 +8,7 @@ import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +46,7 @@ public class SignedJwtIssuer implements JwtIssuer {
                             null,
                             principal.getName(),
                             null,
-                            null
+                            Map::of
                     ));
                 })
                 .flatMap(authenticationInformation -> createClaims(exchange, authenticationInformation))
@@ -93,6 +94,7 @@ public class SignedJwtIssuer implements JwtIssuer {
                                         .orElse(maxExpiration));
                             }))
                             .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), Date::new))
+                            .claim("act", authenticationInformation.getClaim("act")) // RFC 8693
                             .build();
                 });
     }

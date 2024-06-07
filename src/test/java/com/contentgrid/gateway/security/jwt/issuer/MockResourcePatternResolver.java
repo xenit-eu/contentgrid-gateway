@@ -15,7 +15,7 @@ import org.springframework.util.PathMatcher;
 
 @RequiredArgsConstructor
 @Builder
-class MockResourcePatternResolver implements ResourcePatternResolver {
+public class MockResourcePatternResolver implements ResourcePatternResolver {
 
     @Singular
     private final Map<String, Resource> resources;
