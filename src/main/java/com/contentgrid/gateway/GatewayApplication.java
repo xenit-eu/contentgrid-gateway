@@ -60,7 +60,7 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Slf4j
 @SpringBootApplication
-@EnableConfigurationProperties({OpaProperties.class, CorsResolverProperties.class, ServiceDiscoveryProperties.class})
+@EnableConfigurationProperties({ CorsResolverProperties.class, ServiceDiscoveryProperties.class})
 public class GatewayApplication {
 
     public static void main(String[] args) {
