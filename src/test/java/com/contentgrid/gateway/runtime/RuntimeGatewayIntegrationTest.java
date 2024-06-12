@@ -58,6 +58,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.ThrowingConsumer;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -106,6 +107,7 @@ import org.springframework.web.server.ServerWebExchange;
         properties = {
                 "contentgrid.gateway.runtime-platform.enabled: true",
                 "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.active-keys: classpath:fixtures/authentication-encryption.bin",
+                "contentgrid.gateway.runtime-platform.endpoints.authentication.authorization: authenticated",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
                 "wiremock.reset-mappings-after-each-test: true"
@@ -190,6 +192,11 @@ class RuntimeGatewayIntegrationTest {
     @BeforeEach
     void resetWiremock() {
         wireMockServer.resetAll();
+    }
+
+    @AfterEach
+    void resetPdpClientMock() {
+        Mockito.reset(pdpClient);
     }
 
     @AfterAll
@@ -391,8 +398,9 @@ class RuntimeGatewayIntegrationTest {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
 
+        // This should not affect this endpoint at all, authentication endpoint is configured to bypass OPA
         Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
-                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
 
         var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
         var authenticationEncryptor = new PropertiesBasedTextEncryptorFactory(
@@ -412,6 +420,8 @@ class RuntimeGatewayIntegrationTest {
                 .exchange()
                 .expectStatus()
                 .isOk();
+
+        Mockito.verifyNoInteractions(pdpClient);
 
         var jwkSet = authenticationSigner.getSigningKeys();
         var internalTokenValidator = new IDTokenValidator(
@@ -474,6 +484,8 @@ class RuntimeGatewayIntegrationTest {
 
     @Test
     void unknown_domain_http404() {
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
         webTestClient
                 // slightly fictive test: if the domain is unknown,
                 // we would not know how to map to a Keycloak realm anyway
