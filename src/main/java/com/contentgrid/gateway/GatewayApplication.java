@@ -134,6 +134,32 @@ public class GatewayApplication {
     }
 
     @Bean
+    Customizer<ServerHttpSecurity.AuthorizeExchangeSpec> actuatorsAuthorizeExchangeCustomizer() {
+        return exchange -> {
+            // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
+            exchange.matchers(EndpointRequest.to(
+                            InfoEndpoint.class,
+                            HealthEndpoint.class,
+                            MetricsEndpoint.class,
+                            PrometheusScrapeEndpoint.class,
+                            JWKSetEndpoint.class
+                    )).permitAll()
+
+                    // requests FROM localhost to actuator endpoints are all permitted
+                    .matchers(new AndServerWebExchangeMatcher(
+                            EndpointRequest.toAnyEndpoint(),
+                            mgmtExchange -> {
+                                var remoteAddress = mgmtExchange.getRequest().getRemoteAddress();
+                                if (remoteAddress != null && remoteAddress.getAddress().isLoopbackAddress()) {
+                                    return MatchResult.match();
+                                }
+                                return MatchResult.notMatch();
+                            })
+                    ).permitAll();
+        };
+    }
+
+    @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
             Environment environment,
@@ -143,36 +169,19 @@ public class GatewayApplication {
             List<Customizer<OAuth2LoginSpec>> oauth2loginCustomizer,
             List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
+            List<Customizer<ServerHttpSecurity.AuthorizeExchangeSpec>> authorizeCustomizer,
             AuthenticationRefresher authenticationRefresher
     ) {
-        http.authorizeExchange(exchange -> exchange
-                // requests to the actuators /info, /health, /metrics, and /prometheus are allowed unauthenticated
-                .matchers(EndpointRequest.to(
-                        InfoEndpoint.class,
-                        HealthEndpoint.class,
-                        MetricsEndpoint.class,
-                        PrometheusScrapeEndpoint.class,
-                        JWKSetEndpoint.class
-                )).permitAll()
+        http.authorizeExchange(exchange -> {
+            authorizeCustomizer.forEach(customizer -> customizer.customize(exchange));
 
-                // requests FROM localhost to actuator endpoints are all permitted
-                .matchers(new AndServerWebExchangeMatcher(
-                        EndpointRequest.toAnyEndpoint(),
-                        mgmtExchange -> {
-                            var remoteAddress = mgmtExchange.getRequest().getRemoteAddress();
-                            if (remoteAddress != null && remoteAddress.getAddress().isLoopbackAddress()) {
-                                return MatchResult.match();
-                            }
-                            return MatchResult.notMatch();
-                        })
-                ).permitAll()
-
-                // other requests must pass through the authorizationManager (opa/keycloak)
-                .anyExchange().access(authorizationManager.getIfAvailable(() -> {
-                    log.warn("OpenPolicyAgent not configured, authorization disabled");
-                    return AuthenticatedReactiveAuthorizationManager.authenticated();
-                }))
-        );
+            exchange
+                    // other requests must pass through the authorizationManager (opa/keycloak)
+                    .anyExchange().access(authorizationManager.getIfAvailable(() -> {
+                        log.warn("OpenPolicyAgent not configured, authorization disabled");
+                        return AuthenticatedReactiveAuthorizationManager.authenticated();
+                    }));
+        });
 
         // Bearer token auth
         oauth2resourceServerCustomizer.forEach(http::oauth2ResourceServer);
