@@ -14,8 +14,6 @@ import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8ConfigMapMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.Fabric8SecretMapper;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesResourceWatcherBinding;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
-import com.contentgrid.gateway.runtime.security.jwt.issuer.RuntimeAuthenticationJwtClaimsResolver;
-import com.contentgrid.gateway.runtime.security.jwt.issuer.RuntimeJwtClaimsResolver;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.DefaultRuntimeRequestRouter;
@@ -31,24 +29,17 @@ import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
-import com.contentgrid.gateway.security.jwt.issuer.NamedJwtClaimsResolver;
-import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
-import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.TokenRelayGatewayFilterFactory;
@@ -59,7 +50,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
@@ -128,32 +118,6 @@ public class RuntimeConfiguration {
         return routes.build();
     }
 
-    @Bean
-    @NamedJwtClaimsResolver("apps")
-    RuntimeJwtClaimsResolver runtimeJwtClaimsResolver() {
-        return new RuntimeJwtClaimsResolver();
-    }
-
-    private static final String AUTHENTICATION_ENCRYPTION = "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption";
-
-    @Bean(name = AUTHENTICATION_ENCRYPTION)
-    @ConfigurationProperties(AUTHENTICATION_ENCRYPTION)
-    @ConditionalOnProperty(prefix = AUTHENTICATION_ENCRYPTION, name = "active-keys")
-    TextEncryptorProperties authenticationTextEncryptorProperties() {
-        return new TextEncryptorProperties();
-    }
-
-    @Bean
-    @NamedJwtClaimsResolver("authentication")
-    @ConditionalOnBean(name = AUTHENTICATION_ENCRYPTION)
-    RuntimeAuthenticationJwtClaimsResolver authorizationJwtClaimsResolver(
-            ApplicationConfigurationRepository applicationConfigurationRepository,
-            @Qualifier(AUTHENTICATION_ENCRYPTION)
-            TextEncryptorProperties encryptorProperties,
-            ResourcePatternResolver resourcePatternResolver
-    ) {
-        return new RuntimeAuthenticationJwtClaimsResolver(applicationConfigurationRepository, new PropertiesBasedTextEncryptorFactory(resourcePatternResolver, encryptorProperties, new Random()));
-    }
 
     @Bean
     Customizer<ServerHttpSecurity.AuthorizeExchangeSpec> runtimeEndpointsAuthorizeExchangeCustomizer(
