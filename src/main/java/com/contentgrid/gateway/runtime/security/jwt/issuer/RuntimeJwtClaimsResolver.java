@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.runtime.jwt.issuer;
+package com.contentgrid.gateway.runtime.security.jwt.issuer;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
