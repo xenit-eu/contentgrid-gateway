@@ -1,11 +1,14 @@
 package com.contentgrid.gateway.runtime.security.bearer;
 
+import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.security.authority.ClaimUtil;
+import com.contentgrid.gateway.runtime.security.authority.ExtensionDelegationGrantedAuthorityConverter;
 import com.contentgrid.gateway.runtime.security.bearer.RuntimePlatformExternalIssuerProperties.OidcIssuerProperties;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.ActorConverter;
+import com.contentgrid.gateway.security.authority.ActorConverterType;
 import com.contentgrid.gateway.security.authority.UserGrantedAuthorityConverter;
 import com.contentgrid.gateway.security.bearer.DynamicJwtAuthenticationManagerResolver;
 import com.contentgrid.gateway.security.bearer.IssuerGatedJwtAuthenticationManager;
@@ -13,7 +16,10 @@ import com.contentgrid.gateway.security.bearer.PostValidatingJwtAuthenticationMa
 import com.contentgrid.gateway.security.bearer.ReactiveJwtDecoderBuilder;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.function.Predicate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -44,8 +50,32 @@ import reactor.core.publisher.Mono;
 public class RuntimePlatformOAuth2ResourceServerConfiguration {
 
     @Bean
-    ActorConverter runtimeUserActorConverter()  {
-        return new ActorConverter(iss -> true, ActorType.USER, ClaimUtil::userClaims);
+    @ActorConverterType(ActorType.USER)
+    ActorConverter runtimeUserActorConverter(
+            RuntimePlatformExternalIssuerProperties externalIssuerProperties
+    ) {
+        var nonUserIssuers = new HashSet<String>();
+        nonUserIssuers.add(externalIssuerProperties.getExtensionSystem().getIssuer());
+        nonUserIssuers.add(externalIssuerProperties.getExtensionDelegation().getIssuer());
+
+        return new ActorConverter(Predicate.not(nonUserIssuers::contains), ActorType.USER, ClaimUtil::userClaims);
+    }
+
+    @Bean
+    @ActorConverterType(ActorType.EXTENSION)
+    ActorConverter runtimeExtensionActorConverter(
+            RuntimePlatformExternalIssuerProperties externalIssuerProperties
+    ) {
+        var converter = new ActorConverter(
+                Predicate.isEqual(externalIssuerProperties.getExtensionSystem().getIssuer()),
+                ActorType.EXTENSION,
+                ClaimUtil::extensionSystemClaims
+        );
+
+        // Extensions can have nested actors
+        converter.setParentActorConverter(converter);
+
+        return converter;
     }
 
     @Bean
@@ -54,14 +84,19 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
             ReactiveClientRegistrationIdResolver registrationIdResolver,
             ReactiveClientRegistrationRepository clientRegistrationRepository,
             RuntimePlatformExternalIssuerProperties externalIssuerProperties,
-            Converter<ClaimAccessor, Actor> userActorConverter
+            @ActorConverterType(ActorType.USER)
+            Converter<ClaimAccessor, Actor> userActorConverter,
+            @ActorConverterType(ActorType.EXTENSION)
+            Converter<ClaimAccessor, Actor> extensionActorConverter,
+            @Autowired(required = false) ExtensionDelegationGrantedAuthorityConverter extensionDelegationGrantedAuthorityConverter
     ) {
         return spec -> {
-            // The general idea here is: there are 2 different issuers that are trusted for different ways of authenticating
+            // The general idea here is: there are 3 different issuers that are trusted for different ways of authenticating
             // 1. A normal, application-specific, issuer; used directly for user authentication (this one is resolved by the DynamicJwtAuthenticationManagerResolver)
             // 2. A shared issuer for extension system authentication: used for extension authentication with a service account (extensionSystemAuthenticationManager)
+            // 3. A shared issuer for delegated authentication by an extension: used for authenticating an extension on-behalf-of the user (extensionDelegationAuthenticationManager)
             //
-            // For the shared issuers, we only want to create one shared AuthenticationManager that can be shared across all applications.
+            // For these shared issuers, we only want to create one shared AuthenticationManager that can be shared across all applications.
             // However, for shared issuers, we also MUST verify the 'aud' claim, so it is only acceptable for the application that the token was
             // issued for. If the audience is not checked, users for different applications (or organizations) would be able to log in to the application.
             //
@@ -75,13 +110,11 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
 
             var extensionSystemAuthenticationManager = createAuthenticationManager(
                     externalIssuerProperties.getExtensionSystem(),
-                    new UserGrantedAuthorityConverter(
-                            new ActorConverter(
-                                    iss -> true,
-                                    ActorType.EXTENSION,
-                                    ClaimUtil::extensionSystemClaims
-                            )
-                    )
+                    new UserGrantedAuthorityConverter(extensionActorConverter)
+            );
+            var extensionDelegationAuthenticationManager = createAuthenticationManager(
+                    externalIssuerProperties.getExtensionDelegation(),
+                    extensionDelegationGrantedAuthorityConverter
             );
             resolver.setAuthenticationManagerConfigurer(authenticationManager -> {
                 var authenticationConverter = new ReactiveJwtAuthenticationConverter();
@@ -91,18 +124,35 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
             });
             resolver.setPostProcessor((authenticationManager, webExchange) ->
                     applicationIdResolver.resolveApplicationId(webExchange)
-                            .<Mono<ReactiveAuthenticationManager>>map(applicationId -> Mono.just(new DelegatingReactiveAuthenticationManager(
-                                    new PostValidatingJwtAuthenticationManager<>(
-                                            new JwtClaimValidator<List<String>>(JwtClaimNames.AUD, aud -> aud != null && aud.contains("contentgrid:application:"+applicationId.getValue())),
-                                            extensionSystemAuthenticationManager
-                                    ),
-                                    authenticationManager
-                            )))
+                            .map(applicationId -> Mono.<ReactiveAuthenticationManager>just(
+                                    new DelegatingReactiveAuthenticationManager(
+                                            createApplicationSpecificExtensionAuthenticationManager(
+                                                    applicationId,
+                                                    extensionSystemAuthenticationManager,
+                                                    extensionDelegationAuthenticationManager
+                                            ),
+                                            authenticationManager
+                                    ))
+                            )
                             .orElse(Mono.just(authenticationManager))
             );
             spec.authenticationManagerResolver(resolver);
         };
+    }
 
+    private static PostValidatingJwtAuthenticationManager<List<String>> createApplicationSpecificExtensionAuthenticationManager(
+            ApplicationId applicationId,
+            ReactiveAuthenticationManager extensionSystemAuthenticationManager,
+            ReactiveAuthenticationManager extensionDelegationAuthenticationManager
+    ) {
+        return new PostValidatingJwtAuthenticationManager<>(
+                new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
+                        aud -> aud != null && aud.contains("contentgrid:application:" + applicationId.getValue())),
+                new DelegatingReactiveAuthenticationManager(
+                        extensionSystemAuthenticationManager,
+                        extensionDelegationAuthenticationManager
+                )
+        );
     }
 
     @Bean
@@ -137,5 +187,4 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
                 jwtAuthenticationManager
         );
     }
-
 }

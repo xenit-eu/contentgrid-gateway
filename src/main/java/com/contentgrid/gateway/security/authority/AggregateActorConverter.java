@@ -11,6 +11,11 @@ public class AggregateActorConverter implements Converter<ClaimAccessor, Actor> 
 
     private final List<? extends Converter<ClaimAccessor, Actor>> converters;
 
+    @SafeVarargs
+    public AggregateActorConverter(Converter<ClaimAccessor, Actor> ...converters) {
+        this(List.of(converters));
+    }
+
     @Override
     public Actor convert(ClaimAccessor source) {
         return converters
