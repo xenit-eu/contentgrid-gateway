@@ -59,11 +59,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+	implementation 'io.micrometer:micrometer-tracing'
+	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+	implementation 'io.micrometer:micrometer-registry-otlp'
+
+	implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
+
 	implementation platform('com.contentgrid.thunx:thunx-bom:0.11.0')
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
-
-
 
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
 	runtimeOnly 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
