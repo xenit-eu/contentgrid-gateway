@@ -40,8 +40,10 @@ import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpe
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
@@ -57,6 +59,7 @@ import org.springframework.security.web.server.util.matcher.AndServerWebExchange
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringBootApplication
@@ -162,7 +165,6 @@ public class GatewayApplication {
     @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
-            Environment environment,
             ObjectProvider<ReactiveAuthorizationManager<AuthorizationContext>> authorizationManager,
             ServerLogoutSuccessHandler logoutSuccessHandler,
             CorsConfigurationSource corsConfig,
@@ -170,7 +172,9 @@ public class GatewayApplication {
             List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
             List<Customizer<ServerHttpSecurity.AuthorizeExchangeSpec>> authorizeCustomizer,
-            AuthenticationRefresher authenticationRefresher
+            AuthenticationRefresher authenticationRefresher,
+            Optional<ReactiveAuthorizationManager> reactiveAuthorizationManagerOptional,
+            Optional<ReactiveUserDetailsService> reactiveUserDetailsServiceOptional
     ) {
         http.authorizeExchange(exchange -> {
             authorizeCustomizer.forEach(customizer -> customizer.customize(exchange));
@@ -222,6 +226,10 @@ public class GatewayApplication {
 
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
+
+        if (reactiveUserDetailsServiceOptional.isEmpty() && reactiveAuthorizationManagerOptional.isEmpty()) {
+            http.authenticationManager((authentication) -> Mono.error(new UsernameNotFoundException(authentication.getName())));
+        }
 
         return http.build();
     }
