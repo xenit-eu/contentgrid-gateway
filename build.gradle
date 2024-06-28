@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'java-test-fixtures'
 	id 'jacoco'
 	id 'org.springframework.boot' version '3.3.1'
 	id 'io.spring.dependency-management' version '1.1.5'
@@ -88,6 +89,21 @@ dependencies {
 
 	testImplementation 'org.testcontainers:k3s'
 	testImplementation 'org.awaitility:awaitility'
+
+	testFixturesCompileOnly 'org.projectlombok:lombok'
+	testFixturesAnnotationProcessor 'org.projectlombok:lombok'
+
+	testFixturesApi 'com.nimbusds:nimbus-jose-jwt:9.24.4'
+	testFixturesApi 'org.assertj:assertj-core'
+	testFixturesApi 'org.bouncycastle:bcprov-jdk18on:1.73'
+	testFixturesApi 'org.springframework:spring-webflux'
+	testFixturesApi 'org.springframework.security:spring-security-crypto'
+	testFixturesApi 'org.springframework.cloud:spring-cloud-commons'
+
+	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2022.0.5')
+	testFixturesImplementation 'io.projectreactor:reactor-test'
+	testFixturesImplementation 'com.fasterxml.jackson.core:jackson-databind'
+	testFixturesImplementation 'org.springframework.security:spring-security-core'
 }
 
 test {

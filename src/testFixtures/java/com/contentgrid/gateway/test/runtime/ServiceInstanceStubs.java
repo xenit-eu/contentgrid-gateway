@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.runtime;
+package com.contentgrid.gateway.test.runtime;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;

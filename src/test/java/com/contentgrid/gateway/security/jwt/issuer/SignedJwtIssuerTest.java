@@ -4,22 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.within;
 
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
-import com.nimbusds.jose.jwk.JWK;
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPublicKey;
+import com.contentgrid.gateway.test.security.jwt.SingleKeyJwtClaimsSigner;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import lombok.SneakyThrows;
 import org.assertj.core.api.ThrowingConsumer;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -39,10 +27,11 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 class SignedJwtIssuerTest {
+    private final JwtClaimsSigner CLAIMS_SIGNER = new SingleKeyJwtClaimsSigner();
 
     @Test
     void creates_derived_jwt_for_authentication_token() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
         var exchange = createExchange(
                 new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
                         .header("alg", "RS256")
@@ -63,7 +52,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void creates_derived_jwt_for_oidc_user() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
         var oidcUser = new DefaultOidcUser(
                 List.of(),
                 OidcIdToken.withTokenValue("XXX")
@@ -86,7 +75,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void creates_derived_jwt_for_other_authentication() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
 
         var exchange = createExchange(UsernamePasswordAuthenticationToken.authenticated("bob", null, List.of()));
 
@@ -101,7 +90,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void new_jwt_with_expiry_longer_than_max() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
 
         var exchange = createExchange(
                 new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
@@ -119,7 +108,7 @@ class SignedJwtIssuerTest {
 
     @Test
     void new_jwt_with_expiry_shorter_than_max() {
-        var issuer = new SignedJwtIssuer(new SimpleClaimsSigner(), JwtClaimsResolver.empty());
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
 
         var expiry = Instant.now().plus(10, ChronoUnit.SECONDS);
         var exchange = createExchange(
@@ -159,33 +148,4 @@ class SignedJwtIssuerTest {
         };
     }
 
-    static class SimpleClaimsSigner implements JwtClaimsSigner {
-        final private static JWK signingKey;
-        static {
-            try {
-                var keyGenerator = KeyPairGenerator.getInstance("RSA");
-                var keyPair = keyGenerator.generateKeyPair();
-
-                signingKey = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
-                        .privateKey(keyPair.getPrivate())
-                        .keyIDFromThumbprint()
-                        .build();
-            } catch (NoSuchAlgorithmException | JOSEException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public JWKSet getSigningKeys() {
-            return new JWKSet(signingKey);
-        }
-
-        @SneakyThrows
-        @Override
-        public SignedJWT sign(JWTClaimsSet jwtClaimsSet) {
-            var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(signingKey.getKeyID()).build(), jwtClaimsSet);
-            jwt.sign(new DefaultJWSSignerFactory().createJWSSigner(signingKey));
-            return jwt;
-        }
-    }
 }

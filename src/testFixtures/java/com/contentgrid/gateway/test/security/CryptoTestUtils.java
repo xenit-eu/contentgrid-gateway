@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security.jwt.issuer;
+package com.contentgrid.gateway.test.security;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
@@ -13,17 +13,17 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.util.InMemoryResource;
 
 @UtilityClass
-class CryptoTestUtils {
+public class CryptoTestUtils {
 
     @SneakyThrows
-    static KeyPair createKeyPair(String algorithm, int size) {
+    public static KeyPair createKeyPair(String algorithm, int size) {
         var generator = KeyPairGenerator.getInstance(algorithm);
         generator.initialize(size);
         return generator.generateKeyPair();
     }
 
     @SneakyThrows
-    static Resource toKeyResource(List<PemObject> objects) {
+    public static Resource toKeyResource(List<PemObject> objects) {
 
         var privateKeyOutput = new ByteArrayOutputStream();
         try (var writer = new OutputStreamWriter(privateKeyOutput)) {
@@ -37,14 +37,14 @@ class CryptoTestUtils {
 
     }
 
-    static Resource toPrivateKeyResource(KeyPair keyPair) {
+    public static Resource toPrivateKeyResource(KeyPair keyPair) {
         return toKeyResource(List.of(
                 new PemObject("PRIVATE KEY", keyPair.getPrivate().getEncoded()),
                 new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded()))
         );
     }
 
-    static Resource toPublicKeyResource(KeyPair keyPair) {
+    public static Resource toPublicKeyResource(KeyPair keyPair) {
         return toKeyResource(List.of(
                 new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded())
         ));

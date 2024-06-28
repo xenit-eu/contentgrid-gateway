@@ -1,12 +1,13 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
-import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.createKeyPair;
-import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.toPrivateKeyResource;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.createKeyPair;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPrivateKeyResource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.JwtSignerProperties;
+import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.RSAKey;
 import java.security.interfaces.RSAPublicKey;
