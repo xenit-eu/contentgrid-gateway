@@ -65,7 +65,7 @@ dependencies {
 
 
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
-	runtimeOnly 'org.bouncycastle:bcpkix-jdk15on:1.70'
+	runtimeOnly 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
