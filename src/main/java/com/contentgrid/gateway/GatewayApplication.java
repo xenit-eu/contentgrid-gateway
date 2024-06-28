@@ -177,7 +177,7 @@ public class GatewayApplication {
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
             List<Customizer<ServerHttpSecurity.AuthorizeExchangeSpec>> authorizeCustomizer,
             AuthenticationRefresher authenticationRefresher,
-            Optional<ReactiveAuthenticationManager> reactiveAuthenticationManager,
+            Optional<ReactiveAuthenticationManager> reactiveAuthenticationManagerOptional,
             Optional<ReactiveUserDetailsService> reactiveUserDetailsServiceOptional
     ) {
         http.authorizeExchange(exchange -> {
@@ -231,7 +231,7 @@ public class GatewayApplication {
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
 
-        if (reactiveUserDetailsServiceOptional.isEmpty() && reactiveAuthenticationManager.isEmpty()) {
+        if (reactiveUserDetailsServiceOptional.isEmpty() && reactiveAuthenticationManagerOptional.isEmpty()) {
             http.authenticationManager((authentication) -> Mono.error(new UsernameNotFoundException(authentication.getName())));
         }
 
