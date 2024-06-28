@@ -62,7 +62,10 @@ dependencies {
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
 
+
+
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
+	runtimeOnly 'org.bouncycastle:bcpkix-jdk15on:1.70'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
