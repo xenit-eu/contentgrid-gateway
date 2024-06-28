@@ -1,7 +1,7 @@
 plugins {
 	id 'java'
 	id 'jacoco'
-	id 'org.springframework.boot' version '3.1.6'
+	id 'org.springframework.boot' version '3.3.1'
 	id 'io.spring.dependency-management' version '1.1.5'
 	id 'org.sonarqube' version '5.0.0.4638'
 	id 'io.github.reyerizo.gradle.jcstress' version '0.8.15'
@@ -51,7 +51,7 @@ tasks.register("runtimeBootRun",  org.springframework.boot.gradle.tasks.run.Boot
 }
 
 dependencies {
-	implementation platform('org.springframework.cloud:spring-cloud-dependencies:2022.0.5')
+	implementation platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.2')
 	implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
@@ -62,7 +62,10 @@ dependencies {
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
 
+
+
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
+	runtimeOnly 'org.bouncycastle:bcpkix-jdk15on:1.70'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

@@ -7,7 +7,6 @@ import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvider;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -36,7 +35,6 @@ import com.contentgrid.gateway.security.jwt.issuer.NamedJwtClaimsResolver;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
-import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -64,7 +62,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -241,11 +238,6 @@ public class RuntimeConfiguration {
     CorsConfigurationSource runtimeCorsConfigurationSource(ApplicationIdRequestResolver applicationIdResolver,
             ApplicationConfigurationRepository appConfigRepository) {
         return new RuntimeCorsConfigurationSource(applicationIdResolver, appConfigRepository);
-    }
-
-    @Bean
-    OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
-        return new RuntimeOpaInputProvider();
     }
 
     @Bean

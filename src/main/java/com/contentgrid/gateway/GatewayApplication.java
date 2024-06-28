@@ -3,9 +3,11 @@ package com.contentgrid.gateway;
 import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
+import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefreshingServerSecurityContextRepository;
+import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -31,7 +33,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
@@ -39,9 +41,12 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
@@ -57,6 +62,8 @@ import org.springframework.security.web.server.util.matcher.AndServerWebExchange
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher.MatchResult;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringBootApplication
@@ -162,7 +169,6 @@ public class GatewayApplication {
     @Bean
     public SecurityWebFilterChain springWebFilterChain(
             ServerHttpSecurity http,
-            Environment environment,
             ObjectProvider<ReactiveAuthorizationManager<AuthorizationContext>> authorizationManager,
             ServerLogoutSuccessHandler logoutSuccessHandler,
             CorsConfigurationSource corsConfig,
@@ -170,7 +176,9 @@ public class GatewayApplication {
             List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
             List<Customizer<ServerHttpSecurity.AuthorizeExchangeSpec>> authorizeCustomizer,
-            AuthenticationRefresher authenticationRefresher
+            AuthenticationRefresher authenticationRefresher,
+            Optional<ReactiveAuthenticationManager> reactiveAuthenticationManagerOptional,
+            Optional<ReactiveUserDetailsService> reactiveUserDetailsServiceOptional
     ) {
         http.authorizeExchange(exchange -> {
             authorizeCustomizer.forEach(customizer -> customizer.customize(exchange));
@@ -223,11 +231,20 @@ public class GatewayApplication {
         http.csrf(CsrfSpec::disable);
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
 
+        if (reactiveUserDetailsServiceOptional.isEmpty() && reactiveAuthenticationManagerOptional.isEmpty()) {
+            http.authenticationManager((authentication) -> Mono.error(new UsernameNotFoundException(authentication.getName())));
+        }
+
         return http.build();
     }
 
     @Bean
     public GlobalFilter proxyUpstreamUnavailableWebFilter() {
         return new ProxyUpstreamUnavailableWebFilter();
+    }
+
+    @Bean
+    OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
+        return new RuntimeOpaInputProvider();
     }
 }
