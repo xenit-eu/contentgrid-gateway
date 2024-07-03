@@ -4,13 +4,12 @@ import static com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvi
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
+import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
-import com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvider;
 import java.util.Optional;
 import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;

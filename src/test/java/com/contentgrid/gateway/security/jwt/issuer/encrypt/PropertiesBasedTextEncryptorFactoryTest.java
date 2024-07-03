@@ -3,7 +3,7 @@ package com.contentgrid.gateway.security.jwt.issuer.encrypt;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.security.jwt.issuer.MockResourcePatternResolver;
+import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import java.util.HashSet;
 import java.util.Random;

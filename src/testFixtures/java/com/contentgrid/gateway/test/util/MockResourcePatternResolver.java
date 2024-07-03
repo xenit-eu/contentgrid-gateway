@@ -1,4 +1,4 @@
-package com.contentgrid.gateway.security.jwt.issuer;
+package com.contentgrid.gateway.test.util;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

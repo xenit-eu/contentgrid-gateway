@@ -1,9 +1,10 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
-import static com.contentgrid.gateway.security.jwt.issuer.CryptoTestUtils.*;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.security.jwt.issuer.PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties;
+import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSAlgorithm.Family;

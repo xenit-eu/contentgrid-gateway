@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.ServiceInstanceStubs;
+import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
 import org.junit.jupiter.api.Test;
 
 class SimpleContentGridDeploymentMetadataTest {
