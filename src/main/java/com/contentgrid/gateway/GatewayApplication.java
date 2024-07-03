@@ -4,6 +4,9 @@ import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
+import com.contentgrid.gateway.security.authority.Actor;
+import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.security.authority.PrincipalAuthenticationDetailsGrantedAuthority;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefreshingServerSecurityContextRepository;
@@ -49,7 +52,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
 import org.springframework.security.web.server.SecurityWebFilterChain;
@@ -109,10 +114,19 @@ public class GatewayApplication {
                 try {
                     TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {
                     };
+                    var claims = mapper.readValue(authorities, typeRef);
+                    claims.putIfAbsent(JwtClaimNames.SUB, username);
+                    claims.putIfAbsent(StandardClaimNames.NAME, username);
                     return User
                             .withUsername(username)
                             .password(NOOP_PASSWORD + username)
-                            .authorities(new OAuth2UserAuthority(mapper.readValue(authorities, typeRef)))
+                            .authorities(
+                                    new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                            ActorType.USER,
+                                            () -> claims,
+                                            null
+                                    ))
+                            )
                             .build();
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
