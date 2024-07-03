@@ -10,6 +10,7 @@ import com.contentgrid.gateway.security.jwt.issuer.NamedJwtClaimsResolver;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -51,25 +52,31 @@ public class RuntimeJwtInternalIssuerConfiguration {
 
     @Bean
     @NamedJwtClaimsResolver("authentication")
-    @ConditionalOnBean(name = AUTHENTICATION_ENCRYPTOR_FACTORY)
     RuntimeAuthenticationJwtClaimsResolver authorizationJwtClaimsResolver(
             ApplicationConfigurationRepository applicationConfigurationRepository,
             @Qualifier(AUTHENTICATION_ENCRYPTOR_FACTORY)
+            @Autowired(required = false)
             TextEncryptorFactory encryptionFactory
     ) {
+        if (encryptionFactory == null) {
+            return null;
+        }
         return new RuntimeAuthenticationJwtClaimsResolver(applicationConfigurationRepository, encryptionFactory);
     }
 
     @Bean
-    @ConditionalOnBean(name = AUTHENTICATION_ENCRYPTOR_FACTORY)
     ExtensionDelegationGrantedAuthorityConverter runtimeExtensionDelegationGrantedAuthorityConverter(
             @ActorConverterType(ActorType.USER)
             Converter<ClaimAccessor, Actor> userActorConverter,
             @ActorConverterType(ActorType.EXTENSION)
             Converter<ClaimAccessor, Actor> extensionActorConverter,
             @Qualifier(AUTHENTICATION_ENCRYPTOR_FACTORY)
+            @Autowired(required = false)
             TextEncryptorFactory encryptorFactory
     ) {
+        if (encryptorFactory == null) {
+            return null;
+        }
         return new ExtensionDelegationGrantedAuthorityConverter(encryptorFactory, new AggregateActorConverter(
                 extensionActorConverter,
                 userActorConverter
