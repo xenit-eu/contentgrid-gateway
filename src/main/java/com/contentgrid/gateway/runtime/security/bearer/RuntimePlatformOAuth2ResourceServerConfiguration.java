@@ -34,13 +34,6 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
     }
 
     @Bean
-    UserGrantedAuthorityConverter runtimeUserGrantedAuthorityConverter(
-            Converter<ClaimAccessor, Actor> actorConverter
-    ) {
-        return new UserGrantedAuthorityConverter(actorConverter);
-    }
-
-    @Bean
     Customizer<OAuth2ResourceServerSpec> runtimeJwtAuthenticationManagerResolver(
             ApplicationIdRequestResolver applicationIdResolver,
             ReactiveClientRegistrationIdResolver registrationIdResolver,
