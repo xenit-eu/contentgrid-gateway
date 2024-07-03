@@ -27,6 +27,10 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository
 import com.contentgrid.gateway.runtime.config.StaticApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.StaticVirtualHostApplicationIdResolver;
+import com.contentgrid.gateway.security.authority.Actor;
+import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.security.authority.DelegatedAuthenticationDetailsGrantedAuthority;
+import com.contentgrid.gateway.security.authority.PrincipalAuthenticationDetailsGrantedAuthority;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
@@ -74,6 +78,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -125,6 +130,7 @@ class RuntimeGatewayIntegrationTest {
     );
 
     static final String OIDC_ISSUER = "https://auth.contentgrid.example/realms/abc";
+    public static final String EXTENSION_SYSTEM_ISSUER = "https://extensions.invalid/authentication/system";
 
     static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
 
@@ -181,7 +187,15 @@ class RuntimeGatewayIntegrationTest {
 
     static OidcLoginMutator mockOidcLoginWithIssuer() {
         return mockOidcLogin()
-                .idToken(idToken -> idToken.issuer(OIDC_ISSUER));
+                .idToken(idToken -> idToken.issuer(OIDC_ISSUER))
+                .authorities(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                        ActorType.USER,
+                        () -> Map.of(
+                                JwtClaimNames.ISS, OIDC_ISSUER,
+                                JwtClaimNames.SUB, "user"
+                        ),
+                        null
+                )));
     }
 
     @BeforeAll
@@ -409,12 +423,16 @@ class RuntimeGatewayIntegrationTest {
         );
 
         webTestClient
-                .mutateWith(mockOidcLogin().idToken(idToken -> {
-                    idToken
-                            .issuer(OIDC_ISSUER)
-                            .claim("contentgrid:my-claim", "xyz")
-                            .claim("other-claim", "zzz");
-                }))
+                .mutateWith(mockOidcLogin()
+                        .authorities(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                        ActorType.USER,
+                        () -> Map.of(
+                                JwtClaimNames.ISS, OIDC_ISSUER,
+                                JwtClaimNames.SUB, "user",
+                                "contentgrid:my-claim", "xyz"
+                        ),
+                        null
+                ))))
                 .get().uri("https://{hostname}/.contentgrid/authentication/xyz", hostname)
                 .header("Host", hostname)
                 .exchange()
@@ -460,6 +478,106 @@ class RuntimeGatewayIntegrationTest {
                 });
                 assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
                         .doesNotThrowAnyException();;
+            });
+        });
+    }
+
+    @Test
+    void authentication_endpoint_jwt_with_actors(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
+
+        // This should not affect this endpoint at all, authentication endpoint is configured to bypass OPA
+        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
+
+        var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
+        var authenticationEncryptor = new PropertiesBasedTextEncryptorFactory(
+                applicationContext,
+                applicationContext.getBean("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption", TextEncryptorProperties.class)
+        );
+
+        webTestClient
+                .mutateWith(mockOidcLogin()
+                        .authorities(new DelegatedAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of(
+                                        JwtClaimNames.ISS, OIDC_ISSUER,
+                                        JwtClaimNames.SUB, "user",
+                                        "contentgrid:my-claim", "xyz"
+                                ),
+                                null),
+                                new Actor(
+                                        ActorType.EXTENSION,
+                                        () -> Map.of(
+                                                "iss", EXTENSION_SYSTEM_ISSUER,
+                                                "sub", "my-extension"
+                                        ),
+                                        new Actor(
+                                                ActorType.EXTENSION,
+                                                () -> Map.of(
+                                                        "iss", EXTENSION_SYSTEM_ISSUER,
+                                                        "sub", "other-extension"
+                                                ),
+                                                null
+                                        )
+                                ))))
+                .get().uri("https://{hostname}/.contentgrid/authentication/xyz", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        Mockito.verifyNoInteractions(pdpClient);
+
+        var jwkSet = authenticationSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:system:endpoints:authentication"), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/.contentgrid/authentication/xyz")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                    assertThat(claims.getAudience()).containsExactly("contentgrid:system:endpoints:authentication");
+                    assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                    assertThat(claims.getSubject()).isEqualTo("user");
+
+                    assertThat(claims.getStringClaim("context:application:id")).isEqualTo(APP_ID.toString());
+                    assertThat(claims.getStringListClaim("context:application:domains")).isEqualTo(List.of(hostname));
+
+                    // Validate that arbitrary user claims are not leaked
+                    assertThat(claims.getClaims()).doesNotContainKeys("contentgrid:my-claim", "other-claim");
+
+                    // Validate encrypted claims to be the claims of the original token
+                    assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
+                        assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
+                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            })).isEqualTo(Map.of(
+                                    "iss", OIDC_ISSUER,
+                                    "sub", "user",
+                                    "contentgrid:my-claim", "xyz"
+                            ));
+                        });
+                    });
+
+                    // Validate that actor chain is passed through
+                    assertThat(claims.getJSONObjectClaim("act")).satisfies(actorClaim -> {
+                        assertThat(actorClaim)
+                                .containsEntry("iss", EXTENSION_SYSTEM_ISSUER)
+                                .containsEntry("sub", "my-extension");
+                        assertThat((Map<String, Object>)actorClaim.get("act")).containsExactlyInAnyOrderEntriesOf(Map.of(
+                                "iss", EXTENSION_SYSTEM_ISSUER,
+                                "sub", "other-extension"
+                        ));
+                    });
+                });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
             });
         });
     }
