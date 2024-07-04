@@ -3,6 +3,7 @@ package com.contentgrid.gateway.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.gateway.test.security.ClaimAccessorMixin;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.id.Issuer;
@@ -37,6 +38,9 @@ import org.springframework.http.HttpCookie;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.http.codec.json.Jackson2JsonDecoder;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.MultiValueMap;
@@ -64,11 +68,17 @@ abstract class AbstractKeycloakIntegrationTest {
         return KEYCLOAK.getKeycloakAdminClient();
     }
 
-
     protected final WebTestClient http = WebTestClient
             .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
             .filter(new LoggingExchangeFilterFunction(log::info))
             .responseTimeout(Duration.ofHours(1)) // for interactive debugging
+            .codecs(clientCodecConfigurer -> {
+                clientCodecConfigurer.defaultCodecs().enableLoggingRequestDetails(true);
+                clientCodecConfigurer.defaultCodecs().jackson2JsonDecoder(new Jackson2JsonDecoder(
+                        Jackson2ObjectMapperBuilder.json()
+                                .mixIn(ClaimAccessor.class, ClaimAccessorMixin.class)
+                                .build()));
+            })
             .build();
 
     @NonNull
@@ -176,11 +186,11 @@ abstract class AbstractKeycloakIntegrationTest {
                     .get(userId)
                     .resetPassword(passwordRepresentation);
 
-            return new UserCredentials(username, password);
+            return new UserCredentials(username, password, userId);
         }
     }
 
-    record UserCredentials(String username, String password) {
+    record UserCredentials(String username, String password, String userId) {
 
     }
 
