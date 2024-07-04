@@ -105,7 +105,7 @@ dependencies {
 	testFixturesApi 'org.springframework.security:spring-security-crypto'
 	testFixturesApi 'org.springframework.cloud:spring-cloud-commons'
 
-	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2022.0.5')
+	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.2')
 	testFixturesImplementation 'io.projectreactor:reactor-test'
 	testFixturesImplementation 'com.fasterxml.jackson.core:jackson-databind'
 	testFixturesImplementation 'org.springframework.security:spring-security-core'
