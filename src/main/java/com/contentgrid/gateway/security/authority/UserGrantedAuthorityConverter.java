@@ -2,6 +2,7 @@ package com.contentgrid.gateway.security.authority;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.convert.converter.Converter;
@@ -19,11 +20,14 @@ public class UserGrantedAuthorityConverter implements
 
     @Override
     public Collection<GrantedAuthority> convert(Jwt source) {
-        return List.of(createFromClaimAccessor(source));
+        return createFromClaimAccessor(source)
+                .map(List::of)
+                .orElseGet(List::of);
     }
 
-    private GrantedAuthority createFromClaimAccessor(ClaimAccessor claimAccessor) {
-        return new PrincipalAuthenticationDetailsGrantedAuthority(actorConverter.convert(claimAccessor));
+    private Optional<GrantedAuthority> createFromClaimAccessor(ClaimAccessor claimAccessor) {
+        return Optional.ofNullable(actorConverter.convert(claimAccessor))
+                .map(PrincipalAuthenticationDetailsGrantedAuthority::new);
     }
 
     @Override
@@ -35,6 +39,7 @@ public class UserGrantedAuthorityConverter implements
                         .map(OidcUserAuthority.class::cast)
                         .map(OidcUserAuthority::getIdToken)
                         .map(this::createFromClaimAccessor)
+                        .flatMap(Optional::stream)
         ).toList();
     }
 }
