@@ -31,6 +31,8 @@ public class DynamicJwtAuthenticationManagerResolver implements
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
     @Setter
     private Consumer<JwtReactiveAuthenticationManager> authenticationManagerConfigurer = jwtReactiveAuthenticationManager -> {};
+    @Setter
+    private BiFunction<ReactiveAuthenticationManager, ServerWebExchange, Mono<ReactiveAuthenticationManager>> postProcessor = (authenticationManager, exchange) -> Mono.just(authenticationManager);
     private final Map<AuthenticationManagerKey, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
 
     private record AuthenticationManagerKey(
@@ -51,6 +53,7 @@ public class DynamicJwtAuthenticationManagerResolver implements
                         clientRegistration.getProviderDetails().getJwkSetUri()))
                 .flatMap(authenticationManagerKey -> this.authenticationManagers.computeIfAbsent(
                         authenticationManagerKey, this::createJwtAuthenticationManager))
+                .flatMap(authenticationManager -> postProcessor.apply(authenticationManager, exchange))
                 .checkpoint()
 
                 // could not resolve request to an app-id or related client-registration
@@ -79,4 +82,5 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 .jwkSetUri(authenticationManagerKey.jwkSetUri())
                 .build();
     }
+
 }
