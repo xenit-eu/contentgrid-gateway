@@ -7,13 +7,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
-import org.springframework.security.oauth2.jwt.ReactiveJwtDecoders;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager;
 import org.springframework.web.server.ServerWebExchange;
@@ -30,7 +31,14 @@ public class DynamicJwtAuthenticationManagerResolver implements
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
     @Setter
     private Consumer<JwtReactiveAuthenticationManager> authenticationManagerConfigurer = jwtReactiveAuthenticationManager -> {};
-    private final Map<String, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
+    private final Map<AuthenticationManagerKey, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
+
+    private record AuthenticationManagerKey(
+            @NonNull String issuer,
+            String jwkSetUri
+    ) {
+
+    }
 
     @Override
     public Mono<ReactiveAuthenticationManager> resolve(ServerWebExchange exchange) {
@@ -38,8 +46,11 @@ public class DynamicJwtAuthenticationManagerResolver implements
         return Mono.justOrEmpty(this.applicationIdResolver.resolveApplicationId(exchange))
                 .flatMap(this.reactiveClientRegistrationIdResolver::resolveRegistrationId)
                 .flatMap(this.clientRegistrationRepository::findByRegistrationId)
-                .map(clientRegistration -> clientRegistration.getProviderDetails().getIssuerUri())
-                .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(issuer, this::createJwtAuthenticationManager))
+                .map(clientRegistration -> new AuthenticationManagerKey(
+                        clientRegistration.getProviderDetails().getIssuerUri(),
+                        clientRegistration.getProviderDetails().getJwkSetUri()))
+                .flatMap(authenticationManagerKey -> this.authenticationManagers.computeIfAbsent(
+                        authenticationManagerKey, this::createJwtAuthenticationManager))
                 .checkpoint()
 
                 // could not resolve request to an app-id or related client-registration
@@ -50,13 +61,22 @@ public class DynamicJwtAuthenticationManagerResolver implements
     }
 
     // Note: this is copied from Spring Security TrustedIssuerJwtAuthenticationManagerResolver
-    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(String issuer) {
+    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(
+            AuthenticationManagerKey authenticationManagerKey) {
         return Mono.<ReactiveAuthenticationManager>fromCallable(() -> {
-                    var authenticationManager = new JwtReactiveAuthenticationManager(ReactiveJwtDecoders.fromIssuerLocation(issuer));
+                    var authenticationManager = new JwtReactiveAuthenticationManager(
+                            createJwtDecoder(authenticationManagerKey));
                     authenticationManagerConfigurer.accept(authenticationManager);
                     return authenticationManager;
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .cache(manager -> Duration.ofMillis(Long.MAX_VALUE), ex -> Duration.ZERO, () -> Duration.ZERO);
+    }
+
+    private static ReactiveJwtDecoder createJwtDecoder(AuthenticationManagerKey authenticationManagerKey) {
+        return ReactiveJwtDecoderBuilder.create()
+                .issuer(authenticationManagerKey.issuer())
+                .jwkSetUri(authenticationManagerKey.jwkSetUri())
+                .build();
     }
 }
