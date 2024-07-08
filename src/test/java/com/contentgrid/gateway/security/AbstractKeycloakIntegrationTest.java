@@ -148,7 +148,9 @@ abstract class AbstractKeycloakIntegrationTest {
         clientRepresentation.setStandardFlowEnabled(true);
         clientRepresentation.setPublicClient(true);
 
-        clientRepresentation.setRedirectUris(List.of(redirectUri));
+        if (redirectUri != null) {
+            clientRepresentation.setRedirectUris(List.of(redirectUri));
+        }
         clientRepresentation.setWebOrigins(List.of("+"));
         clientRepresentation.setFullScopeAllowed(false);
 
@@ -160,7 +162,7 @@ abstract class AbstractKeycloakIntegrationTest {
         }
     }
 
-    record PublicClientRegistration(@NonNull String clientId, @NonNull String redirectUri) {
+    record PublicClientRegistration(@NonNull String clientId, String redirectUri) {
 
     }
 

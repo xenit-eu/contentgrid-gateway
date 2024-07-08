@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.runtime.security.authority;
 
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
@@ -20,8 +21,16 @@ public class ClaimUtil {
         return () -> filteredClaims;
     }
 
+    ClaimAccessor limitToKeys(ClaimAccessor original, Set<String> keyFilter) {
+        return limitToKeys(original, keyFilter::contains);
+    }
+
     public ClaimAccessor userClaims(ClaimAccessor original) {
         return limitToKeys(original, ClaimUtil::isUserClaim);
+    }
+
+    public ClaimAccessor extensionSystemClaims(ClaimAccessor original) {
+        return limitToKeys(original, Set.of(JwtClaimNames.SUB, JwtClaimNames.ISS));
     }
 
     private boolean isUserClaim(String claimName) {
