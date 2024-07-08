@@ -112,9 +112,10 @@ public class SignedJwtIssuer implements JwtIssuer {
     }
 
     private Optional<Instant> findExpirationTime(Authentication authentication) {
-        if(authentication.getPrincipal() instanceof Jwt jwt) {
+        var principal = authentication.getPrincipal();
+        if(principal instanceof Jwt jwt) {
             return Optional.ofNullable(jwt.getExpiresAt());
-        } else if(authentication instanceof OidcUser oidcUser) {
+        } else if(principal instanceof OidcUser oidcUser) {
             return Optional.ofNullable(oidcUser.getIdToken().getExpiresAt());
         }
         return Optional.empty();

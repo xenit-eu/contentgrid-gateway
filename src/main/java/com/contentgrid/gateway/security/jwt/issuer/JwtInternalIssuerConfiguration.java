@@ -3,6 +3,7 @@ package com.contentgrid.gateway.security.jwt.issuer;
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
 import com.nimbusds.jose.JWSAlgorithm;
+import io.micrometer.observation.ObservationRegistry;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.HashMap;
@@ -43,11 +44,13 @@ public class JwtInternalIssuerConfiguration {
     @ConditionalOnEnabledFilter
     LocallyIssuedJwtGatewayFilterFactory internalJwtIssuerTokenRelayGatewayFilterFactory(
             JwtClaimsResolverLocator jwtClaimsResolverLocator,
-            JwtSignerRegistry jwtSignerRegistry
+            JwtSignerRegistry jwtSignerRegistry,
+            ObservationRegistry observationRegistry
     ) {
         return new LocallyIssuedJwtGatewayFilterFactory(
                 jwtClaimsResolverLocator::getRequiredClaimsResolver,
-                jwtSignerRegistry::getRequiredSigner
+                jwtSignerRegistry::getRequiredSigner,
+                observationRegistry
         );
     }
 

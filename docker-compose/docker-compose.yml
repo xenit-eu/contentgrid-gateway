@@ -21,13 +21,14 @@ services:
 
   gateway:
     image: ${CONTENTGRID_GATEWAY_DOCKER_IMAGE:-ghcr.io/xenit-eu/contentgrid-gateway:local}
+    volumes:
+      - ./example-gateway:/config
     environment:
-      - "OPA_SERVICE_URL=http://opa:8181"
-      - "OPA_QUERY=data.gateway.example.allow == true"
-      - "TESTING_BOOTSTRAP_ENABLE=true"
-      - "TESTING_BOOTSTRAP_USERS_0_USERNAME=alice"
-      - "TESTING_BOOTSTRAP_USERS_0_AUTHORITIES={\"employers\": [\"BE0999999999\"]}"
-      - "TESTING_BOOTSTRAP_USERS_1_USERNAME=bob"
-      - "TESTING_BOOTSTRAP_USERS_1_AUTHORITIES={\"employers\": [\"BE0999999999\", \"BE0123456789\"], \"customers\": [\"BE9988776655\", \"BE5544332211\", \"BE0987654321\"], \"singlevalue\": \"BE1234567890\"}"
+      - "SPRING_CONFIG_IMPORT=file:/config/application.yml"
+#      - "JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:8000"
     ports:
       - "8080:8080"
+#      - "8000:8000"
+
+  upstream:
+    image: nginx

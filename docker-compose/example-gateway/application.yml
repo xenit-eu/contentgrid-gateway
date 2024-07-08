@@ -1,0 +1,28 @@
+opa:
+  service:
+    url: http://opa:8181
+  query: "data.gateway.example.allow == true"
+
+testing:
+  bootstrap:
+    enable: true
+    users:
+      - username: bob
+        authorities: '{"employers": ["BE0999999999", "BE0123456789"], "customers": ["BE9988776655", "BE5544332211", "BE0987654321"], "singlevalue": "BE1234567890"}'
+      - username: alice
+        authorities: '{"employers": ["BE0999999999"]}'
+      - username: admin
+        authorities: '{"admin": "true"}'
+
+contentgrid.gateway.jwt.signers:
+  my-signer:
+    active-keys: file:/config/internal-issuer.pem
+spring.cloud.gateway.routes:
+  - id: my-service
+    uri: http://upstream:80/
+    filters:
+      - LocallyIssuedJwt=my-signer
+    predicates:
+      - Path=/**
+
+spring.application.name: gateway
