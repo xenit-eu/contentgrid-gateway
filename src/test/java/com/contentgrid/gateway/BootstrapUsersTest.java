@@ -4,12 +4,12 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.oneOf;
 
+import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
-import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,9 +37,6 @@ public class BootstrapUsersTest {
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
     }
 
-    @Autowired
-    private UserInfoController userInfoController;
-
     @Test
     public void testLogin() {
 
@@ -58,13 +55,23 @@ public class BootstrapUsersTest {
     @WithUserDetails("bob")
     public void testAuthorities() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        var result = userInfoController.userInfo(authentication);
-        assertThat(result).extractingByKey("employers", InstanceOfAssertFactories.LIST)
-                .containsExactlyInAnyOrder("BE0999999999", "BE0123456789");
-        assertThat(result).extractingByKey("customers", InstanceOfAssertFactories.LIST)
-                .containsExactlyInAnyOrder("BE9988776655", "BE5544332211", "BE0987654321");
-        assertThat(result).extractingByKey("singlevalue", InstanceOfAssertFactories.STRING)
-                .isEqualTo("BE1234567890");
+
+        var maybeAuthenticationDetails = authentication.getAuthorities()
+                .stream()
+                .filter(AuthenticationDetails.class::isInstance)
+                .map(AuthenticationDetails.class::cast)
+                .findFirst();
+
+        assertThat(maybeAuthenticationDetails).hasValueSatisfying(authenticationDetails -> {
+            assertThat(authenticationDetails.getPrincipal().getType()).isEqualTo(ActorType.USER);
+            assertThat(authenticationDetails.getPrincipal().getClaims().getClaimAsStringList("employers"))
+                    .containsExactlyInAnyOrder("BE0999999999", "BE0123456789");
+            assertThat(authenticationDetails.getPrincipal().getClaims().getClaimAsStringList("customers"))
+                    .containsExactlyInAnyOrder("BE9988776655", "BE5544332211", "BE0987654321");
+            assertThat(authenticationDetails.getPrincipal().getClaims().getClaimAsString("singlevalue"))
+                    .isEqualTo("BE1234567890");
+            assertThat(authenticationDetails.getActor()).isNull();
+        });
     }
 
 }

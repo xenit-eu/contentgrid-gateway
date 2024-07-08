@@ -4,7 +4,6 @@ import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.UtilityClass;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import reactor.core.publisher.Mono;

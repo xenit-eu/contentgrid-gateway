@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
-import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver.AuthenticationInformation;
+import com.contentgrid.gateway.security.authority.Actor;
+import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -8,14 +9,16 @@ import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -38,18 +41,11 @@ public class SignedJwtIssuer implements JwtIssuer {
     public Mono<OAuth2Token> issueSubstitutionToken(ServerWebExchange exchange) {
         return exchange.getPrincipal()
                 .flatMap(principal -> {
-                    if (principal instanceof Authentication authentication && authentication.getPrincipal() instanceof ClaimAccessor claimAccessor) {
-                        return Mono.just(AuthenticationInformation.fromClaims(claimAccessor));
+                    if (principal instanceof Authentication authentication) {
+                        return createClaims(exchange, authentication);
                     }
-
-                    return Mono.just(new AuthenticationInformation(
-                            null,
-                            principal.getName(),
-                            null,
-                            Map::of
-                    ));
+                    return Mono.empty();
                 })
-                .flatMap(authenticationInformation -> createClaims(exchange, authenticationInformation))
                 .flatMap(claims -> {
                     try {
                         return Mono.just(claimsSigner.sign(claims));
@@ -73,30 +69,63 @@ public class SignedJwtIssuer implements JwtIssuer {
                 });
     }
 
-    private Mono<JWTClaimsSet> createClaims(ServerWebExchange exchange, AuthenticationInformation authenticationInformation) {
+    private Mono<JWTClaimsSet> createClaims(ServerWebExchange exchange, Authentication authentication) {
+        var authenticationDetails = authentication.getAuthorities()
+                .stream()
+                .filter(AuthenticationDetails.class::isInstance)
+                .map(AuthenticationDetails.class::cast)
+                .findAny()
+                .orElse(null);
+        if(authenticationDetails == null) {
+            return Mono.empty();
+        }
 
-        return this.jwtClaimsResolver.resolveAdditionalClaims(exchange, authenticationInformation)
+        return this.jwtClaimsResolver.resolveAdditionalClaims(exchange, authenticationDetails)
                 .map(claims -> {
                     var builder = new JWTClaimsSet.Builder(claims);
                     // Issuer is only available when authenticated with OIDC or bearer token.
                     // In other case, we don't set any issuer at all.
-                    if(claims.getIssuer() == null && authenticationInformation.getIssuer() != null) {
-                        builder.issuer(authenticationInformation.getIssuer());
+                    if(claims.getIssuer() == null) {
+                        var issuer = authenticationDetails.getPrincipal().getClaims().getClaimAsString(JwtClaimNames.ISS);
+                        if(issuer != null) {
+                            builder.issuer(issuer);
+                        }
                     }
+                    // RFC 8693
+                    if(authenticationDetails.getActor() != null) {
+                        builder.claim("act", reconstructActorChain(authenticationDetails.getActor()));
+                    }
+
                     return builder
-                            .subject(Objects.requireNonNullElseGet(claims.getSubject(), authenticationInformation::getSubject))
+                            .subject(Objects.requireNonNullElseGet(claims.getSubject(), () -> authenticationDetails.getPrincipal().getClaims().getClaimAsString(JwtClaimNames.SUB)))
                             .expirationTime(Objects.requireNonNullElseGet(claims.getExpirationTime(), () -> {
                                 // Expiration is a required attribute of a JWT. If we don't have expiration information,
                                 // set it to expire at the maximum validity
                                 var maxExpiration = Instant.now().plus(this.maxValidity);
-                                return Date.from(Optional.ofNullable(authenticationInformation.getExpiration())
+                                return Date.from(findExpirationTime(authentication)
                                         .filter(exp -> exp.compareTo(maxExpiration) <= 0)
                                         .orElse(maxExpiration));
                             }))
                             .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), Date::new))
-                            .claim("act", authenticationInformation.getClaim("act")) // RFC 8693
                             .build();
                 });
+    }
+
+    private Optional<Instant> findExpirationTime(Authentication authentication) {
+        if(authentication.getPrincipal() instanceof Jwt jwt) {
+            return Optional.ofNullable(jwt.getExpiresAt());
+        } else if(authentication instanceof OidcUser oidcUser) {
+            return Optional.ofNullable(oidcUser.getIdToken().getExpiresAt());
+        }
+        return Optional.empty();
+    }
+
+    private Map<String, Object> reconstructActorChain(Actor actor) {
+        var claims = new HashMap<>(actor.getClaims().getClaims());
+        if(actor.getParent() != null) {
+            claims.put("act", reconstructActorChain(actor.getParent()));
+        }
+        return claims;
     }
 
 }

@@ -5,7 +5,10 @@ import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolve
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
@@ -25,6 +28,8 @@ public class DynamicJwtAuthenticationManagerResolver implements
     private final ApplicationIdRequestResolver applicationIdResolver;
     private final ReactiveClientRegistrationIdResolver reactiveClientRegistrationIdResolver;
     private final ReactiveClientRegistrationRepository clientRegistrationRepository;
+    @Setter
+    private Consumer<JwtReactiveAuthenticationManager> authenticationManagerConfigurer = jwtReactiveAuthenticationManager -> {};
     private final Map<String, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
 
     @Override
@@ -34,8 +39,8 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 .flatMap(this.reactiveClientRegistrationIdResolver::resolveRegistrationId)
                 .flatMap(this.clientRegistrationRepository::findByRegistrationId)
                 .map(clientRegistration -> clientRegistration.getProviderDetails().getIssuerUri())
-                .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(issuer,
-                        DynamicJwtAuthenticationManagerResolver::createJwtAuthenticationManager))
+                .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(issuer, this::createJwtAuthenticationManager))
+                .checkpoint()
 
                 // could not resolve request to an app-id or related client-registration
                 .switchIfEmpty(Mono.defer(() -> {
@@ -45,9 +50,12 @@ public class DynamicJwtAuthenticationManagerResolver implements
     }
 
     // Note: this is copied from Spring Security TrustedIssuerJwtAuthenticationManagerResolver
-    private static Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(String issuer) {
-        return Mono.<ReactiveAuthenticationManager>fromCallable(
-                        () -> new JwtReactiveAuthenticationManager(ReactiveJwtDecoders.fromIssuerLocation(issuer)))
+    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(String issuer) {
+        return Mono.<ReactiveAuthenticationManager>fromCallable(() -> {
+                    var authenticationManager = new JwtReactiveAuthenticationManager(ReactiveJwtDecoders.fromIssuerLocation(issuer));
+                    authenticationManagerConfigurer.accept(authenticationManager);
+                    return authenticationManager;
+                })
                 .subscribeOn(Schedulers.boundedElastic())
                 .cache(manager -> Duration.ofMillis(Long.MAX_VALUE), ex -> Duration.ZERO, () -> Duration.ZERO);
     }

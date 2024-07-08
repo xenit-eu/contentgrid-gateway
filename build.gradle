@@ -109,6 +109,7 @@ dependencies {
 	testFixturesImplementation 'io.projectreactor:reactor-test'
 	testFixturesImplementation 'com.fasterxml.jackson.core:jackson-databind'
 	testFixturesImplementation 'org.springframework.security:spring-security-core'
+	testFixturesImplementation 'org.springframework.security:spring-security-oauth2-core'
 }
 
 test {

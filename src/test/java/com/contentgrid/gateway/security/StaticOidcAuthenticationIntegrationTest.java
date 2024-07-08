@@ -2,10 +2,11 @@ package com.contentgrid.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.nimbusds.oauth2.sdk.GeneralException;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.NonNull;
@@ -16,14 +17,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.reactive.server.StatusAssertions;
-import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.reactive.server.WebTestClient.RequestHeadersSpec;
+import org.springframework.test.web.reactive.server.WebTestClient.ResponseSpec;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import reactor.netty.http.client.HttpClient;
 
 @Slf4j
 @Testcontainers
@@ -38,11 +37,6 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
 
     private static final String CLIENT_ID = "confidential-client";
     private static final String CLIENT_SECRET = UUID.randomUUID().toString();
-
-    private final WebTestClient httpClient = WebTestClient
-            .bindToServer(new ReactorClientHttpConnector(HttpClient.create().followRedirect(false)))
-            .responseTimeout(Duration.ofHours(1)) // for interactive debugging
-            .build();
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
@@ -76,7 +70,17 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
         // Complete the OAuth2 Login with the gateway
         var sessionCookie = this.completeOAuth2Login(authzCodeRequest.getSessionCookie(), authzCodeResponse, null);
 
-        this.assertRequest_withSessionCookie(sessionCookie.getValue()).is2xxSuccessful();
+        this.assertRequest_withSessionCookie(sessionCookie.getValue())
+                .expectStatus().is2xxSuccessful()
+                .expectBody(TestAuthenticationDetails.class)
+                .value(authenticationDetails -> {
+                    assertThat(authenticationDetails.getPrincipal()).satisfies(principal -> {
+                        assertThat(principal.getType()).isEqualTo(ActorType.USER);
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.ISS)).isEqualTo(REALM.getIssuerUrl());
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.SUB)).isEqualTo(USER.userId());
+                    });
+                    assertThat(authenticationDetails.getActor()).isNull();
+                });
     }
 
 
@@ -102,11 +106,21 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
         assertThat(tokenResponse.getAccessToken()).isNotNull();
 
         // validate what we can do with the access token
-        assertRequest_withBearer(tokenResponse.getAccessToken()).is2xxSuccessful();
+        assertRequest_withBearer(tokenResponse.getAccessToken())
+                .expectStatus().is2xxSuccessful()
+                .expectBody(TestAuthenticationDetails.class)
+                .value(authenticationDetails -> {
+                    assertThat(authenticationDetails.getPrincipal()).satisfies(principal -> {
+                        assertThat(principal.getType()).isEqualTo(ActorType.USER);
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.ISS)).isEqualTo(REALM.getIssuerUrl());
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.SUB)).isEqualTo(USER.userId());
+                    });
+                    assertThat(authenticationDetails.getActor()).isNull();
+                });
     }
 
     @NonNull
-    private StatusAssertions assertRequest_withBearer(String accessToken) {
+    private ResponseSpec assertRequest_withBearer(String accessToken) {
         return this.assertRequest(request -> {
             // json-only request simulating fetch/XHR
             request.accept(MediaType.APPLICATION_JSON);
@@ -118,7 +132,7 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
     }
 
     @NonNull
-    private StatusAssertions assertRequest_withSessionCookie(String session) {
+    private ResponseSpec assertRequest_withSessionCookie(String session) {
         return this.assertRequest(request -> {
             request.accept(MediaType.TEXT_HTML, MediaType.ALL);
 
@@ -128,14 +142,13 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
         });
     }
 
-    @NonNull
-    private StatusAssertions assertRequest(Consumer<RequestHeadersSpec<? extends RequestHeadersSpec<?>>> customizer) {
-        var request = this.httpClient.get()
-                .uri("http://localhost:%s/me".formatted(this.port));
+    private ResponseSpec assertRequest(Consumer<RequestHeadersSpec<? extends RequestHeadersSpec<?>>> customizer) {
+        var request = this.http.get()
+                .uri("http://localhost:%s/_test/authenticationDetails".formatted(this.port));
 
         customizer.accept(request);
 
-        return request.exchange().expectStatus();
+        return request.exchange();
     }
 
 }

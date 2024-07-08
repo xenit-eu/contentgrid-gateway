@@ -2,6 +2,7 @@ package com.contentgrid.gateway.runtime.security.jwt.issuer;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
+import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
 import com.contentgrid.thunx.encoding.json.ExpressionJsonConverter;
@@ -19,7 +20,7 @@ public class RuntimeJwtClaimsResolver implements JwtClaimsResolver {
     private static final ExpressionJsonConverter thunxExpressionConverter = new ExpressionJsonConverter();
 
     @Override
-    public Mono<JWTClaimsSet> resolveAdditionalClaims(ServerWebExchange exchange, AuthenticationInformation authenticationInformation) {
+    public Mono<JWTClaimsSet> resolveAdditionalClaims(ServerWebExchange exchange, AuthenticationDetails authenticationDetails) {
         ApplicationId applicationId = exchange.getRequiredAttribute(ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR);
         DeploymentId deploymentId = exchange.getRequiredAttribute(ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR);
         ThunkExpression<Boolean> abacPolicyPredicate = exchange.getAttribute(ReactivePolicyAuthorizationManager.ABAC_POLICY_PREDICATE_ATTR);
@@ -33,7 +34,7 @@ public class RuntimeJwtClaimsResolver implements JwtClaimsResolver {
         return Mono.just(
                 jwtClaimsBuilder
                         .audience("contentgrid:app:"+applicationId+":"+deploymentId)
-                        .claim(StandardClaimNames.NAME, authenticationInformation.getClaim(StandardClaimNames.NAME))
+                        .claim(StandardClaimNames.NAME, authenticationDetails.getPrincipal().getClaims().getClaimAsString(StandardClaimNames.NAME))
                         .build()
         );
     }

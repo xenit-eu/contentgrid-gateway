@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
+import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
 import org.springframework.security.oauth2.client.endpoint.ReactiveOAuth2AccessTokenResponseClient;
 import org.springframework.security.oauth2.client.endpoint.WebClientReactiveRefreshTokenTokenResponseClient;
@@ -28,16 +29,19 @@ class OidcClientConfiguration {
     AuthenticationRefresher oidcIdTokenAuthenticationRefresher(
             @Autowired(required = false) ServerOAuth2AuthorizedClientRepository authorizedClientRepository,
             ObjectProvider<ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest>> accessTokenResponseClient,
-            ObjectProvider<ReactiveOAuth2UserService<OidcUserRequest, OidcUser>> userService
+            ObjectProvider<ReactiveOAuth2UserService<OidcUserRequest, OidcUser>> userService,
+            ObjectProvider<GrantedAuthoritiesMapper> grantedAuthoritiesMapper
     ) {
         if(authorizedClientRepository == null) {
             return null;
         }
-        return new OidcIdTokenAuthenticationRefresher(
+        var tokenRefresher = new OidcIdTokenAuthenticationRefresher(
                 authorizedClientRepository,
                 accessTokenResponseClient.getIfAvailable(WebClientReactiveRefreshTokenTokenResponseClient::new),
                 userService.getIfAvailable(OidcReactiveOAuth2UserService::new)
         );
+        grantedAuthoritiesMapper.ifAvailable(tokenRefresher::setAuthoritiesMapper);
+        return tokenRefresher;
     }
 
     @Bean
