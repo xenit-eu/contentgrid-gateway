@@ -22,7 +22,8 @@ public class LocallyIssuedJwtGatewayFilterFactory extends AbstractConfigurable<C
     public LocallyIssuedJwtGatewayFilterFactory(
             Function<String, JwtClaimsResolver> claimsResolverLocator,
             Function<String, JwtClaimsSigner> signerLocator,
-            ObservationRegistry observationRegistry) {
+            ObservationRegistry observationRegistry
+        ) {
         super(Config.class);
         this.claimsResolverLocator = claimsResolverLocator;
         this.signerLocator = signerLocator;
