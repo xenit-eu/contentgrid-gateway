@@ -3,9 +3,11 @@ package com.contentgrid.gateway.runtime.authorization;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.security.core.Authentication;
@@ -48,9 +50,9 @@ public class AuthenticationModel {
     public static class PrincipalModel {
 
         ActorKind kind;
-        @JsonAnyGetter
-        Map<String, Object> claims;
 
+        @Getter(onMethod_ = {@JsonAnyGetter, @JsonIgnore})
+        Map<String, Object> claims;
     }
 
     @RequiredArgsConstructor

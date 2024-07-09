@@ -86,6 +86,41 @@ testing.bootstrap:
 
 </details>
 
+### Integrated user-info endpoint
+
+The gateway can expose an endpoint that provides information about the currently-authenticated user.
+
+| Property                                | Type    | Description                                                   |
+|-----------------------------------------|---------|---------------------------------------------------------------|
+| `contentgrid.gateway.user-info.enabled` | boolean | Enable user info endpoint (Default: `false`)                  |
+| `contentgrid.gateway.user-info.path`    | string  | Path to expose the user info endpoint under. (Default: `/me`) |
+
+The available user info is independent of the authentication method: JWT, OAuth login or test users all result in the same structure.
+
+<details>
+
+<summary>`GET /me` for user 'alice'</summary>
+
+```json
+{
+  "authenticated": true,
+  "kind": "user",
+  "principal": {
+    "kind": "user",
+    "sub": "alice",
+    "name": "alice",
+    "someGroups": [
+      "a",
+      "b"
+    ],
+    "someValue": "foobar"
+  },
+  "actor": null
+}
+```
+
+</details>
+
 ### Thunx/Open Policy Agent integration
 
 The gateway integrates with [Thunx](https://github.com/xenit-eu/thunx) to authorize requests.

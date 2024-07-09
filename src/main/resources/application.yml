@@ -21,3 +21,9 @@ management:
   endpoint:
     gateway:
       enabled: true
+
+contentgrid:
+  gateway:
+    user-info:
+      enabled: false
+      path: /me

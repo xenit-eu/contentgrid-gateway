@@ -1,5 +1,9 @@
 package com.contentgrid.gateway;
 
+import com.contentgrid.gateway.security.authority.Actor;
+import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.security.authority.PrincipalAuthenticationDetailsGrantedAuthority;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +16,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
-@SpringBootTest
+@SpringBootTest(properties = "contentgrid.gateway.user-info.enabled=true")
 class UserInfoControllerTest {
 
     @Autowired
@@ -42,18 +46,28 @@ class UserInfoControllerTest {
     public void withOidcPrincipal_expectHttp200_ok() {
         this.rest
                 .mutateWith(mockOidcLogin()
-                        .idToken(idToken -> idToken
-                                .subject("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
-                                .claim("name", "alice")
-                                .claim("email", "alice@wonderland.example")))
+                        .authorities(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of(
+                                        "sub", "bb56a455-be04-4bc5-8b4b-b3a8761102e5",
+                                        "name", "alice",
+                                        "email", "alice@wonderland.example"
+                                ),
+                                null
+                        ))))
                 .get()
                 .uri("/me")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.sub").isEqualTo("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
-                .jsonPath("$.name").isEqualTo("alice")
-                .jsonPath("$.email").isEqualTo("alice@wonderland.example");
+                .jsonPath("$.kind").isEqualTo("user")
+                .jsonPath("$.principal.kind").isEqualTo("user")
+                .jsonPath("$.principal.sub").isEqualTo("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
+                .jsonPath("$.principal.name").isEqualTo("alice")
+                .jsonPath("$.principal.email").isEqualTo("alice@wonderland.example")
+                .jsonPath("$.principal.claims").doesNotExist()
+        ;
+
 
     }
 
@@ -61,17 +75,24 @@ class UserInfoControllerTest {
     public void withJwtPrincipal_expectHttp200_ok() {
         this.rest
                 .mutateWith(mockJwt()
-                        .jwt(jwt -> jwt
-                                .subject("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
-                                .claim("name", "alice")
-                                .claim("email", "alice@wonderland.example")))
+                        .authorities(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of(
+                                        "sub", "bb56a455-be04-4bc5-8b4b-b3a8761102e5",
+                                        "name", "alice",
+                                        "email", "alice@wonderland.example"
+                                ),
+                                null
+                        ))))
                 .get()
                 .uri("/me")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.sub").isEqualTo("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
-                .jsonPath("$.name").isEqualTo("alice")
-                .jsonPath("$.email").isEqualTo("alice@wonderland.example");
+                .jsonPath("$.kind").isEqualTo("user")
+                .jsonPath("$.principal.kind").isEqualTo("user")
+                .jsonPath("$.principal.sub").isEqualTo("bb56a455-be04-4bc5-8b4b-b3a8761102e5")
+                .jsonPath("$.principal.name").isEqualTo("alice")
+                .jsonPath("$.principal.email").isEqualTo("alice@wonderland.example");
     }
 }
