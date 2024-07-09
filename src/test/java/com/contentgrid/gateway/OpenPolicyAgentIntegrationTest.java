@@ -71,6 +71,7 @@ public class OpenPolicyAgentIntegrationTest {
 
     @Nested
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.user-info.enabled=true",
             "testing.bootstrap.enable=true",
             "testing.bootstrap.users.0.username=alice",
             "testing.bootstrap.users.0.authorities={\"employers\": [\"BE0999999999\"]}",
@@ -92,6 +93,7 @@ public class OpenPolicyAgentIntegrationTest {
 
     @Nested
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.user-info.enabled=true",
             "testing.bootstrap.enable=true",
             "testing.bootstrap.users.0.username=alice",
             "testing.bootstrap.users.0.authorities={\"employers\": [\"BE0999999999\"]}",

@@ -9,6 +9,8 @@ testing:
       - username: admin
         authorities: '{"admin": "true"}'
 
+contentgrid.gateway.user-info.enabled: true
+
 spring:
   cloud:
     gateway:
