@@ -98,7 +98,7 @@ dependencies {
 	testFixturesCompileOnly 'org.projectlombok:lombok'
 	testFixturesAnnotationProcessor 'org.projectlombok:lombok'
 
-	testFixturesApi 'com.nimbusds:nimbus-jose-jwt:9.24.4'
+	testFixturesApi 'com.nimbusds:nimbus-jose-jwt:9.40'
 	testFixturesApi 'org.assertj:assertj-core'
 	testFixturesApi 'org.bouncycastle:bcprov-jdk18on:1.78.1'
 	testFixturesApi 'org.springframework:spring-webflux'
