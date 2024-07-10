@@ -2,6 +2,8 @@ package com.contentgrid.gateway.runtime.security.jwt.issuer;
 
 import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridAudiences;
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
@@ -31,13 +33,13 @@ public class RuntimeAuthenticationJwtClaimsResolver implements JwtClaimsResolver
 
         var claimsBuilder = new JWTClaimsSet.Builder();
 
-        claimsBuilder.audience("contentgrid:system:endpoints:authentication");
-        claimsBuilder.claim("context:application:id", applicationId.toString());
+        claimsBuilder.audience(ContentGridAudiences.SYSTEM_ENDPOINT_AUTHENTICATION);
+        claimsBuilder.claim(ContentGridClaimNames.CONTEXT_APPLICATION_ID, applicationId.toString());
         if (applicationConfiguration != null) {
-            claimsBuilder.claim("context:application:domains", applicationConfiguration.getDomains());
+            claimsBuilder.claim(ContentGridClaimNames.CONTEXT_APPLICATION_DOMAINS, applicationConfiguration.getDomains());
         }
         try {
-            claimsBuilder.claim("restrict:principal_claims",
+            claimsBuilder.claim(ContentGridClaimNames.RESTRICT_PRINCIPAL_CLAIMS,
                     principalClaimsEncryptor.newEncryptor()
                             .encrypt(createFromClaimAccessor(authenticationDetails.getPrincipal().getClaims()))
             );

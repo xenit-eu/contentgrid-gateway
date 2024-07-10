@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("contentgrid.gateway.runtime-platform.external-issuers")
 public class RuntimePlatformExternalIssuerProperties {
 
+    private OidcIssuerProperties extensionDelegation = new OidcIssuerProperties();
     private OidcIssuerProperties extensionSystem = new OidcIssuerProperties();
 
     @Data

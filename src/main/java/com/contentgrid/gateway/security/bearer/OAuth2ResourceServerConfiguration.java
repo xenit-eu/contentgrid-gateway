@@ -3,6 +3,7 @@ package com.contentgrid.gateway.security.bearer;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.ActorConverter;
+import com.contentgrid.gateway.security.authority.ActorConverterType;
 import com.contentgrid.gateway.security.authority.UserGrantedAuthorityConverter;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import com.contentgrid.gateway.security.refresh.NoopAuthenticationRefresher;
@@ -31,7 +32,10 @@ public class OAuth2ResourceServerConfiguration {
     }
 
     @Bean
-    UserGrantedAuthorityConverter userGrantedAuthorityConverter(ObjectProvider<Converter<ClaimAccessor, Actor>> actorConverter) {
+    UserGrantedAuthorityConverter userGrantedAuthorityConverter(
+            @ActorConverterType(ActorType.USER)
+            ObjectProvider<Converter<ClaimAccessor, Actor>> actorConverter
+    ) {
         return new UserGrantedAuthorityConverter(actorConverter.getIfAvailable(this::defaultActorConverter));
     }
 

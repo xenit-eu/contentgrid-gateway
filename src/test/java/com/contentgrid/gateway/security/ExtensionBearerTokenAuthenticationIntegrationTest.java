@@ -9,6 +9,8 @@ import com.contentgrid.gateway.runtime.config.ComposableApplicationConfiguration
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsSigner;
+import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
+import com.contentgrid.gateway.test.security.FakeBase64TextEncryptorFactory;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.contentgrid.gateway.test.security.jwt.SingleKeyJwtClaimsSigner;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -53,6 +56,7 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
     private static final WireMockServer wireMockServer = new WireMockServer(
             new WireMockConfiguration().dynamicPort());
     private static final String EXTENSION_SYSTEM_ISSUER = "https://extensions.invalid/authentication/system";
+    private static final String EXTENSION_DELEGATE_ISSUER = "https://extensions.invalid/authentication/delegated";
 
 
     @Value("${local.server.port}")
@@ -64,6 +68,10 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
     @Autowired
     ComposableApplicationConfigurationRepository applicationConfigurationRepository;
 
+    @Autowired
+    @Qualifier("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.TextEncryptorFactory")
+    TextEncryptorFactory authenticationTextEncryptorFactory;
+
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
 
@@ -74,6 +82,12 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                 var header = exchange.getRequest().getHeaders().getFirst("Test-ApplicationId");
                 return Optional.ofNullable(header).map(ApplicationId::from);
             };
+        }
+
+        @Bean(name = "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.TextEncryptorFactory")
+        @Primary
+        TextEncryptorFactory textEncryptorFactory() {
+            return new FakeBase64TextEncryptorFactory();
         }
     }
 
@@ -94,6 +108,8 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("contentgrid.gateway.runtime-platform.external-issuers.extension-system.issuer", () -> EXTENSION_SYSTEM_ISSUER);
         registry.add("contentgrid.gateway.runtime-platform.external-issuers.extension-system.jwk-set-uri", () -> wireMockServer.baseUrl()+"/jwks");
+        registry.add("contentgrid.gateway.runtime-platform.external-issuers.extension-delegation.issuer", () -> EXTENSION_DELEGATE_ISSUER);
+        registry.add("contentgrid.gateway.runtime-platform.external-issuers.extension-delegation.jwk-set-uri", () -> wireMockServer.baseUrl()+"/jwks");
     }
 
     @Test
@@ -148,6 +164,80 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                 .expectStatus().is4xxClientError();
     }
 
+    @Test
+    void authenticate_delegated_jwt() {
+        // create gateway app configuration
+        var appId = ApplicationId.random();
+        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
+                Keys.CLIENT_ID, client.clientId(),
+                Keys.ISSUER_URI, realm.getIssuerUrl()
+        )));
+
+
+        var bearerToken = createBearerToken(Map.of(
+                JwtClaimNames.ISS, EXTENSION_DELEGATE_ISSUER,
+                JwtClaimNames.SUB, realm.getIssuerUrl()+"#my-user-123",
+                JwtClaimNames.IAT, Instant.now().getEpochSecond(),
+                JwtClaimNames.EXP, Instant.now().plus(5, ChronoUnit.MINUTES).getEpochSecond(),
+                JwtClaimNames.AUD, "contentgrid:application:"+appId,
+                "restrict:principal_claims", authenticationTextEncryptorFactory.newEncryptor().encrypt("""
+                            { "iss": "%s", "sub": "my-user-123", "contentgrid:claim1": "value2" }
+                            """.formatted(realm.getIssuerUrl())),
+                "act", Map.of(
+                        JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
+                        JwtClaimNames.SUB, "extension123"
+                )
+        ));
+
+        assertRequest_withBearer(appId, bearerToken)
+                .expectStatus().is2xxSuccessful()
+                .expectBody(TestAuthenticationDetails.class)
+                .value(authenticationDetails -> {
+                    assertThat(authenticationDetails.getPrincipal().getType()).isEqualTo(ActorType.USER);
+                    assertThat(authenticationDetails.getPrincipal().getClaims().getClaims())
+                            .containsExactlyInAnyOrderEntriesOf(Map.of(
+                                    JwtClaimNames.ISS, realm.getIssuerUrl(),
+                                    JwtClaimNames.SUB, "my-user-123",
+                                    "contentgrid:claim1", "value2"
+                            ));
+                    assertThat(authenticationDetails.getActor().getType()).isEqualTo(ActorType.EXTENSION);
+                    assertThat(authenticationDetails.getActor().getClaims().getClaims())
+                            .containsExactlyInAnyOrderEntriesOf(Map.of(
+                                    JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
+                                    JwtClaimNames.SUB, "extension123"
+                            ));
+                });
+    }
+
+    @Test
+    void reject_delegated_jwt_invalid_audience() {
+        // create gateway app configuration
+        var appId = ApplicationId.random();
+        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
+                Keys.CLIENT_ID, client.clientId(),
+                Keys.ISSUER_URI, realm.getIssuerUrl()
+        )));
+
+
+        var bearerToken = createBearerToken(Map.of(
+                JwtClaimNames.ISS, EXTENSION_DELEGATE_ISSUER,
+                JwtClaimNames.SUB, realm.getIssuerUrl()+"#my-user-123",
+                JwtClaimNames.IAT, Instant.now().getEpochSecond(),
+                JwtClaimNames.EXP, Instant.now().plus(5, ChronoUnit.MINUTES).getEpochSecond(),
+                JwtClaimNames.AUD, "contentgrid:application:"+ApplicationId.random(),
+                "restrict:principal_claims", authenticationTextEncryptorFactory.newEncryptor().encrypt("""
+                            { "iss": "%s", "sub": "my-user-123", "contentgrid:claim1": "value2" }
+                            """.formatted(realm.getIssuerUrl())),
+                "act", Map.of(
+                        JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
+                        JwtClaimNames.SUB, "extension123"
+                )
+        ));
+
+        assertRequest_withBearer(appId, bearerToken)
+                .expectStatus().is4xxClientError()
+        ;
+    }
     @SneakyThrows
     private static String createBearerToken(Map<String, Object> rawJwtClaims) {
         return JWT_SIGNER.sign(JWTClaimsSet.parse(rawJwtClaims)).serialize();
