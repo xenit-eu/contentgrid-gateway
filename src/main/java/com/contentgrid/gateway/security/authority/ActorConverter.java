@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.security.authority;
 
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import java.util.function.Predicate;
 import lombok.AllArgsConstructor;
@@ -29,7 +30,7 @@ public class ActorConverter implements Converter<ClaimAccessor, Actor> {
         if (!issuerMatcher.test(issuer)) {
             return null;
         }
-        var parentActorClaims = claimAccessor.getClaimAsMap("act");
+        var parentActorClaims = claimAccessor.getClaimAsMap(ContentGridClaimNames.ACT);
         Actor parentActor;
         if (parentActorClaims != null) {
             /* The actor claim has a nested actor claim. A nested claim means a "parent" actor

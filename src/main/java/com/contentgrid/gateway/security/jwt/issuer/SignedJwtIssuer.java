@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.nimbusds.jose.JOSEException;
@@ -93,7 +94,7 @@ public class SignedJwtIssuer implements JwtIssuer {
                     }
                     // RFC 8693
                     if(authenticationDetails.getActor() != null) {
-                        builder.claim("act", reconstructActorChain(authenticationDetails.getActor()));
+                        builder.claim(ContentGridClaimNames.ACT, reconstructActorChain(authenticationDetails.getActor()));
                     }
 
                     return builder
@@ -124,7 +125,7 @@ public class SignedJwtIssuer implements JwtIssuer {
     private Map<String, Object> reconstructActorChain(Actor actor) {
         var claims = new HashMap<>(actor.getClaims().getClaims());
         if(actor.getParent() != null) {
-            claims.put("act", reconstructActorChain(actor.getParent()));
+            claims.put(ContentGridClaimNames.ACT, reconstructActorChain(actor.getParent()));
         }
         return claims;
     }

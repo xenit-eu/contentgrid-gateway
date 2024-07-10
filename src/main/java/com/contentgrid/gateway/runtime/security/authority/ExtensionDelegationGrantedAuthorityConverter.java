@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.runtime.security.authority;
 
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.DelegatedAuthenticationDetailsGrantedAuthority;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
@@ -23,11 +24,11 @@ public class ExtensionDelegationGrantedAuthorityConverter implements
 
     @Override
     public Collection<GrantedAuthority> convert(Jwt source) {
-        var principal = actorConverter.convert(decryptClaims(source.getClaimAsString("restrict:principal_claims")));
+        var principal = actorConverter.convert(decryptClaims(source.getClaimAsString(ContentGridClaimNames.RESTRICT_PRINCIPAL_CLAIMS)));
         if (principal == null) {
             return null;
         }
-        var actor = actorConverter.convert(() -> source.getClaimAsMap("act"));
+        var actor = actorConverter.convert(() -> source.getClaimAsMap(ContentGridClaimNames.ACT));
         if (actor == null) {
             return null;
         }

@@ -5,6 +5,7 @@ import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.security.authority.ClaimUtil;
 import com.contentgrid.gateway.runtime.security.authority.ExtensionDelegationGrantedAuthorityConverter;
 import com.contentgrid.gateway.runtime.security.bearer.RuntimePlatformExternalIssuerProperties.OidcIssuerProperties;
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridAudiences;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.ActorConverter;
@@ -147,7 +148,7 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
     ) {
         return new PostValidatingJwtAuthenticationManager<>(
                 new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
-                        aud -> aud != null && aud.contains("contentgrid:application:" + applicationId.getValue())),
+                        aud -> aud != null && aud.contains(ContentGridAudiences.application(applicationId))),
                 new DelegatingReactiveAuthenticationManager(
                         extensionSystemAuthenticationManager,
                         extensionDelegationAuthenticationManager
