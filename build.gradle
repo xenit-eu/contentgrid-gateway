@@ -59,6 +59,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation("io.pyroscope:agent:0.13.1")
+
 
 	implementation 'io.micrometer:micrometer-tracing'
 	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
@@ -118,8 +120,7 @@ test {
 
 bootBuildImage {
 	def dockerImageRepo = "ghcr.io/xenit-eu/contentgrid-gateway"
-	imageName = "${dockerImageRepo}:${project.version}"
-	tags = "${project.version}".endsWith('SNAPSHOT') ? [ "${dockerImageRepo}:SNAPSHOT" ] : null
+	imageName = "${dockerImageRepo}:pyroscope"
 
 	if (!ci.isCi()) {
 		tags.add("${dockerImageRepo}:local")

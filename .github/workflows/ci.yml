@@ -24,7 +24,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - name: Publish docker image
-        if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
+#        if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
         run: ./gradlew bootBuildImage --publishImage
         env:
           ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_URL: ghcr.io

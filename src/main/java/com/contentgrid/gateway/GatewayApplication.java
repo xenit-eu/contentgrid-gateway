@@ -3,6 +3,7 @@ package com.contentgrid.gateway;
 import com.contentgrid.gateway.cors.CorsConfigurationResolver;
 import com.contentgrid.gateway.cors.CorsResolverProperties;
 import com.contentgrid.gateway.error.ProxyUpstreamUnavailableWebFilter;
+import com.contentgrid.gateway.pyroscope.PyroscopeProperties;
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaInputProvider;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
@@ -13,6 +14,11 @@ import com.contentgrid.gateway.security.refresh.AuthenticationRefreshingServerSe
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pyroscope.http.Format;
+import io.pyroscope.javaagent.EventType;
+import io.pyroscope.javaagent.PyroscopeAgent;
+import io.pyroscope.javaagent.config.Config;
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -23,6 +29,7 @@ import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.boot.actuate.health.HealthEndpoint;
@@ -53,7 +60,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
-import org.springframework.security.oauth2.core.user.OAuth2UserAuthority;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
@@ -72,7 +78,7 @@ import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringBootApplication
-@EnableConfigurationProperties({ CorsResolverProperties.class, ServiceDiscoveryProperties.class})
+@EnableConfigurationProperties({ CorsResolverProperties.class, ServiceDiscoveryProperties.class, PyroscopeProperties.class})
 public class GatewayApplication {
 
     public static void main(String[] args) {
@@ -261,4 +267,25 @@ public class GatewayApplication {
     OpaInputProvider<Authentication, ServerWebExchange> opaInputProvider() {
         return new RuntimeOpaInputProvider();
     }
+
+    @Bean
+    @ConditionalOnProperty(value = "pyroscope.server-address", matchIfMissing = false)
+    public Object pyroscope(@Value("${spring.application.name}") String applicationName, PyroscopeProperties pyroscopeProperties) {
+        return new Object() {
+          @PostConstruct
+            public void init() {
+              PyroscopeAgent.start(
+                      new Config.Builder()
+                              .setApplicationName(applicationName)
+                              .setProfilingEvent(EventType.ITIMER)
+                              .setFormat(Format.JFR)
+                              .setServerAddress(pyroscopeProperties.getServerAddress())
+                              .setBasicAuthUser(pyroscopeProperties.getBasicAuthUser())
+                              .setBasicAuthPassword(pyroscopeProperties.getBasicAuthPassword())
+                              .build()
+              );
+            }
+        };
+    }
+
 }
