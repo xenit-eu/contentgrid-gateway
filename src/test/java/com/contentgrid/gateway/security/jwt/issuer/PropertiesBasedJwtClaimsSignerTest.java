@@ -1,9 +1,12 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
-import static com.contentgrid.gateway.test.security.CryptoTestUtils.*;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.createKeyPair;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPrivateKeyResource;
+import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPublicKeyResource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.contentgrid.gateway.security.jwt.issuer.PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties;
+import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
 import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -14,6 +17,9 @@ import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
 import com.nimbusds.jose.crypto.factories.DefaultJWSVerifierFactory;
 import com.nimbusds.jose.jwk.AsymmetricJWK;
 import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.source.JWKSetBasedJWKSource;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jwt.JWTClaimsSet;
 import java.nio.charset.StandardCharsets;
 import java.security.interfaces.ECPublicKey;
@@ -40,6 +46,13 @@ class PropertiesBasedJwtClaimsSignerTest {
         return new Random(5);
     }
 
+    static JWKSource getJwkSource(ResourcePatternResolver resolver) {
+        var filebasedJWKSetSource = new FilebasedJWKSetSource(resolver, "file:/keys/active*.pem",
+                "file:/keys/retired-*.pem");
+        return new JWKSetBasedJWKSource(filebasedJWKSetSource);
+    }
+
+
     @Test
     void signs_with_active_rsa_key() throws ParseException, JOSEException {
         var activeKey = createKeyPair("RSA", 2048);
@@ -47,10 +60,9 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/active.pem", toPrivateKeyResource(activeKey))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(MockJwtClaimsSignerProperties.builder()
-                .activeKeys("file:/keys/active.pem")
-                .build(),
-                resolver
+        var signer = new PropertiesBasedJwtClaimsSigner(
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.RS256)
         );
 
         var signedJwt = signer.sign(JWTClaimsSet.parse(Map.of("test", "test")));
@@ -72,11 +84,8 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .build();
 
         var signer = new PropertiesBasedJwtClaimsSigner(
-                MockJwtClaimsSignerProperties.builder()
-                        .activeKeys("file:/keys/active.pem")
-                        .allKeys("file:/keys/retired-*.pem")
-                        .build(),
-                resolver
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.RS256)
         );
 
         var signedJwt = signer.sign(JWTClaimsSet.parse(Map.of("test", "test")));
@@ -87,9 +96,12 @@ class PropertiesBasedJwtClaimsSignerTest {
 
         assertThat(signer.getSigningKeys()).satisfies(jwks -> {
             assertThat(jwks.getKeys()).hasSize(3);
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(activeKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(retiredKey1).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(retiredKey2).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(activeKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(retiredKey1).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(retiredKey2).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
         });
     }
 
@@ -112,11 +124,8 @@ class PropertiesBasedJwtClaimsSignerTest {
         var resolver = new DelegateResourcePatternResolver(oldResolver);
 
         var signer = new PropertiesBasedJwtClaimsSigner(
-                MockJwtClaimsSignerProperties.builder()
-                        .activeKeys("file:/keys/active.pem")
-                        .allKeys("file:/keys/retired-*.pem")
-                        .build(),
-                resolver
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.RS256)
         );
 
         var oldSignedJwt = signer.sign(JWTClaimsSet.parse(Map.of("test", "test")));
@@ -127,8 +136,10 @@ class PropertiesBasedJwtClaimsSignerTest {
 
         assertThat(signer.getSigningKeys()).satisfies(jwks -> {
             assertThat(jwks.getKeys()).hasSize(2);
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(oldActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(oldRetiredKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(oldActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(oldRetiredKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
         });
 
         // Rotate the keys
@@ -142,9 +153,12 @@ class PropertiesBasedJwtClaimsSignerTest {
 
         assertThat(signer.getSigningKeys()).satisfies(jwks -> {
             assertThat(jwks.getKeys()).hasSize(3);
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(newActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(oldActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
-            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(toPublicKeyResource(oldRetiredKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(newActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(oldActiveKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
+            assertThat(jwks.containsJWK(JWK.parseFromPEMEncodedObjects(
+                    toPublicKeyResource(oldRetiredKey).getContentAsString(StandardCharsets.UTF_8)))).isTrue();
         });
 
     }
@@ -160,12 +174,10 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .build();
 
         var signer = new PropertiesBasedJwtClaimsSigner(
-                MockJwtClaimsSignerProperties.builder()
-                        .activeKeys("file:/keys/active-*.pem")
-                        .build(),
-                resolver,
                 new DefaultJWSSignerFactory(),
-                createDeterministicRandom()
+                createDeterministicRandom(),
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.RS256)
         );
 
         Set<String> signingKeyIds = new HashSet<>();
@@ -196,13 +208,10 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .build();
 
         var signer = new PropertiesBasedJwtClaimsSigner(
-                MockJwtClaimsSignerProperties.builder()
-                        .activeKeys("file:/keys/active-*.pem")
-                        .algorithms(Set.of(JWSAlgorithm.ES256))
-                        .build(),
-                resolver,
                 new DefaultJWSSignerFactory(),
-                createDeterministicRandom()
+                createDeterministicRandom(),
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.ES256)
         );
 
         // try 20 times to sign JWTs, so we can collect a sample of the signing keys
@@ -211,7 +220,7 @@ class PropertiesBasedJwtClaimsSignerTest {
         // The keys selected are actually the same order as in the rotates_multiple_active_keys test,
         // so if selecting only allowed algorithms was not working, we would expect signatures with both keysn
         // given that the rotates_multiple_active_keys test is passing
-        for(int i = 0; i < 20; i++) {
+        for (int i = 0; i < 20; i++) {
             var signedJwt = signer.sign(JWTClaimsSet.parse(Map.of("test", "test")));
             assertThat(signedJwt.getHeader().getAlgorithm()).isEqualTo(JWSAlgorithm.ES256);
             var verifier = new ECDSAVerifier((ECPublicKey) activeKey2.getPublic());
@@ -223,6 +232,7 @@ class PropertiesBasedJwtClaimsSignerTest {
 
     @RequiredArgsConstructor
     private static class DelegateResourcePatternResolver implements ResourcePatternResolver {
+
         @Delegate
         @Setter
         @NonNull
@@ -232,8 +242,9 @@ class PropertiesBasedJwtClaimsSignerTest {
     @Value
     @Builder
     static class MockJwtClaimsSignerProperties implements JwtClaimsSignerProperties {
+
         String activeKeys;
-        String allKeys;
+        String retiredKeys;
         @Default
         Set<JWSAlgorithm> algorithms = Family.SIGNATURE;
     }

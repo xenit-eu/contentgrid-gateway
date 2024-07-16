@@ -2,7 +2,12 @@ package com.contentgrid.gateway.security.jwt.issuer;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
+import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
+import com.contentgrid.gateway.security.jwt.issuer.jwk.source.LoggingJWKSetSourceEventListener;
 import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
+import com.nimbusds.jose.proc.SecurityContext;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -22,16 +27,17 @@ import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabled
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 @RequiredArgsConstructor
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(ContentgridGatewayJwtProperties.class)
 @Slf4j
 public class JwtInternalIssuerConfiguration {
-    
+
     @Bean
-    JwtSignerRegistry jwtSignerRegistry(ContentgridGatewayJwtProperties properties, ApplicationContext applicationContext) {
-        return new PropertiesBasedJwtSignerRegistry(properties, applicationContext);
+    JwtSignerRegistry jwtSignerRegistry(ContentgridGatewayJwtProperties gatewayJwtProperties, ResourcePatternResolver resourcePatternResolver) {
+        return new PropertiesBasedJwtSignerRegistry(gatewayJwtProperties, resourcePatternResolver);
     }
 
     @Bean
@@ -75,7 +81,7 @@ public class JwtInternalIssuerConfiguration {
     static class JwtSignerProperties implements PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties {
         @NotNull
         private String activeKeys;
-        private String allKeys;
+        private String retiredKeys;
         @Builder.Default
         private Set<JWSAlgorithm> algorithms = Set.of(JWSAlgorithm.RS256);
 
