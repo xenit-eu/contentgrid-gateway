@@ -11,6 +11,7 @@ import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSAlgorithm.Family;
+import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
@@ -80,7 +81,7 @@ class PropertiesBasedJwtClaimsSignerTest {
         var resolver = MockResourcePatternResolver.builder()
                 .resource("file:/keys/active.pem", toPrivateKeyResource(activeKey))
                 .resource("file:/keys/retired-1.pem", toPrivateKeyResource(retiredKey1))
-                .resource("file:/keys/retired-2.pem", toPublicKeyResource(retiredKey2))
+                .resource("file:/keys/retired-2.pem", toPrivateKeyResource(retiredKey2))
                 .build();
 
         var signer = new PropertiesBasedJwtClaimsSigner(
@@ -112,13 +113,13 @@ class PropertiesBasedJwtClaimsSignerTest {
         var oldRetiredKey = createKeyPair("RSA", 2048);
         var oldResolver = MockResourcePatternResolver.builder()
                 .resource("file:/keys/active.pem", toPrivateKeyResource(oldActiveKey))
-                .resource("file:/keys/retired-1.pem", toPublicKeyResource(oldRetiredKey))
+                .resource("file:/keys/retired-1.pem", toPrivateKeyResource(oldRetiredKey))
                 .build();
 
         var newResolver = MockResourcePatternResolver.builder()
                 .resource("file:/keys/active.pem", toPrivateKeyResource(newActiveKey))
                 .resource("file:/keys/retired-1.pem", toPrivateKeyResource(oldActiveKey))
-                .resource("file:/keys/retired-2.pem", toPublicKeyResource(oldRetiredKey))
+                .resource("file:/keys/retired-2.pem", toPrivateKeyResource(oldRetiredKey))
                 .build();
 
         var resolver = new DelegateResourcePatternResolver(oldResolver);
@@ -146,10 +147,14 @@ class PropertiesBasedJwtClaimsSignerTest {
         resolver.setDelegate(newResolver);
 
         var newSignedJwt = signer.sign(JWTClaimsSet.parse(Map.of("test", "test")));
+        System.out.println(newSignedJwt.verify(new RSASSAVerifier((RSAPublicKey) oldActiveKey.getPublic())));
+        System.out.println(newSignedJwt.verify(new RSASSAVerifier((RSAPublicKey) oldRetiredKey.getPublic())));
+
 
         var newRsaVerifier = new RSASSAVerifier((RSAPublicKey) newActiveKey.getPublic());
 
         assertThat(newSignedJwt.verify(newRsaVerifier)).isTrue();
+
 
         assertThat(signer.getSigningKeys()).satisfies(jwks -> {
             assertThat(jwks.getKeys()).hasSize(3);

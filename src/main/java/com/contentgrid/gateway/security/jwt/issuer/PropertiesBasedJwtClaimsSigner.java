@@ -80,8 +80,7 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
         Set<JWSAlgorithm> algorithmsSupportedByKeys = new HashSet<>();
 
         for (JWK selectedKey : jwks) {
-            if (selectedKey.getExpirationTime() != null && selectedKey.getExpirationTime().before(
-                    Date.from(Instant.now()))) {
+            if (selectedKey.getExpirationTime() != null && !new Date().before(selectedKey.getExpirationTime())) {
                 // Skip retired keys
                 continue;
             }
