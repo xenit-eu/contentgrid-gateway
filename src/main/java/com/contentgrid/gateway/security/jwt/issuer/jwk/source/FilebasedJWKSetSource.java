@@ -45,10 +45,12 @@ public class FilebasedJWKSetSource implements JWKSetSource<SecurityContext> {
                 var signingKey = createFromSigningKey(signingKeyResource, null);
                 keys.put(signingKey.getKeyID(), signingKey);
             }
-            for (Resource signingKeyResource : resourcePatternResolver.getResources(retiredSigningKeysPattern)) {
-                var signingKey = createFromSigningKey(signingKeyResource, new Date(currentTime));
-                // putIfAbsent, so we don't replace an active key with a retired key if it is matched by both patterns
-                keys.putIfAbsent(signingKey.getKeyID(), signingKey);
+            if (retiredSigningKeysPattern != null) {
+                for (Resource signingKeyResource : resourcePatternResolver.getResources(retiredSigningKeysPattern)) {
+                    var signingKey = createFromSigningKey(signingKeyResource, new Date(currentTime));
+                    // putIfAbsent, so we don't replace an active key with a retired key if it is matched by both patterns
+                    keys.putIfAbsent(signingKey.getKeyID(), signingKey);
+                }
             }
             return new JWKSet(new ArrayList<>(keys.values()));
         } catch (IOException e) {

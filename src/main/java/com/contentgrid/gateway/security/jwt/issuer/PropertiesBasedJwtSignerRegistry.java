@@ -51,7 +51,7 @@ class PropertiesBasedJwtSignerRegistry implements JwtSignerRegistry {
 
     private Map<String, JWKSource<SecurityContext>> getJwkSourceMap() {
         Map<String, JWKSource<SecurityContext>> jwkSourceMap = new HashMap<>();
-        gatewayJwtProperties.getSigners().keySet().stream().map(
+        gatewayJwtProperties.getSigners().keySet().stream().forEach(
                 signerName -> {
                     var signerProperties = gatewayJwtProperties.getSigners().get(signerName);
                     if (signerProperties == null) {
@@ -59,17 +59,16 @@ class PropertiesBasedJwtSignerRegistry implements JwtSignerRegistry {
                                 "No JWT signer named '%s'. Available signers are %s".formatted(signerName,
                                         gatewayJwtProperties.getSigners().keySet()));
                     }
-                    return new FilebasedJWKSetSource(
+                    var jwkSource = new FilebasedJWKSetSource(
                             resourcePatternResolver,
                             signerProperties.getActiveKeys(),
                             signerProperties.getRetiredKeys()
                     );
+                    jwkSourceMap.put(signerName, JWKSourceBuilder.create(jwkSource)
+                            .refreshAheadCache(JWKSourceBuilder.DEFAULT_REFRESH_AHEAD_TIME, true, new LoggingJWKSetSourceEventListener<>())
+                            .build());
                 }
-        ).forEach(jwkSource -> {
-            jwkSourceMap.put(jwkSource.toString(), JWKSourceBuilder.create(jwkSource)
-                    .refreshAheadCache(JWKSourceBuilder.DEFAULT_REFRESH_AHEAD_TIME, true, new LoggingJWKSetSourceEventListener<>())
-                    .build());
-        });
+        );
 
         return jwkSourceMap;
     }
