@@ -4,6 +4,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWK;
@@ -38,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.util.ConcurrentLruCache;
 
 @RequiredArgsConstructor
 public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
@@ -85,7 +87,7 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
                 continue;
             }
 
-            var selectedSigner = jwsSignerFactory.createJWSSigner(selectedKey);
+            var selectedSigner = getJwsSigner(selectedKey);
             algorithmsSupportedByKeys.addAll(selectedSigner.supportedJWSAlgorithms());
             var firstSupportedAlgorithm = algorithms
                     .stream()
@@ -108,5 +110,21 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
                 algorithms,
                 algorithmsSupportedByKeys
         ));
+    }
+
+    private ConcurrentLruCache<JWK, JWSSigner> signerCache;
+
+    private JWSSigner getJwsSigner(JWK jwk) throws JOSEException {
+        if (signerCache == null) {
+            signerCache = new ConcurrentLruCache<>(100,
+                    key -> {
+                        try {
+                            return jwsSignerFactory.createJWSSigner(key);
+                        } catch (JOSEException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
+        return signerCache.get(jwk);
     }
 }
