@@ -4,6 +4,7 @@ import static com.contentgrid.gateway.test.security.CryptoTestUtils.createKeyPai
 import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPrivateKeyResource;
 import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPublicKeyResource;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.contentgrid.gateway.security.jwt.issuer.PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties;
 import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
@@ -19,7 +20,6 @@ import com.nimbusds.jose.jwk.AsymmetricJWK;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.source.JWKSetBasedJWKSource;
 import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jwt.JWTClaimsSet;
 import java.nio.charset.StandardCharsets;
 import java.security.interfaces.ECPublicKey;
@@ -228,6 +228,24 @@ class PropertiesBasedJwtClaimsSignerTest {
             assertThat(signedJwt.verify(verifier)).isTrue();
         }
 
+    }
+
+    @Test
+    void throws_on_algorith_mismatch() throws ParseException {
+        var activeKey1 = createKeyPair("RSA", 4096);
+
+        var resolver = MockResourcePatternResolver.builder()
+                .resource("file:/keys/active-1.pem", toPrivateKeyResource(activeKey1))
+                .build();
+
+        var signer = new PropertiesBasedJwtClaimsSigner(
+                new DefaultJWSSignerFactory(),
+                createDeterministicRandom(),
+                getJwkSource(resolver),
+                Set.of(JWSAlgorithm.ES256)
+        );
+
+        assertThrows(IllegalStateException.class, () -> signer.sign(JWTClaimsSet.parse(Map.of("test", "test"))));
     }
 
     @RequiredArgsConstructor
