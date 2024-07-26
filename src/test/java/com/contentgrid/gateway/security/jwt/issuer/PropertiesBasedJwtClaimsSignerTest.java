@@ -231,7 +231,7 @@ class PropertiesBasedJwtClaimsSignerTest {
     }
 
     @Test
-    void throws_on_algorith_mismatch() throws ParseException {
+    void throws_on_algorith_mismatch() {
         var activeKey1 = createKeyPair("RSA", 4096);
 
         var resolver = MockResourcePatternResolver.builder()
