@@ -1,7 +1,11 @@
 package com.contentgrid.gateway.test.security;
 
+import com.nimbusds.jose.jwk.Curve;
+import com.nimbusds.jose.jwk.OctetKeyPair;
+import com.nimbusds.jose.jwk.gen.OctetKeyPairGenerator;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.List;
@@ -48,5 +52,24 @@ public class CryptoTestUtils {
         return toKeyResource(List.of(
                 new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded())
         ));
+    }
+
+    @SneakyThrows
+    public static OctetKeyPair createOctetKeyPair() {
+        return new OctetKeyPairGenerator(Curve.Ed25519).generate();
+    }
+
+    @SneakyThrows
+    public static Resource toPrivateKeyResource(OctetKeyPair keyPair) {
+        var privateKeyOutput = new ByteArrayOutputStream();
+        try (var writer = new OutputStreamWriter(privateKeyOutput)) {
+            try (var pemWriter = new PemWriter(writer)) {
+                pemWriter.writeObject(new PemObject("PRIVATE KEY", keyPair.toPrivateKey().toString().getBytes(
+                        StandardCharsets.UTF_8)));
+                pemWriter.writeObject(
+                        new PemObject("PUBLIC KEY", keyPair.toPublicKey().toString().getBytes(StandardCharsets.UTF_8)));
+            }
+        }
+        return new InMemoryResource(privateKeyOutput.toByteArray());
     }
 }
