@@ -46,7 +46,8 @@ public class SingleKeyJwtClaimsSigner implements JwtClaimsSigner {
     }
 
     @Override
-    public SignedJWT sign(JWTClaimsSet jwtClaimsSet) throws JOSEException {
+    @SneakyThrows
+    public SignedJWT sign(JWTClaimsSet jwtClaimsSet) {
         var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(key.getKeyID()).build(), jwtClaimsSet);
         jwt.sign(new DefaultJWSSignerFactory().createJWSSigner(key));
         return jwt;

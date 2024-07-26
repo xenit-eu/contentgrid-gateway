@@ -103,6 +103,6 @@ public class FilebasedJWKSetSource implements JWKSetSource<SecurityContext> {
 
     @Override
     public void close() throws IOException {
-
+        // Nothing to close
     }
 }

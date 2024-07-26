@@ -6,40 +6,28 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
-import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKMatcher;
 import com.nimbusds.jose.jwk.JWKSelector;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
-import com.nimbusds.jose.jwk.OctetKeyPair;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.CachingJWKSetSource;
-import com.nimbusds.jose.jwk.source.JWKSetSource;
 import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
-import com.nimbusds.jose.jwk.source.URLBasedJWKSetSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jose.proc.SimpleSecurityContext;
 import com.nimbusds.jose.produce.JWSSignerFactory;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.util.ConcurrentLruCache;
+
 
 @RequiredArgsConstructor
 public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
@@ -55,8 +43,11 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
     }
 
     public interface JwtClaimsSignerProperties {
+
         String getActiveKeys();
+
         String getRetiredKeys();
+
         Set<JWSAlgorithm> getAlgorithms();
     }
 
@@ -74,7 +65,8 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
     }
 
     @Override
-    public SignedJWT sign(JWTClaimsSet jwtClaimsSet) throws JOSEException {
+    @SneakyThrows
+    public SignedJWT sign(JWTClaimsSet jwtClaimsSet) {
         var jwks = new ArrayList<>(getAllSigningKeys());
 
         Collections.shuffle(jwks, this.random); // Randomly shuffle our active keys, so we pick an arbitrary one first
@@ -93,7 +85,7 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
                     .stream()
                     .filter(selectedSigner.supportedJWSAlgorithms()::contains)
                     .findFirst();
-            if(firstSupportedAlgorithm.isEmpty()) {
+            if (firstSupportedAlgorithm.isEmpty()) {
                 // Signer does not support any of the signing algorithms; continue to a next key
                 continue;
             }
@@ -106,15 +98,16 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
             signedJwt.sign(selectedSigner);
             return signedJwt;
         }
-        throw new IllegalStateException("No active signing keys support any of the configured algorithms (%s); algorithms that can be used by these keys are %s".formatted(
-                algorithms,
-                algorithmsSupportedByKeys
-        ));
+        throw new IllegalStateException(
+                "No active signing keys support any of the configured algorithms (%s); algorithms that can be used by these keys are %s".formatted(
+                        algorithms,
+                        algorithmsSupportedByKeys
+                ));
     }
 
     private ConcurrentLruCache<JWK, JWSSigner> signerCache;
 
-    private JWSSigner getJwsSigner(JWK jwk) throws JOSEException {
+    private JWSSigner getJwsSigner(JWK jwk) {
         if (signerCache == null) {
             signerCache = new ConcurrentLruCache<>(100,
                     key -> {
