@@ -83,12 +83,6 @@ public class FilebasedJWKSetSource implements JWKSetSource<SecurityContext> {
                         .keyUse(KeyUse.SIGNATURE)
                         .expirationTime(expirationTime)
                         .build();
-            } else if(decodedKey instanceof OctetKeyPair octetKeyPair) {
-                jwk = new OctetKeyPair.Builder(octetKeyPair)
-                        .keyIDFromThumbprint()
-                        .keyUse(KeyUse.SIGNATURE)
-                        .expirationTime(expirationTime)
-                        .build();
             } else {
                 throw new IllegalArgumentException("Unsupported JWK %s: Unsupported key type %s".formatted(resource, decodedKey.getKeyType()));
             }

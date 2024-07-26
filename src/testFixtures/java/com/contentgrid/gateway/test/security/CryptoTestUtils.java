@@ -53,23 +53,4 @@ public class CryptoTestUtils {
                 new PemObject("PUBLIC KEY", keyPair.getPublic().getEncoded())
         ));
     }
-
-    @SneakyThrows
-    public static OctetKeyPair createOctetKeyPair() {
-        return new OctetKeyPairGenerator(Curve.Ed25519).generate();
-    }
-
-    @SneakyThrows
-    public static Resource toPrivateKeyResource(OctetKeyPair keyPair) {
-        var privateKeyOutput = new ByteArrayOutputStream();
-        try (var writer = new OutputStreamWriter(privateKeyOutput)) {
-            try (var pemWriter = new PemWriter(writer)) {
-                pemWriter.writeObject(new PemObject("PRIVATE KEY", keyPair.toPrivateKey().toString().getBytes(
-                        StandardCharsets.UTF_8)));
-                pemWriter.writeObject(
-                        new PemObject("PUBLIC KEY", keyPair.toPublicKey().toString().getBytes(StandardCharsets.UTF_8)));
-            }
-        }
-        return new InMemoryResource(privateKeyOutput.toByteArray());
-    }
 }
