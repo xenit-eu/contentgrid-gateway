@@ -24,31 +24,37 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.util.ConcurrentLruCache;
 
 
-@RequiredArgsConstructor
-public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
+public class JwkSourceJwtClaimsSigner implements JwtClaimsSigner {
 
-    private final JWSSignerFactory jwsSignerFactory;
     private final Random random;
     private final JWKSource<SecurityContext> jwkSource;
     private final Set<JWSAlgorithm> algorithms;
 
 
-    public PropertiesBasedJwtClaimsSigner(JWKSource<SecurityContext> jwkSource, Set<JWSAlgorithm> algorithms) {
+    public JwkSourceJwtClaimsSigner(JWKSource<SecurityContext> jwkSource, Set<JWSAlgorithm> algorithms) {
         this(new DefaultJWSSignerFactory(), new Random(), jwkSource, algorithms);
     }
 
-    public interface JwtClaimsSignerProperties {
+    private ConcurrentLruCache<JWK, JWSSigner> signerCache;
 
-        String getActiveKeys();
+    public JwkSourceJwtClaimsSigner(JWSSignerFactory jwsSignerFactory, Random random,
+            JWKSource<SecurityContext> jwkSource, Set<JWSAlgorithm> algorithms) {
+        this.random = random;
+        this.jwkSource = jwkSource;
+        this.algorithms = algorithms;
 
-        String getRetiredKeys();
-
-        Set<JWSAlgorithm> getAlgorithms();
+        signerCache = new ConcurrentLruCache<>(10,
+                key -> {
+                    try {
+                        return jwsSignerFactory.createJWSSigner(key);
+                    } catch (JOSEException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @SneakyThrows
@@ -69,7 +75,7 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
     public SignedJWT sign(JWTClaimsSet jwtClaimsSet) {
         var jwks = new ArrayList<>(getAllSigningKeys());
 
-        Collections.shuffle(jwks, this.random); // Randomly shuffle our active keys, so we pick an arbitrary one first
+        Collections.shuffle(jwks, this.random); // Randomly shuffle our keys, so we pick an arbitrary one first
 
         Set<JWSAlgorithm> algorithmsSupportedByKeys = new HashSet<>();
 
@@ -105,19 +111,7 @@ public class PropertiesBasedJwtClaimsSigner implements JwtClaimsSigner {
                 ));
     }
 
-    private ConcurrentLruCache<JWK, JWSSigner> signerCache;
-
     private JWSSigner getJwsSigner(JWK jwk) {
-        if (signerCache == null) {
-            signerCache = new ConcurrentLruCache<>(100,
-                    key -> {
-                        try {
-                            return jwsSignerFactory.createJWSSigner(key);
-                        } catch (JOSEException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
         return signerCache.get(jwk);
     }
 }

@@ -80,7 +80,7 @@ class PropertiesBasedJwtSignerRegistry implements JwtSignerRegistry {
                             getJwkSourceMap().keySet()));
         }
 
-        return new PropertiesBasedJwtClaimsSigner(getJwkSourceMap().get(signerName), gatewayJwtProperties.getSigners().get(signerName).getAlgorithms());
+        return new JwkSourceJwtClaimsSigner(getJwkSourceMap().get(signerName), gatewayJwtProperties.getSigners().get(signerName).getAlgorithms());
     }
 
 }

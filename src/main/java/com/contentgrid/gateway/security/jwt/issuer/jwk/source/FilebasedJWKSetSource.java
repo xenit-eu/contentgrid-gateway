@@ -24,7 +24,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
 
 /**
- * Loads JWKs from PEM-encoded private key files.
+ * Loads JWKs from PEM-encoded or JWK-encoded private key files.
  *
  * There is a distinction made between active and retired signing keys
  */

@@ -2,12 +2,7 @@ package com.contentgrid.gateway.security.jwt.issuer;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
 import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
-import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
-import com.contentgrid.gateway.security.jwt.issuer.jwk.source.LoggingJWKSetSourceEventListener;
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
-import com.nimbusds.jose.proc.SecurityContext;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -24,7 +19,6 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.condition.Conditi
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabledFilter;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.support.ResourcePatternResolver;
@@ -78,7 +72,7 @@ public class JwtInternalIssuerConfiguration {
     @Data
     @Builder
     @AllArgsConstructor
-    static class JwtSignerProperties implements PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties {
+    static class JwtSignerProperties implements JwtClaimsSignerProperties {
         @NotNull
         private String activeKeys;
         private String retiredKeys;

@@ -6,7 +6,6 @@ import static com.contentgrid.gateway.test.security.CryptoTestUtils.toPublicKeyR
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.contentgrid.gateway.security.jwt.issuer.PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties;
 import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
 import com.contentgrid.gateway.test.util.MockResourcePatternResolver;
 import com.nimbusds.jose.JOSEException;
@@ -60,7 +59,7 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/active.pem", toPrivateKeyResource(activeKey))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 getJwkSource(resolver),
                 Set.of(JWSAlgorithm.RS256)
         );
@@ -83,7 +82,7 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/retired-2.pem", toPublicKeyResource(retiredKey2))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 getJwkSource(resolver),
                 Set.of(JWSAlgorithm.RS256)
         );
@@ -123,7 +122,7 @@ class PropertiesBasedJwtClaimsSignerTest {
 
         var resolver = new DelegateResourcePatternResolver(oldResolver);
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 getJwkSource(resolver),
                 Set.of(JWSAlgorithm.RS256)
         );
@@ -173,7 +172,7 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/active-2.pem", toPrivateKeyResource(activeKey2))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 new DefaultJWSSignerFactory(),
                 createDeterministicRandom(),
                 getJwkSource(resolver),
@@ -207,7 +206,7 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/active-2.pem", toPrivateKeyResource(activeKey2))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 new DefaultJWSSignerFactory(),
                 createDeterministicRandom(),
                 getJwkSource(resolver),
@@ -238,7 +237,7 @@ class PropertiesBasedJwtClaimsSignerTest {
                 .resource("file:/keys/active-1.pem", toPrivateKeyResource(activeKey1))
                 .build();
 
-        var signer = new PropertiesBasedJwtClaimsSigner(
+        var signer = new JwkSourceJwtClaimsSigner(
                 new DefaultJWSSignerFactory(),
                 createDeterministicRandom(),
                 getJwkSource(resolver),
