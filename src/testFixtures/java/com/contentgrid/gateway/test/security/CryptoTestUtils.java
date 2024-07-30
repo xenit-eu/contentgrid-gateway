@@ -1,11 +1,7 @@
 package com.contentgrid.gateway.test.security;
 
-import com.nimbusds.jose.jwk.Curve;
-import com.nimbusds.jose.jwk.OctetKeyPair;
-import com.nimbusds.jose.jwk.gen.OctetKeyPairGenerator;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.List;
