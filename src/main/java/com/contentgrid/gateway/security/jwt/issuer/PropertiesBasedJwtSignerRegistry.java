@@ -1,7 +1,13 @@
 package com.contentgrid.gateway.security.jwt.issuer;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtInternalIssuerConfiguration.ContentgridGatewayJwtProperties;
+import com.contentgrid.gateway.security.jwt.issuer.jwk.source.FilebasedJWKSetSource;
+import com.contentgrid.gateway.security.jwt.issuer.jwk.source.LoggingJWKSetSourceEventListener;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
+import com.nimbusds.jose.proc.SecurityContext;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,13 +17,14 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 @RequiredArgsConstructor
 class PropertiesBasedJwtSignerRegistry implements JwtSignerRegistry {
 
-    private final ContentgridGatewayJwtProperties properties;
-    private final ResourcePatternResolver resourcePatternResolver;
     private final Map<String, JwtClaimsSigner> instantiatedSigners = new ConcurrentHashMap<>();
+    private final ContentgridGatewayJwtProperties gatewayJwtProperties;
+    private final ResourcePatternResolver resourcePatternResolver;
+
 
     @Override
     public boolean hasSigner(String signerName) {
-        return properties.getSigners().containsKey(signerName);
+        return getJwkSourceMap().containsKey(signerName);
     }
 
     @Override
@@ -42,14 +49,38 @@ class PropertiesBasedJwtSignerRegistry implements JwtSignerRegistry {
         return instantiatedSigners.computeIfAbsent(signerName, this::createSigner);
     }
 
+    private Map<String, JWKSource<SecurityContext>> getJwkSourceMap() {
+        Map<String, JWKSource<SecurityContext>> jwkSourceMap = new HashMap<>();
+        gatewayJwtProperties.getSigners().keySet().stream().forEach(
+                signerName -> {
+                    var signerProperties = gatewayJwtProperties.getSigners().get(signerName);
+                    if (signerProperties == null) {
+                        throw new IllegalArgumentException(
+                                "No JWT signer named '%s'. Available signers are %s".formatted(signerName,
+                                        gatewayJwtProperties.getSigners().keySet()));
+                    }
+                    var jwkSource = new FilebasedJWKSetSource(
+                            resourcePatternResolver,
+                            signerProperties.getActiveKeys(),
+                            signerProperties.getRetiredKeys()
+                    );
+                    jwkSourceMap.put(signerName, JWKSourceBuilder.create(jwkSource)
+                            .refreshAheadCache(JWKSourceBuilder.DEFAULT_REFRESH_AHEAD_TIME, true, new LoggingJWKSetSourceEventListener<>())
+                            .build());
+                }
+        );
+
+        return jwkSourceMap;
+    }
+
     private JwtClaimsSigner createSigner(String signerName) {
-        var signerProperties = properties.getSigners().get(signerName);
-        if (signerProperties == null) {
+        if (!hasSigner(signerName)) {
             throw new IllegalArgumentException(
                     "No JWT signer named '%s'. Available signers are %s".formatted(signerName,
-                            properties.getSigners().keySet()));
+                            getJwkSourceMap().keySet()));
         }
-        return new PropertiesBasedJwtClaimsSigner(signerProperties, resourcePatternResolver);
+
+        return new JwkSourceJwtClaimsSigner(getJwkSourceMap().get(signerName), gatewayJwtProperties.getSigners().get(signerName).getAlgorithms());
     }
 
 }

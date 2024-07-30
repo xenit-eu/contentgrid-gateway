@@ -47,13 +47,7 @@ public class SignedJwtIssuer implements JwtIssuer {
                     }
                     return Mono.empty();
                 })
-                .flatMap(claims -> {
-                    try {
-                        return Mono.just(claimsSigner.sign(claims));
-                    } catch (JOSEException e) {
-                        return Mono.error(e);
-                    }
-                })
+                .map(claimsSigner::sign)
                 .flatMap(signedJwt -> {
                     try {
                         var signedJwtClaims = signedJwt.getJWTClaimsSet().getClaims();

@@ -19,19 +19,19 @@ import org.springframework.boot.actuate.autoconfigure.endpoint.condition.Conditi
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.config.conditional.ConditionalOnEnabledFilter;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 @RequiredArgsConstructor
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(ContentgridGatewayJwtProperties.class)
 @Slf4j
 public class JwtInternalIssuerConfiguration {
-    
+
     @Bean
-    JwtSignerRegistry jwtSignerRegistry(ContentgridGatewayJwtProperties properties, ApplicationContext applicationContext) {
-        return new PropertiesBasedJwtSignerRegistry(properties, applicationContext);
+    JwtSignerRegistry jwtSignerRegistry(ContentgridGatewayJwtProperties gatewayJwtProperties, ResourcePatternResolver resourcePatternResolver) {
+        return new PropertiesBasedJwtSignerRegistry(gatewayJwtProperties, resourcePatternResolver);
     }
 
     @Bean
@@ -72,10 +72,10 @@ public class JwtInternalIssuerConfiguration {
     @Data
     @Builder
     @AllArgsConstructor
-    static class JwtSignerProperties implements PropertiesBasedJwtClaimsSigner.JwtClaimsSignerProperties {
+    static class JwtSignerProperties implements JwtClaimsSignerProperties {
         @NotNull
         private String activeKeys;
-        private String allKeys;
+        private String retiredKeys;
         @Builder.Default
         private Set<JWSAlgorithm> algorithms = Set.of(JWSAlgorithm.RS256);
 
