@@ -1,6 +1,8 @@
 package com.contentgrid.gateway.security.oidc;
 
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
+import com.contentgrid.configuration.api.ComposedConfiguration;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -18,15 +20,19 @@ public class OAuth2ClientApplicationConfigurationMapper implements ReactiveClien
 
 
     @Override
-    public Mono<ClientRegistration> buildClientRegistration(@NonNull ApplicationConfiguration applicationConfiguration) {
+    public Mono<ClientRegistration> buildClientRegistration(
+            @NonNull ComposedConfiguration<ApplicationId, ApplicationConfiguration> applicationConfiguration) {
 
-        return this.clientRegistrationIdResolver.resolveRegistrationId(applicationConfiguration.getApplicationId())
-                .map(clientRegistrationId -> ClientRegistrations
-                        .fromIssuerLocation(applicationConfiguration.getIssuerUri())
-                        .registrationId(clientRegistrationId)
-                        .clientId(applicationConfiguration.getClientId())
-                        .clientSecret(applicationConfiguration.getClientSecret())
-                        .scope(DEFAULT_SCOPES)
-                        .build());
+        return this.clientRegistrationIdResolver.resolveRegistrationId(applicationConfiguration.getCompositionKey())
+                .map(clientRegistrationId -> applicationConfiguration.getConfiguration()
+                        .map(config -> ClientRegistrations
+                                .fromIssuerLocation(config.getIssuerUri())
+                                .registrationId(clientRegistrationId)
+                                .clientId(config.getClientId())
+                                .clientSecret(config.getClientSecret())
+                                .scope(DEFAULT_SCOPES)
+                                .build())
+                )
+                .flatMap(Mono::justOrEmpty);
     }
 }

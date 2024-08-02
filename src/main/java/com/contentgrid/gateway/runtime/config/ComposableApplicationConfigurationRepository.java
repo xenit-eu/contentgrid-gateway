@@ -1,71 +1,26 @@
 package com.contentgrid.gateway.runtime.config;
 
-import com.contentgrid.gateway.collections.ObservableMap;
-import com.contentgrid.gateway.collections.ObservableMap.MapUpdate;
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.api.fragments.ComposedConfigurationRepository;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.stream.Stream;
 import lombok.NonNull;
-import lombok.Synchronized;
+import lombok.RequiredArgsConstructor;
 import org.springframework.lang.Nullable;
-import reactor.core.publisher.Flux;
 
-public class ComposableApplicationConfigurationRepository implements
-        ApplicationConfigurationRepository {
+@RequiredArgsConstructor
+public class ComposableApplicationConfigurationRepository implements ApplicationConfigurationRepository {
 
-    protected final ObservableMap<ApplicationId, ComposedApplicationConfiguration> configs = new ObservableMap<>();
+    private final ComposedConfigurationRepository<String, ApplicationId, ApplicationConfiguration> composedConfiguration;
 
     @Override
     @Nullable
-    public ComposedApplicationConfiguration getApplicationConfiguration(@NonNull ApplicationId appId) {
-        return configs.get(appId);
-    }
-
-    public ComposedApplicationConfiguration getOrDefault(@NonNull ApplicationId applicationId) {
-        return this.configs.getOrDefault(applicationId, new ComposedApplicationConfiguration(applicationId));
-    }
-
-
-    @Synchronized
-    public void put(ComposedApplicationConfiguration applicationConfig) {
-        this.configs.put(applicationConfig.getApplicationId(), applicationConfig);
-    }
-
-    @Synchronized
-    public void remove(@NonNull ApplicationId applicationId) {
-        this.configs.remove(applicationId);
-    }
-
-    @Synchronized
-    public void clear() {
-        this.configs.clear();
-    }
-
-    public ComposableApplicationConfigurationRepository merge(@NonNull ApplicationConfiguration fragment) {
-        var merged = this.getOrDefault(fragment.getApplicationId()).withAdditionalConfiguration(fragment);
-        this.put(merged);
-
-        return this;
-    }
-
-    public void revoke(@NonNull ApplicationConfiguration fragment) {
-        var appConfig = this.getOrDefault(fragment.getApplicationId())
-                .withoutConfiguration(fragment.getConfigurationId());
-
-        if (appConfig.isEmpty()) {
-            this.remove(fragment.getApplicationId());
-        } else {
-            this.put(appConfig);
-        }
-    }
-
-    @Override
-    public Flux<MapUpdate<ApplicationId, ApplicationConfiguration>> observe() {
-        return this.configs.observe()
-                .map(update -> new MapUpdate<>(update.getType(), update.getKey(), update.getValue()));
+    public ApplicationConfiguration getApplicationConfiguration(@NonNull ApplicationId appId) {
+        return composedConfiguration.findConfiguration(appId).getConfiguration().orElse(null);
     }
 
     @Override
     public Stream<ApplicationId> applicationIds() {
-        return this.configs.keySet().stream();
+        return this.composedConfiguration.compositionKeys();
     }
 }

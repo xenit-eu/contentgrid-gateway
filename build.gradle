@@ -5,7 +5,6 @@ plugins {
 	id 'org.springframework.boot' version '3.3.1'
 	id 'io.spring.dependency-management' version '1.1.6'
 	id 'org.sonarqube' version '5.1.0.4882'
-	id 'io.github.reyerizo.gradle.jcstress' version '0.8.15'
 	id "be.vbgn.ci-detect" version "0.5.0"
 }
 
@@ -70,6 +69,12 @@ dependencies {
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
 
+	implementation platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.1')
+	implementation 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'
+	runtimeOnly 'com.contentgrid.configuration:contentgrid-configuration-kubernetes-fabric8'
+	runtimeOnly 'com.contentgrid.configuration:contentgrid-configuration-properties-spring'
+	runtimeOnly 'com.contentgrid.configuration:contentgrid-configuration-autoconfigure'
+
 	implementation 'org.springframework.cloud:spring-cloud-kubernetes-fabric8-loadbalancer'
 	runtimeOnly 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
 
@@ -104,6 +109,8 @@ dependencies {
 	testFixturesApi 'org.springframework:spring-webflux'
 	testFixturesApi 'org.springframework.security:spring-security-crypto'
 	testFixturesApi 'org.springframework.cloud:spring-cloud-commons'
+	testFixturesApi platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.1')
+	testFixturesApi 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'
 
 	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2023.0.3')
 	testFixturesImplementation 'io.projectreactor:reactor-test'

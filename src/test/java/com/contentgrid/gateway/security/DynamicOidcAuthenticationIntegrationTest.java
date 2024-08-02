@@ -2,9 +2,10 @@ package com.contentgrid.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
+import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
+import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
@@ -42,7 +43,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     private int port;
 
     @Autowired
-    ComposableApplicationConfigurationRepository applicationConfigurationRepository;
+    DynamicallyConfigurable<String, ApplicationId, ApplicationConfiguration> applicationConfigurationRepository;
 
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
@@ -66,11 +67,15 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
 
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.CLIENT_SECRET, client.clientSecret(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "test",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .clientSecret(client.clientSecret())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
         log.info("Starting confidential OIDC authz code flow");
 
@@ -105,6 +110,8 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                 .expectStatus()
                 .is3xxRedirection()
                 .expectHeader().value("Set-Cookie", value -> assertThat(value).startsWith("SESSION="));
+
+        applicationConfigurationRepository.revoke("test");
     }
 
     @Test
@@ -115,10 +122,14 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         var user = createUser(realm, "test");
 
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
         log.info("Starting public OIDC authz code flow");
 
@@ -160,7 +171,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         assertRequest_withBearer(ApplicationId.from("invalid"), tokenResponse.getAccessToken()).expectStatus().isUnauthorized();
 
         // revoke app-id configuration
-        applicationConfigurationRepository.remove(appId);
+        applicationConfigurationRepository.revoke("config-id");
         // HTTP 401 - no client-registration associated with app-id anymore
         assertRequest_withBearer(appId, tokenResponse.getAccessToken()).expectStatus().isUnauthorized();
 

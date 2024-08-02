@@ -1,11 +1,11 @@
 package com.contentgrid.gateway.runtime.security.jwt.issuer;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.security.jwt.ContentGridAudiences;
 import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
-import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -36,7 +36,8 @@ public class RuntimeAuthenticationJwtClaimsResolver implements JwtClaimsResolver
         claimsBuilder.audience(ContentGridAudiences.SYSTEM_ENDPOINT_AUTHENTICATION);
         claimsBuilder.claim(ContentGridClaimNames.CONTEXT_APPLICATION_ID, applicationId.toString());
         if (applicationConfiguration != null) {
-            claimsBuilder.claim(ContentGridClaimNames.CONTEXT_APPLICATION_DOMAINS, applicationConfiguration.getDomains());
+            claimsBuilder.claim(ContentGridClaimNames.CONTEXT_APPLICATION_DOMAINS,
+                    applicationConfiguration.getRoutingDomains());
         }
         try {
             claimsBuilder.claim(ContentGridClaimNames.RESTRICT_PRINCIPAL_CLAIMS,

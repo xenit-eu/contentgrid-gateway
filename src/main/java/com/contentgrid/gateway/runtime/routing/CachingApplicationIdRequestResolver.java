@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.routing;
 
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.server.ServerWebExchange;
@@ -13,7 +13,8 @@ public class CachingApplicationIdRequestResolver implements ApplicationIdRequest
     private final ApplicationIdRequestResolver delegate;
 
     @Override
-    public Optional<ApplicationId> resolveApplicationId(ServerWebExchange exchange) {
+    public Optional<com.contentgrid.configuration.applications.ApplicationId> resolveApplicationId(
+            ServerWebExchange exchange) {
         return this.loadFromWebExchange(exchange)
                 .or(() -> this.delegate.resolveApplicationId(exchange)
                         .map(appId -> this.storeInWebExchange(exchange, appId)));

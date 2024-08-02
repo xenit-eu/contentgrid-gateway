@@ -1,6 +1,5 @@
 package com.contentgrid.gateway.runtime.routing;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
 import java.util.Collection;
 import java.util.Optional;
 import org.springframework.cloud.client.ServiceInstance;

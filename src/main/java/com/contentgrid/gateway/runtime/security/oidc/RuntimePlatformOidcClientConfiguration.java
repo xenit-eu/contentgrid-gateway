@@ -1,7 +1,9 @@
 package com.contentgrid.gateway.runtime.security.oidc;
 
-import com.contentgrid.gateway.collections.ObservableMap.UpdateType;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
+import com.contentgrid.configuration.api.ComposedConfiguration;
+import com.contentgrid.configuration.api.observable.Observable;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository;
 import com.contentgrid.gateway.security.oauth2.client.registration.DynamicReactiveClientRegistrationRepository.ClientRegistrationEvent;
@@ -56,24 +58,16 @@ public class RuntimePlatformOidcClientConfiguration {
     ReactiveClientRegistrationRepository clientRegistrationRepository(
             ReactiveClientRegistrationIdResolver registrationIdResolver,
             ReactiveClientRegistrationResolver clientRegistrationResolver,
-            ApplicationConfigurationRepository applicationConfigurationRepository) {
+            Observable<ComposedConfiguration<ApplicationId, ApplicationConfiguration>> applicationConfigurationRepository) {
 
         return new DynamicReactiveClientRegistrationRepository(applicationConfigurationRepository
                 .observe()
-                .flatMap(update -> {
-                    if (update.getType().equals(UpdateType.CLEAR)) {
-                        return Mono.just(ClientRegistrationEvent.clear());
-                    }
-
-                    return registrationIdResolver.resolveRegistrationId(update.getKey()).map(registrationId -> {
-                        if (update.getType().equals(UpdateType.REMOVE)) {
-                            return ClientRegistrationEvent.delete(registrationId);
-                        }
-
-                        var client = clientRegistrationResolver.buildClientRegistration(update.getValue());
-                        return ClientRegistrationEvent.put(registrationId, client);
-                    });
-                })
+                .flatMap(update -> registrationIdResolver.resolveRegistrationId(update.getValue().getCompositionKey())
+                        .map(registrationId -> switch (update.getType()) {
+                            case ADD, UPDATE -> ClientRegistrationEvent.put(registrationId,
+                                    clientRegistrationResolver.buildClientRegistration(update.getValue()));
+                            case REMOVE -> ClientRegistrationEvent.delete(registrationId);
+                        }))
                 .doOnNext(
                         event -> log.debug("ReactiveClientRegistrationRepository -> {}", event))
         );

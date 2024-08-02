@@ -1,9 +1,9 @@
 package com.contentgrid.gateway.runtime.security.jwt.issuer;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
-import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
+import com.contentgrid.gateway.security.authority.AuthenticationDetails;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsResolver;
 import com.contentgrid.thunx.encoding.json.ExpressionJsonConverter;
 import com.contentgrid.thunx.predicates.model.ThunkExpression;

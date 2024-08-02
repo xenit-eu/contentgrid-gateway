@@ -1,51 +1,34 @@
 package com.contentgrid.gateway.runtime.routing;
 
-import com.contentgrid.gateway.collections.ConcurrentLookup;
-import com.contentgrid.gateway.collections.ConcurrentLookup.Lookup;
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.api.ComposedConfiguration;
+import com.contentgrid.configuration.api.lookup.ConcurrentLookup;
+import com.contentgrid.configuration.api.lookup.Lookup;
+import com.contentgrid.configuration.api.observable.Observable;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.AccessLevel;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.gateway.event.RefreshRoutesEvent;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Flux;
 
 @Slf4j
 public class DynamicVirtualHostApplicationIdResolver implements ApplicationIdRequestResolver {
 
-    private final ConcurrentLookup<ApplicationId, ApplicationDomainRegistration> lookup = new ConcurrentLookup<>(
-            ApplicationDomainRegistration::applicationId
-    );
+    private final ConcurrentLookup<ApplicationId, ApplicationDomainRegistration> lookup;
     private final Lookup<String, ApplicationDomainRegistration> lookupByDomain;
 
-    @NonNull
-    private final ApplicationEventPublisher eventPublisher;
-
-    public DynamicVirtualHostApplicationIdResolver(Flux<ApplicationDomainNameEvent> events, ApplicationEventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
-        events.subscribe(this::onApplicationDomainEvent);
+    public DynamicVirtualHostApplicationIdResolver(
+            Observable<ComposedConfiguration<ApplicationId, ApplicationConfiguration>> events) {
+        lookup = new ConcurrentLookup<>(ApplicationDomainRegistration::applicationId, () -> events.observe().map(
+                event -> event.mapValue(value -> new ApplicationDomainRegistration(value.getCompositionKey(),
+                        value.getConfiguration().map(ApplicationConfiguration::getRoutingDomains).orElseGet(Set::of)))
+        ));
 
         this.lookupByDomain = this.lookup.createMultiLookup(event -> event.domains().stream());
-    }
-
-    void onApplicationDomainEvent(ApplicationDomainNameEvent event) {
-        switch (event.type()) {
-            case CLEAR -> this.lookup.clear();
-            case DELETE -> this.lookup.remove(event.applicationId());
-            case PUT -> {
-                var registration = new ApplicationDomainRegistration(event.applicationId, event.domains);
-                this.lookup.add(registration);
-            }
-        }
-
-        this.eventPublisher.publishEvent(new RefreshRoutesEvent(this));
     }
 
     @Override
@@ -58,7 +41,7 @@ public class DynamicVirtualHostApplicationIdResolver implements ApplicationIdReq
             return Optional.empty();
         }
 
-        var registrations = this.lookupByDomain.apply(requestHost);
+        var registrations = this.lookupByDomain.get(requestHost);
         if (registrations.isEmpty()) {
             log.debug("No app-domain-registration found for '{}'", requestHost);
             return Optional.empty();
@@ -87,35 +70,4 @@ public class DynamicVirtualHostApplicationIdResolver implements ApplicationIdReq
         Set<String> domains;
     }
 
-    @Value
-    @Accessors(fluent = true)
-    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-    public static class ApplicationDomainNameEvent {
-
-        public enum EventType {
-            PUT, DELETE, CLEAR
-        }
-
-        @NonNull EventType type;
-        ApplicationId applicationId;
-        Set<String> domains;
-
-        public static ApplicationDomainNameEvent put(@NonNull ApplicationId appId, @NonNull Set<String> domains) {
-            return new ApplicationDomainNameEvent(EventType.PUT, appId, Set.copyOf(domains));
-        }
-
-        public static ApplicationDomainNameEvent put(@NonNull ApplicationId appId, String... domains) {
-            return new ApplicationDomainNameEvent(EventType.PUT, appId, Set.of(domains));
-        }
-
-        public static ApplicationDomainNameEvent delete(@NonNull ApplicationId appId) {
-            return new ApplicationDomainNameEvent(EventType.DELETE, appId, null);
-        }
-
-        public static ApplicationDomainNameEvent clear() {
-            return new ApplicationDomainNameEvent(EventType.CLEAR, null, null);
-        }
-
-
-    }
 }

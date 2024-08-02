@@ -3,11 +3,9 @@ package com.contentgrid.gateway.runtime.cors;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
-import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
+import com.contentgrid.gateway.runtime.config.StaticApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders;
 import java.util.List;
@@ -26,16 +24,17 @@ import reactor.core.publisher.Mono;
 
 class RuntimeCorsWebFilterTest {
 
-    private ApplicationConfiguration appConfig;
+    private ApplicationId applicationId = ApplicationId.random();
     private RuntimeCorsConfigurationSource corsSource;
 
     @BeforeEach
     void setup() {
-        appConfig = ApplicationConfigurationFragment.fromProperties(Map.of(
-                Keys.CORS_ORIGINS, "https://frontend-domain.test"
+        var appConfigRepo = new StaticApplicationConfigurationRepository(Map.of(
+                applicationId,
+                ApplicationConfiguration.builder()
+                        .corsOrigin("https://frontend-domain.test")
+                        .build()
         ));
-        var appConfigRepo = new ComposableApplicationConfigurationRepository();
-        appConfigRepo.merge(appConfig);
 
         var appIdResolver = new CachingApplicationIdRequestResolver(exchange -> Optional.empty());
         corsSource = new RuntimeCorsConfigurationSource(appIdResolver, appConfigRepo);
@@ -51,7 +50,7 @@ class RuntimeCorsWebFilterTest {
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION)
                 .build();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
 
         new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
 
@@ -98,7 +97,7 @@ class RuntimeCorsWebFilterTest {
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
                 .build();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
 
         new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
 
@@ -118,7 +117,7 @@ class RuntimeCorsWebFilterTest {
                 .build();
         assertThat(CorsUtils.isPreFlightRequest(request)).isFalse();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
 
         new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
 
@@ -138,7 +137,7 @@ class RuntimeCorsWebFilterTest {
                 .build();
         assertThat(CorsUtils.isPreFlightRequest(request)).isFalse();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appConfig.getApplicationId());
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
 
         new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
 

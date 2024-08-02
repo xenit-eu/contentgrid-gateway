@@ -1,8 +1,8 @@
 package com.contentgrid.gateway.runtime.actuate;
 
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint.ApplicationsCollectionDescriptor.ApplicationConfigurationDescriptor;
-import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -10,7 +10,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import com.nimbusds.oauth2.sdk.Response;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -104,7 +103,7 @@ public class ContentGridActuatorEndpoint {
     public ResponseEntity<ApplicationConfigurationDescriptor> getApplicationConfig(@PathVariable ApplicationId applicationId) {
         var config = this.applicationConfigurationRepository.getApplicationConfiguration(applicationId);
         return Optional.ofNullable(config)
-                .map(cfg -> ApplicationConfigurationDescriptor.from(cfg, endpointProperties))
+                .map(cfg -> ApplicationConfigurationDescriptor.from(applicationId, cfg, endpointProperties))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -168,21 +167,22 @@ public class ContentGridActuatorEndpoint {
             private final Map<String, Object> links = new LinkedHashMap<>();
 
             static ApplicationConfigurationDescriptor from(
+                    @NonNull ApplicationId applicationId,
                     @NonNull ApplicationConfiguration config,
                     @NonNull WebEndpointProperties endpointProperties) {
 
                 return new ApplicationConfigurationDescriptor(
-                        config.getApplicationId().toString(),
+                        applicationId.toString(),
                         config.getClientId(),
                         mask(config.getClientSecret()),
                         config.getIssuerUri(),
-                        config.getDomains(),
+                        config.getRoutingDomains(),
                         config.getCorsOrigins())
-                        .addLinks("api", config.getDomains().stream()
+                        .addLinks("api", config.getRoutingDomains().stream()
                                 .map(domain -> "https://" + domain)
                                 .map(Link::new)
                                 .toList())
-                        .addLink("application", getBasePath(endpointProperties) + "/" + config.getApplicationId())
+                        .addLink("application", getBasePath(endpointProperties) + "/" + applicationId)
                         .addLinkIf(config.getIssuerUri() != null, "issuer-uri", config.getIssuerUri());
             }
 

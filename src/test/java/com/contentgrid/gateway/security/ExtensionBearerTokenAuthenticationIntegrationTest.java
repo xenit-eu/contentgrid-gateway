@@ -2,10 +2,10 @@ package com.contentgrid.gateway.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
-import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
+import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsSigner;
@@ -66,7 +66,7 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
     private static PublicClientRegistration client;
 
     @Autowired
-    ComposableApplicationConfigurationRepository applicationConfigurationRepository;
+    DynamicallyConfigurable<String, ApplicationId, ApplicationConfiguration> applicationConfigurationRepository;
 
     @Autowired
     @Qualifier("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.TextEncryptorFactory")
@@ -116,10 +116,14 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
     void authenticate_extension_system_jwt() {
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
         var bearerToken = createBearerToken(Map.of(
                 JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
@@ -141,16 +145,21 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                             ));
                     assertThat(authenticationDetails.getActor()).isNull();
                 });
+        applicationConfigurationRepository.revoke("config-id");
     }
 
     @Test
     void reject_extension_system_jwt_invalid_audience() {
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
         var bearerToken = createBearerToken(Map.of(
                 JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
@@ -162,17 +171,22 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
 
         assertRequest_withBearer(appId, bearerToken)
                 .expectStatus().is4xxClientError();
+
+        applicationConfigurationRepository.revoke("config-id");
     }
 
     @Test
     void authenticate_delegated_jwt() {
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
-
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
         var bearerToken = createBearerToken(Map.of(
                 JwtClaimNames.ISS, EXTENSION_DELEGATE_ISSUER,
@@ -207,16 +221,21 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                                     JwtClaimNames.SUB, "extension123"
                             ));
                 });
+        applicationConfigurationRepository.revoke("config-id");
     }
 
     @Test
     void reject_delegated_jwt_invalid_audience() {
         // create gateway app configuration
         var appId = ApplicationId.random();
-        applicationConfigurationRepository.merge(new ApplicationConfigurationFragment("config-id", appId, Map.of(
-                Keys.CLIENT_ID, client.clientId(),
-                Keys.ISSUER_URI, realm.getIssuerUrl()
-        )));
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
 
 
         var bearerToken = createBearerToken(Map.of(
@@ -237,6 +256,7 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
         assertRequest_withBearer(appId, bearerToken)
                 .expectStatus().is4xxClientError()
         ;
+        applicationConfigurationRepository.revoke("config-id");
     }
     @SneakyThrows
     private static String createBearerToken(Map<String, Object> rawJwtClaims) {
