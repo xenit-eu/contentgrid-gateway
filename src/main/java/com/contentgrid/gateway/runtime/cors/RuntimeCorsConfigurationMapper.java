@@ -1,7 +1,7 @@
 package com.contentgrid.gateway.runtime.cors;
 
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
 import com.contentgrid.gateway.cors.CorsConfigurations;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration;
 import com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

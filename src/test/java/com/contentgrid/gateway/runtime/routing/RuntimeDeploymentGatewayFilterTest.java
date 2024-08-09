@@ -10,7 +10,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import java.net.URI;
 import java.util.Map;

@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.routing;
 
 import static com.contentgrid.gateway.test.assertj.MonoAssert.assertThat;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;

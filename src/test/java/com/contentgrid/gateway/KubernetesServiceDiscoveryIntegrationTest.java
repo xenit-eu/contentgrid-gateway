@@ -6,13 +6,12 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationConfiguration.Keys;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
-import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;

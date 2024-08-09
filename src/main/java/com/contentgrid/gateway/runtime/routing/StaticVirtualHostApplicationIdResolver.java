@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.routing;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;

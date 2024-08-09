@@ -4,8 +4,8 @@ import static com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvi
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
-import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;

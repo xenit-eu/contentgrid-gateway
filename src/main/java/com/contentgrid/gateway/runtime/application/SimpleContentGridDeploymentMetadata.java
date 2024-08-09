@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.runtime.application;
 
+import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.Optional;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

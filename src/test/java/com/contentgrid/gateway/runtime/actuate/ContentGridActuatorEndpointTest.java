@@ -2,15 +2,13 @@ package com.contentgrid.gateway.runtime.actuate;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
-import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
+import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
+import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import java.util.Map;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -33,7 +31,7 @@ class ContentGridActuatorEndpointTest {
     int port;
 
     @Autowired
-    ComposableApplicationConfigurationRepository configRepo;
+    DynamicallyConfigurable<String, ApplicationId, ApplicationConfiguration> configRepo;
 
     @Autowired
     WebTestClient testClient;
@@ -41,10 +39,6 @@ class ContentGridActuatorEndpointTest {
     @Autowired
     WireMockServer wiremock;
 
-    @BeforeEach
-    void setup() {
-        this.configRepo.clear();
-    }
 
     @Test
     @WithMockUser
@@ -69,7 +63,7 @@ class ContentGridActuatorEndpointTest {
     void listApplications() {
         var appId = ApplicationId.random();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of("foo", "bar")));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder().build()));
 
         testClient.get()
                 .uri("http://localhost:" + port + "/actuator/contentgrid/applications")
@@ -102,7 +96,7 @@ class ContentGridActuatorEndpointTest {
     void getApplicationById() {
         var appId = ApplicationId.random();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of("foo", "bar")));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder().build()));
 
         testClient.get()
                 .uri("http://localhost:" + port + "/actuator/contentgrid/applications/" + appId)
@@ -134,14 +128,14 @@ class ContentGridActuatorEndpointTest {
 
         var clientSecret = UUID.randomUUID().toString();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of(
-                "foo", "bar",
-                Keys.CLIENT_ID, "my-oidc-client",
-                Keys.CLIENT_SECRET, clientSecret,
-                Keys.ISSUER_URI, "https://auth.contentgrid.com/issuer",
-                Keys.ROUTING_DOMAINS, "foo.contentgrid.cloud, bar.contentgrid.cloud",
-                Keys.CORS_ORIGINS, "https://frontend.contentgrid.app"
-        )));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder()
+                .clientId("my-oidc-client")
+                .clientSecret(clientSecret)
+                .issuerUri("https://auth.contentgrid.com/issuer")
+                .routingDomain("foo.contentgrid.cloud")
+                .routingDomain("bar.contentgrid.cloud")
+                .corsOrigin("https://frontend.contentgrid.app")
+                .build()));
 
         testClient.get()
                 .uri("http://localhost:" + port + "/actuator/contentgrid/applications/" + appId + "/config")
@@ -184,13 +178,13 @@ class ContentGridActuatorEndpointTest {
 
         var clientSecret = UUID.randomUUID().toString();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of(
-                "foo", "bar",
-                Keys.CLIENT_ID, "my-oidc-client",
-                Keys.CLIENT_SECRET, clientSecret,
-                Keys.ROUTING_DOMAINS, "foo.contentgrid.cloud, bar.contentgrid.cloud",
-                Keys.CORS_ORIGINS, "https://frontend.contentgrid.app"
-        )));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder()
+                .clientId("my-oidc-client")
+                .clientSecret(clientSecret)
+                .routingDomain("foo.contentgrid.cloud")
+                .routingDomain("bar.contentgrid.cloud")
+                .corsOrigin("https://frontend.contentgrid.app")
+                .build()));
 
         testClient.get()
                 .uri("http://localhost:" + port + "/actuator/contentgrid/applications/" + appId + "/config")
@@ -221,13 +215,14 @@ class ContentGridActuatorEndpointTest {
         var appId = ApplicationId.random();
         var clientSecret = UUID.randomUUID().toString();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of(
-                Keys.CLIENT_ID, "my-oidc-client",
-                Keys.CLIENT_SECRET, clientSecret,
-                Keys.ISSUER_URI, "http://localhost:"+wiremock.port()+"/realms/contentgrid",
-                Keys.ROUTING_DOMAINS, "foo.contentgrid.cloud, bar.contentgrid.cloud",
-                Keys.CORS_ORIGINS, "https://frontend.contentgrid.app"
-        )));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder()
+                .clientId("my-oidc-client")
+                .clientSecret(clientSecret)
+                .issuerUri("http://localhost:"+wiremock.port()+"/realms/contentgrid")
+                .routingDomain("foo.contentgrid.cloud")
+                .routingDomain("bar.contentgrid.cloud")
+                .corsOrigin("https://frontend.contentgrid.app")
+                .build()));
 
         testClient.get()
                 .uri("http://localhost:" + port + "/actuator/contentgrid/applications/" + appId + "/client-registration")
@@ -261,13 +256,14 @@ class ContentGridActuatorEndpointTest {
         var appId = ApplicationId.random();
         var clientSecret = UUID.randomUUID().toString();
 
-        this.configRepo.merge(ApplicationConfigurationFragment.from(appId, Map.of(
-                Keys.CLIENT_ID, "my-oidc-client",
-                Keys.CLIENT_SECRET, clientSecret,
-                Keys.ISSUER_URI, "http://localhost:"+wiremock.port()+"/realms/contentgrid",
-                Keys.ROUTING_DOMAINS, "foo.contentgrid.cloud, bar.contentgrid.cloud",
-                Keys.CORS_ORIGINS, "https://frontend.contentgrid.app"
-        )));
+        this.configRepo.register(new ConfigurationFragment<>("test", appId, ApplicationConfiguration.builder()
+                .clientId("my-oidc-client")
+                .clientSecret(clientSecret)
+                .issuerUri("http://localhost:"+wiremock.port()+"/realms/contentgrid")
+                .routingDomain("foo.contentgrid.cloud")
+                .routingDomain("bar.contentgrid.cloud")
+                .corsOrigin("https://frontend.contentgrid.app")
+                .build()));
 
         testClient.get()
                 .uri("http://localhost:{port}/actuator/contentgrid/applications/{appId}/client-registration",

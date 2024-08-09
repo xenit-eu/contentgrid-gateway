@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.test.runtime;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
 import java.util.Map;

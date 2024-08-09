@@ -1,6 +1,6 @@
 package com.contentgrid.gateway.runtime.security.bearer;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.security.authority.ClaimUtil;
 import com.contentgrid.gateway.runtime.security.authority.ExtensionDelegationGrantedAuthorityConverter;

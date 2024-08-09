@@ -5,8 +5,8 @@ import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
-import com.contentgrid.gateway.runtime.application.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;

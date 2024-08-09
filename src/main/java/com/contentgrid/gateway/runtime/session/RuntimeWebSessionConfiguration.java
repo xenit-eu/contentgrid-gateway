@@ -2,7 +2,7 @@ package com.contentgrid.gateway.runtime.session;
 
 import static org.springframework.web.server.adapter.WebHttpHandlerBuilder.WEB_SESSION_MANAGER_BEAN_NAME;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;

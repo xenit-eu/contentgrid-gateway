@@ -18,11 +18,10 @@ import static org.springframework.http.HttpHeaders.HOST;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
-import com.contentgrid.gateway.runtime.application.ApplicationId;
+import com.contentgrid.configuration.applications.ApplicationConfiguration;
+import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
-import com.contentgrid.gateway.runtime.config.ApplicationConfiguration.Keys;
-import com.contentgrid.gateway.runtime.config.ApplicationConfigurationFragment;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.StaticApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
@@ -152,15 +151,15 @@ class RuntimeGatewayIntegrationTest {
         @Bean
         @Primary
         ApplicationConfigurationRepository staticApplicationConfigurationRepository() {
-            return new StaticApplicationConfigurationRepository(List.of(
-                    ApplicationConfigurationFragment.from(APP_ID, Map.of(
-                            Keys.ISSUER_URI, OIDC_ISSUER,
-                            Keys.ROUTING_DOMAINS, hostname(APP_ID)
-                    )),
-                    ApplicationConfigurationFragment.from(APP_ID_UNAVAILABLE, Map.of(
-                            Keys.ISSUER_URI, OIDC_ISSUER,
-                            Keys.ROUTING_DOMAINS, hostname("unavailable")
-                    ))
+            return new StaticApplicationConfigurationRepository(Map.of(
+                    APP_ID, ApplicationConfiguration.builder()
+                            .issuerUri(OIDC_ISSUER)
+                            .routingDomain(hostname(APP_ID))
+                            .build(),
+                    APP_ID_UNAVAILABLE, ApplicationConfiguration.builder()
+                            .issuerUri(OIDC_ISSUER)
+                            .routingDomain(hostname("unavailable"))
+                            .build()
             ));
         }
 
