@@ -13,7 +13,7 @@ services:
       - "3200:3200"   # tempo
 
   grafana:
-    image: grafana/grafana:11.1.0
+    image: grafana/grafana:11.1.3
     volumes:
       - ./tracing/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     environment:
