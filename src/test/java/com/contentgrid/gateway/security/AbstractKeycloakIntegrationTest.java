@@ -171,6 +171,9 @@ abstract class AbstractKeycloakIntegrationTest {
 
             var userRepresentation = new UserRepresentation();
             userRepresentation.setUsername(username);
+            userRepresentation.setEmail(username+"@example.invalid");
+            userRepresentation.setFirstName("Test");
+            userRepresentation.setLastName("Dummy");
             userRepresentation.setEnabled(true);
 
             String userId;
