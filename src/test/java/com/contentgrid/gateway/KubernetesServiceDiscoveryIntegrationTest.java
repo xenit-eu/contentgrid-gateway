@@ -63,10 +63,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(KubernetesServiceDiscoveryIntegrationTest.class);
 
     @Container
-    private static final K3sContainer K8S = new K3sContainer(DockerImageName.parse("rancher/k3s:latest"))
-            // See https://github.com/testcontainers/testcontainers-java/issues/6770
-            .withCommand("server", "--disable=traefik",
-                    "--tls-san=" + DockerClientFactory.instance().dockerHostIpAddress());
+    private static final K3sContainer K8S = new K3sContainer(DockerImageName.parse("rancher/k3s:latest"));
 
     @Container
     public static final GenericContainer<?> NGINX = new GenericContainer<>(DockerImageName.parse("docker.io/nginx"))
