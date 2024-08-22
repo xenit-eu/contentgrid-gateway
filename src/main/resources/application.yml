@@ -27,3 +27,5 @@ contentgrid:
     user-info:
       enabled: false
       path: /me
+  configuration.discovery.kubernetes:
+    enabled: "${contentgrid.gateway.runtime-platform.enabled:false}"
