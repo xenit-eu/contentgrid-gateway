@@ -21,6 +21,10 @@ management:
   endpoint:
     gateway:
       enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: false
 
 contentgrid:
   gateway:
