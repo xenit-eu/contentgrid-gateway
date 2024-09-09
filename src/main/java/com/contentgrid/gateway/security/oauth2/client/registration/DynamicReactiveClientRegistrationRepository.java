@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.security.oauth2.client.registration;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -8,14 +9,25 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Slf4j
 public class DynamicReactiveClientRegistrationRepository implements ReactiveClientRegistrationRepository,
         IterableClientRegistrationIds {
+
+    /**
+     * Time that a successfully resolved client registration is cached
+     */
+    private static final Duration CACHE_SUCCESSFUL_DURATION = Duration.ofMinutes(10);
+    /**
+     * Time that a failure to resolve a client registration is cached
+     */
+    private static final Duration CACHE_FAILURE_DURATION = Duration.ofMinutes(1);
 
     private final Map<String, Mono<ClientRegistration>> clientIdToClientRegistration = new ConcurrentHashMap<>();
 
@@ -26,15 +38,30 @@ public class DynamicReactiveClientRegistrationRepository implements ReactiveClie
     private void onClientRegistrationEvent(ClientRegistrationEvent event) {
         log.debug("onClientRegistrationEvent: {}", event);
         switch (event.getType()) {
-            case PUT ->
-                // Note: the Mono<ClientRegistration> gets cached here, so it will be lazily evaluated and cached
-                // 1. when called for the first time, it will do some HTTP call to .well-known/openid-configuration
-                // 2. all subsequent calls will reuse the cached value, without cache expiration
-                    this.clientIdToClientRegistration.put(event.getRegistrationId(),
-                            event.getClientRegistration().cache());
+            case PUT -> this.clientIdToClientRegistration.put(event.getRegistrationId(), cache(event));
             case DELETE -> this.clientIdToClientRegistration.remove(event.getRegistrationId());
             case CLEAR -> this.clientIdToClientRegistration.clear();
         }
+    }
+
+    /**
+     * The {@code Mono<ClientRegistration>} gets cached here, so it will be lazily evaluated and cached
+     * 1. when called for the first time, it will do some HTTP call to .well-known/openid-configuration
+     * 2. subsequent calls will reuse the cached value, until {@link #CACHE_SUCCESSFUL_DURATION}
+     *
+     * In case of a failure to retrieve the openid-configuration (timeout, server error, ...), the failure gets cached for {@link #CACHE_FAILURE_DURATION}
+     */
+    private static Mono<ClientRegistration> cache(ClientRegistrationEvent event) {
+        return event.getClientRegistration()
+                .cache(cr -> CACHE_SUCCESSFUL_DURATION, ex -> CACHE_FAILURE_DURATION, () -> Duration.ZERO)
+                .doOnError(ex -> log.error(
+                        "ClientRegistration with id '{}' could not be resolved", event.getRegistrationId(), ex)
+                )
+                // Wrap in a different exception, so:
+                // 1. We indicate that this is expected to be a temporary problem
+                // 2. A fresh exception is created every time after Mono.cache(), so the suppressed reactor checkpoints exception is not added to the cached exception
+                //      Otherwise, reactor keeps appending additional checkpoints to the list all the time, which is a denial-of-service (out of memory) vulnerability
+                .onErrorMap(ex -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "OAuth client registration is unavailable", ex));
     }
 
     @Override
