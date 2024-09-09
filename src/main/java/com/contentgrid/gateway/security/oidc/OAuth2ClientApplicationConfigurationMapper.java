@@ -6,11 +6,13 @@ import com.contentgrid.configuration.applications.ApplicationId;
 import java.util.List;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrations;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2ClientApplicationConfigurationMapper implements ReactiveClientRegistrationResolver {
 
     @NonNull
@@ -31,7 +33,8 @@ public class OAuth2ClientApplicationConfigurationMapper implements ReactiveClien
                                 .clientId(config.getClientId())
                                 .clientSecret(config.getClientSecret())
                                 .scope(DEFAULT_SCOPES)
-                                .build())
+                                .build()
+                        )
                 )
                 .flatMap(Mono::justOrEmpty);
     }
