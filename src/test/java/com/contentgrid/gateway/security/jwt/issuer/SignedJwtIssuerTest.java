@@ -92,10 +92,15 @@ class SignedJwtIssuerTest {
     @Test
     void creates_derived_jwt_for_oidc_user() {
         var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
+
+        var iat = Instant.now().minus(3, ChronoUnit.MINUTES);
+        var exp = Instant.now().plus(1, ChronoUnit.MINUTES);
         var oidcUser = new DefaultOidcUser(
                 List.of(),
                 OidcIdToken.withTokenValue("XXX")
                         .subject("my-user")
+                        .issuedAt(iat)
+                        .expiresAt(exp)
                         .build()
         );
 
@@ -110,8 +115,8 @@ class SignedJwtIssuerTest {
         assertThat(issuer.issueSubstitutionToken(exchange).block()).isInstanceOfSatisfying(Jwt.class, token -> {
             assertThat(token.getIssuer()).hasToString("https://upstream-issuer.example");
             assertThat(token.getSubject()).isEqualTo("my-user");
-            assertThat(token.getIssuedAt()).isBeforeOrEqualTo(Instant.now());
-            assertThat(token.getExpiresAt()).isBetween(Instant.now().plus(4, ChronoUnit.MINUTES), Instant.now().plus(5, ChronoUnit.MINUTES));
+            assertThat(token.getIssuedAt()).isCloseTo(iat, within(1, ChronoUnit.SECONDS));
+            assertThat(token.getExpiresAt()).isCloseTo(exp, within(1, ChronoUnit.SECONDS));
             assertThat(token.getTokenValue()).satisfies(verifyJwtSignedBy(issuer));
         });
     }
@@ -175,6 +180,33 @@ class SignedJwtIssuerTest {
         );
 
         assertThat(issuer.issueSubstitutionToken(exchange).block()).isInstanceOfSatisfying(Jwt.class, token -> {
+            assertThat(token.getExpiresAt()).isCloseTo(expiry, within(1, ChronoUnit.SECONDS));
+        });
+    }
+
+    @Test
+    void derived_jwt_for_just_expired_jwt() {
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
+
+        var iat = Instant.now().minus(5, ChronoUnit.MINUTES);
+        var expiry = Instant.now().minus(10, ChronoUnit.SECONDS);
+
+        var exchange = createExchange(
+                new JwtAuthenticationToken(Jwt.withTokenValue("XXXX")
+                        .header("alg", "RS256")
+                        .issuedAt(iat)
+                        .expiresAt(expiry)
+                        .build(),
+                        List.of(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of("iss", "https://upstream-issuer.example", "sub", "my-user"),
+                                null
+                        )))
+                )
+        );
+
+        assertThat(issuer.issueSubstitutionToken(exchange).block()).isInstanceOfSatisfying(Jwt.class, token -> {
+            assertThat(token.getIssuedAt()).isCloseTo(iat, within(1, ChronoUnit.SECONDS));
             assertThat(token.getExpiresAt()).isCloseTo(expiry, within(1, ChronoUnit.SECONDS));
         });
     }

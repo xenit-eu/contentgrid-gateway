@@ -101,7 +101,12 @@ public class SignedJwtIssuer implements JwtIssuer {
                                         .filter(exp -> exp.compareTo(maxExpiration) <= 0)
                                         .orElse(maxExpiration));
                             }))
-                            .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), Date::new))
+                            .claim("re-iat", new Date())
+                            .issueTime(Objects.requireNonNullElseGet(claims.getIssueTime(), () -> {
+                                return findIssuedAtTime(authentication)
+                                        .map(Date::from)
+                                        .orElseGet(Date::new);
+                            }))
                             .build();
                 });
     }
@@ -112,6 +117,16 @@ public class SignedJwtIssuer implements JwtIssuer {
             return Optional.ofNullable(jwt.getExpiresAt());
         } else if(principal instanceof OidcUser oidcUser) {
             return Optional.ofNullable(oidcUser.getIdToken().getExpiresAt());
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Instant> findIssuedAtTime(Authentication authentication) {
+        var principal = authentication.getPrincipal();
+        if(principal instanceof Jwt jwt) {
+            return Optional.ofNullable(jwt.getIssuedAt());
+        } else if(principal instanceof OidcUser oidcUser) {
+            return Optional.ofNullable(oidcUser.getIdToken().getIssuedAt());
         }
         return Optional.empty();
     }
