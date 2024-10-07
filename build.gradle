@@ -1,3 +1,5 @@
+import org.springframework.boot.gradle.tasks.run.BootRun
+
 plugins {
 	id 'java'
 	id 'java-test-fixtures'
@@ -23,7 +25,14 @@ java {
 	}
 }
 
-tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
+// Configure all bootRun tasks to use the toolchain from above
+tasks.withType(BootRun.class).configureEach {
+	var toolchain = project.extensions.getByType(JavaPluginExtension.class).toolchain;
+	var toolchainService = project.extensions.getByType(JavaToolchainService.class);
+	it.javaLauncher.convention(toolchainService.launcherFor(toolchain))
+}
+
+tasks.register("keycloakBootRun",  BootRun.class) {
 	description = "Runs the Spring Boot application with the Keycloak profile"
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
@@ -32,7 +41,7 @@ tasks.register("keycloakBootRun",  org.springframework.boot.gradle.tasks.run.Boo
 	systemProperty("spring.profiles.active", "bootRun,keycloak")
 }
 
-tasks.register("consoleBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
+tasks.register("consoleBootRun",  BootRun.class) {
 	description = "Runs the Spring Boot application with routing config for ContentGrid Console development"
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
@@ -41,7 +50,7 @@ tasks.register("consoleBootRun",  org.springframework.boot.gradle.tasks.run.Boot
 	systemProperty("spring.profiles.active", "bootRun,console")
 }
 
-tasks.register("runtimeBootRun",  org.springframework.boot.gradle.tasks.run.BootRun.class) {
+tasks.register("runtimeBootRun",  BootRun.class) {
 	description = "Runs ContentGrid Gateway with config for ContentGrid Runtime Platform"
 	group = ApplicationPlugin.APPLICATION_GROUP
 	classpath = tasks.bootRun.classpath
