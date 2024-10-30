@@ -1,34 +1,31 @@
 package com.contentgrid.gateway.runtime.servicediscovery;
 
-
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.Watcher;
-import io.fabric8.kubernetes.client.WatcherException;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
-import java.io.Closeable;
-import java.io.IOException;
+import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import java.time.Duration;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 
 @Slf4j
 @RequiredArgsConstructor
-public class KubernetesServiceDiscovery implements ServiceDiscovery {
+public class KubernetesServiceDiscovery implements ServiceDiscovery, AutoCloseable {
 
     private final KubernetesClient client;
     private final String namespace;
-    private final long resyncInterval;
+    private final Duration resyncInterval;
 
     private final ServiceAddedHandler serviceAddedHandler;
     private final ServiceDeletedHandler serviceDeletedHandler;
 
     private final Fabric8ServiceInstanceMapper mapper;
 
+    private SharedIndexInformer<Service> informer;
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
             .addToMatchLabels("app.kubernetes.io/managed-by", "contentgrid")
@@ -38,7 +35,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery {
     // TODO this should by a bean-init method
     @Override
     public void discoverApis() {
-        client.services()
+        this.informer = client.services()
                 .inNamespace(namespace)
                 .withLabelSelector(selector)
                 .inform(new ResourceEventHandler<Service>() {
@@ -51,7 +48,10 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery {
 
                     @Override
                     public void onUpdate(Service oldObj, Service newObj) {
-                        this.onAdd(newObj);
+                        // Only trigger an update when the service has actually changed
+                        if(!Objects.equals(oldObj.getMetadata().getResourceVersion(), newObj.getMetadata().getResourceVersion())) {
+                            this.onAdd(newObj);
+                        }
                     }
 
                     @Override
@@ -60,6 +60,13 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery {
                         serviceDeletedHandler.handleServiceDeleted(service);
                         log.info("{} deleted", service);
                     }
-                }, resyncInterval * 1000);
+                }, resyncInterval.toMillis());
+    }
+
+    @Override
+    public void close() throws Exception {
+        if(this.informer != null) {
+            this.informer.close();
+        }
     }
 }

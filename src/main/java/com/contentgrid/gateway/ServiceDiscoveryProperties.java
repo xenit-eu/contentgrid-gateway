@@ -1,5 +1,6 @@
 package com.contentgrid.gateway;
 
+import java.time.Duration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -9,5 +10,5 @@ public class ServiceDiscoveryProperties {
 
     private boolean enabled = false;
     private String namespace = "default";
-    private long resync = 60;
+    private Duration resync = Duration.ofMinutes(1);
 }
