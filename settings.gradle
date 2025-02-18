@@ -1,6 +1,6 @@
 plugins {
     id 'org.ajoberstar.reckon.settings' version '0.19.1'
-    id 'eu.xenit.enterprise-conventions.oss' version '0.5.1'
+    id 'eu.xenit.enterprise-conventions.oss' version '0.5.2'
 }
 
 rootProject.name = 'contentgrid-gateway'
