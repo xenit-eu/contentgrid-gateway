@@ -117,7 +117,7 @@ dependencies {
 
 	testFixturesApi 'com.nimbusds:nimbus-jose-jwt:10.0.2'
 	testFixturesApi 'org.assertj:assertj-core'
-	testFixturesApi 'org.bouncycastle:bcprov-jdk18on:1.79'
+	testFixturesApi 'org.bouncycastle:bcprov-jdk18on:1.80'
 	testFixturesApi 'org.springframework:spring-webflux'
 	testFixturesApi 'org.springframework.security:spring-security-crypto'
 	testFixturesApi 'org.springframework.cloud:spring-cloud-commons'
