@@ -33,7 +33,7 @@ spring:
         provider:
           keycloak:
             user-name-attribute: preferred_username
-            issuer-uri: https://auth.content-cloud.eu/auth/realms/contentcloud-dev
+            issuer-uri: https://auth.content-cloud.eu/realms/contentcloud-dev
         registration:
           keycloak:
             client-id: contentcloud-gateway
@@ -45,4 +45,4 @@ spring:
 
       resourceserver:
         jwt:
-          issuer-uri: https://auth.content-cloud.eu/auth/realms/contentcloud-dev
+          issuer-uri: https://auth.content-cloud.eu/realms/contentcloud-dev
