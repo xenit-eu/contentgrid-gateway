@@ -17,8 +17,7 @@ allow {
 # Allow GET /me
 allow {
     input.method == "GET"
-    # count(input.path) = 1
-    input.path[0] = "me"
+    input.path == ["me"]
 }
 
 # admin access on /api
