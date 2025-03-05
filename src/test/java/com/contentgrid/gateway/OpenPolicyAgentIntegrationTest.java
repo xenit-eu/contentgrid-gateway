@@ -29,7 +29,7 @@ public class OpenPolicyAgentIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(OpenPolicyAgentIntegrationTest.class);
 
     @Container
-    private static final GenericContainer<?> openPolicyAgent = new GenericContainer<>("docker.io/openpolicyagent/opa:0.36.1-debug")
+    private static final GenericContainer<?> openPolicyAgent = new GenericContainer<>("docker.io/openpolicyagent/opa:0.70.0-debug")
             .withCopyFileToContainer(MountableFile.forClasspathResource("test.rego"), "/config/test.rego")
             .withExposedPorts(8181)
             .withLogConsumer(new Slf4jLogConsumer(logger))
