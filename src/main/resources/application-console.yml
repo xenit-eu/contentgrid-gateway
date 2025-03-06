@@ -12,6 +12,8 @@ contentgrid:
           allowedOrigins:
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:8085'
             - 'http://${DOCKER_HOST_IP:172.17.0.1}:9085'
+            - 'http://localhost:8085'
+            - 'http://localhost:9085'
         '[api.contentgrid.com]':
           allowedOrigins: 'https://console.contentgrid.com'
 
@@ -22,18 +24,30 @@ spring:
         - id: architect
           uri: http://${DOCKER_HOST_IP:172.17.0.1}:8083/
           predicates:
-            - Path=/,/orgs/**,/projects/**,/users/**,/blueprints/**,/datamodel/**
-        - id: console
-          uri: http://${DOCKER_HOST_IP:172.17.0.1}:9085/
+            - Path=/,/orgs/**,/users/**,/permalink/**,/authorize/**
+        - id: scribe
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:8084/
           predicates:
-            - Path=/**
+            - Path=/codegen/**
+        - id: captain
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:8086/
+          predicates:
+            - Path=/applications,/applications/**,/deployments/**,/artifacts/**,/zones/**,/iam/**,/services/**
+        - id: herald
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:8088/
+          predicates:
+            - Path=/invitations,/invitations/**,/invitation-static/**
+        - id: assistant
+          uri: http://${DOCKER_HOST_IP:172.17.0.1}:5002/
+          predicates:
+            - Path=/assistant,/assistant/**
   security:
     oauth2:
       client:
         provider:
           keycloak:
             user-name-attribute: preferred_username
-            issuer-uri: https://auth.content-cloud.eu/realms/contentcloud-dev
+            issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8082/realms/contentgrid-dev
         registration:
           keycloak:
             client-id: contentcloud-gateway
@@ -45,4 +59,4 @@ spring:
 
       resourceserver:
         jwt:
-          issuer-uri: https://auth.content-cloud.eu/realms/contentcloud-dev
+          issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8082/realms/contentgrid-dev
