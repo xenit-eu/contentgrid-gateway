@@ -17,6 +17,10 @@ contentgrid:
         '[api.contentgrid.com]':
           allowedOrigins: 'https://console.contentgrid.com'
 
+testing:
+  bootstrap:
+    enable: false
+
 spring:
   cloud:
     gateway:
