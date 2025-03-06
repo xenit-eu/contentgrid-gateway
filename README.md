@@ -297,3 +297,19 @@ value will be selected.
 | `contentgrid.idp.client-id`   | string | OAuth Client Id to initiate OpenID Connect authentication from the gateway                                    |
 | `contentgrid.idp.secret`      | string | OAuth Client Secret to initiate OpenID Connect authentication from the gateway                                |
 
+## Local development for management gateway
+
+You can run the gateway locally with the [contentgrid-compose project](https://github.com/xenit-eu/contentgrid-compose) by executing the following Gradle task:
+
+```bash
+./gradlew consoleBootRun
+```
+
+**Note:** you need to apply the following changes to contentgrid-compose:
+
+* `compose.sh`: comment out `docker-compose.yml`
+* Comment out `gateway.environment` from `docker-compose-architect.yml`, `docker-compose-captain.yml`, `docker-compose-herald.yml`, `docker-compose-keycloak.yml` and `docker-compose-scribe.yml`
+* `docker-compose-captain.yml`: change port 8080 to 9080 in `CONTENTGRID_SERVER_NAME`, `CONTENTGRID_AUTHORIZATION_ENDPOINT` and `CONTENTGRID_AUTHORIZATION_PROFILE`
+* `docker-compose-console.yml`: change port 8080 to 9080 in `API_BASE_URL`
+* `docker-compose-herald.yml`: change port 8080 to 9080 in `CONTENTGRID_AUTHORIZATION_ENDPOINT`
+* `docker-compose-scribe.yml`: change port 8080 to 9080 in all urls of `SCRIBE_ALLOWLIST`
