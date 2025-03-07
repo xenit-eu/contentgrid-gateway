@@ -7,7 +7,7 @@ spring:
         provider:
           keycloak:
             user-name-attribute: preferred_username
-            issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8090/auth/realms/contentcloud-gateway
+            issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8090/realms/contentcloud-gateway
         registration:
           keycloak:
             client-id: contentcloud-gateway
@@ -20,4 +20,4 @@ spring:
       # JWT Bearer authentication
       resourceserver:
         jwt:
-          issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8090/auth/realms/contentcloud-gateway
+          issuer-uri: http://${DOCKER_HOST_IP:172.17.0.1}:8090/realms/contentcloud-gateway
