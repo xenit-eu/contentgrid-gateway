@@ -214,7 +214,7 @@ contentgrid.gateway.jwt.signers:
   my-signer:
     active-keys: file:/secrets/my-signer/active.pem
     all-keys: file:/secrets/my-signer/*.pem
-spring.cloud.gateway.routes:
+spring.cloud.gateway.server.webflux.routes:
   - id: my-service
     uri: http://my-service:8083/
     filters:
