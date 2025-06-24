@@ -14,6 +14,7 @@ spring:
             - PreserveHostHeader
             - TokenRelay
             - Abac
+          trusted-proxies: 10\..*\..*\..*
 
 management:
   endpoints:
