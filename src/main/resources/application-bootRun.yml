@@ -14,13 +14,15 @@ contentgrid.gateway.user-info.enabled: true
 spring:
   cloud:
     gateway:
-      routes:
-        - id: root
-          uri: https://ignored
-          predicates:
-            - Path=/
-          filters:
-            - RedirectTo=302, /me
+      server:
+        webflux:
+          routes:
+            - id: root
+              uri: https://ignored
+              predicates:
+                - Path=/
+              filters:
+                - RedirectTo=302, /me
 
 logging.level:
   com.contentgrid.gateway.runtime.routing: DEBUG

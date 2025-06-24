@@ -7,11 +7,13 @@ logging.level:
 spring:
   cloud:
     gateway:
-      default-filters:
-        - RemoveRequestHeader=Cookie
-        - PreserveHostHeader
-        - TokenRelay
-        - Abac
+      server:
+        webflux:
+          default-filters:
+            - RemoveRequestHeader=Cookie
+            - PreserveHostHeader
+            - TokenRelay
+            - Abac
 
 management:
   endpoints:
