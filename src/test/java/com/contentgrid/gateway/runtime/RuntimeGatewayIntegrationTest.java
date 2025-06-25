@@ -114,8 +114,7 @@ import org.springframework.web.server.ServerWebExchange;
                 "contentgrid.gateway.runtime-platform.endpoints.authentication.authorization: authenticated",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
-                "wiremock.reset-mappings-after-each-test: true",
-                "spring.cloud.gateway.server.webflux.trusted-proxies: 127\\.0\\.0\\.1",
+                "wiremock.reset-mappings-after-each-test: true"
         })
 @AutoConfigureWebTestClient
 class RuntimeGatewayIntegrationTest {

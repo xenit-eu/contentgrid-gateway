@@ -14,7 +14,7 @@ spring:
             - PreserveHostHeader
             - TokenRelay
             - Abac
-          trusted-proxies: 10\..*\..*\..*
+          trusted-proxies: .*\..*\..*\..*  # Allow X-Forwarded-* headers for any incoming request address (browser, curl, ...)
 
 management:
   endpoints:

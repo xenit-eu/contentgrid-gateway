@@ -23,7 +23,6 @@ spring:
                 - Path=/
               filters:
                 - RedirectTo=302, /me
-          trusted-proxies: 172\.17\..*\..*
 
 logging.level:
   com.contentgrid.gateway.runtime.routing: DEBUG
