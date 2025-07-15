@@ -61,7 +61,7 @@ tasks.register("runtimeBootRun",  BootRun.class) {
 }
 
 dependencies {
-	implementation platform('org.springframework.cloud:spring-cloud-dependencies:2024.0.1')
+	implementation platform('org.springframework.cloud:spring-cloud-dependencies:2024.0.2')
 	implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
@@ -124,7 +124,7 @@ dependencies {
 	testFixturesApi platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.2')
 	testFixturesApi 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'
 
-	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2024.0.1')
+	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2024.0.2')
 	testFixturesImplementation 'io.projectreactor:reactor-test'
 	testFixturesImplementation 'com.fasterxml.jackson.core:jackson-databind'
 	testFixturesImplementation 'org.springframework.security:spring-security-core'
