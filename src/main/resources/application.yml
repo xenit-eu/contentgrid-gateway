@@ -7,11 +7,15 @@ logging.level:
 spring:
   cloud:
     gateway:
-      default-filters:
-        - RemoveRequestHeader=Cookie
-        - PreserveHostHeader
-        - TokenRelay
-        - Abac
+      server:
+        webflux:
+          default-filters:
+            - RemoveRequestHeader=Cookie
+            - PreserveHostHeader
+            - TokenRelay
+            - Abac
+          # This looks unsafe, but the gateway is always supposed to be deployed behind a proxy that _replaces_ X-Forwarded-For/Forwarded headers with only trusted addresses
+          trusted-proxies: .*
 
 management:
   endpoints:
@@ -20,7 +24,7 @@ management:
         include: '*'
   endpoint:
     gateway:
-      enabled: true
+      access: unrestricted
   otlp:
     metrics:
       export:

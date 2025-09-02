@@ -17,7 +17,7 @@ testing:
 contentgrid.gateway.jwt.signers:
   my-signer:
     active-keys: file:/config/internal-issuer.pem
-spring.cloud.gateway.routes:
+spring.cloud.gateway.server.webflux.routes:
   - id: my-service
     uri: http://upstream:80/
     filters:

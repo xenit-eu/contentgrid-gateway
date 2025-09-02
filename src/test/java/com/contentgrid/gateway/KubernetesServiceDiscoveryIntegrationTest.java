@@ -214,9 +214,9 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     @Nested
     @Import(NoK8sAvailableClient.class)
     @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
-            "spring.cloud.gateway.routes.0.id=example",
-            "spring.cloud.gateway.routes.0.uri=http://example.com",
-            "spring.cloud.gateway.routes.0.predicates.0=Path=/example/**",
+            "spring.cloud.gateway.server.webflux.routes.0.id=example",
+            "spring.cloud.gateway.server.webflux.routes.0.uri=http://example.com",
+            "spring.cloud.gateway.server.webflux.routes.0.predicates.0=Path=/example/**",
             "opa.service.url=opa.example.com",
             "servicediscovery.namespace=default",
             "servicediscovery.enabled=false",
@@ -244,7 +244,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "servicediscovery.resync=1",
 
             // https://github.com/spring-cloud/spring-cloud-gateway/issues/2909
-            "spring.cloud.gateway.default-filters=PreserveHostHeader"
+            "spring.cloud.gateway.server.webflux.default-filters=PreserveHostHeader"
     })
     @AutoConfigureWebTestClient
     public class ResyncTest {
