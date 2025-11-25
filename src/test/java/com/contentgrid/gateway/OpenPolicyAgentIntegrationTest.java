@@ -29,7 +29,7 @@ public class OpenPolicyAgentIntegrationTest {
     private static final Logger logger = LoggerFactory.getLogger(OpenPolicyAgentIntegrationTest.class);
 
     @Container
-    private static final GenericContainer<?> openPolicyAgent = new GenericContainer<>("docker.io/openpolicyagent/opa:0.70.0-debug")
+    private static final GenericContainer<?> openPolicyAgent = new GenericContainer<>("docker.io/openpolicyagent/opa:1.10.1-debug")
             .withCopyFileToContainer(MountableFile.forClasspathResource("test.rego"), "/config/test.rego")
             .withExposedPorts(8181)
             .withLogConsumer(new Slf4jLogConsumer(logger))
@@ -37,6 +37,7 @@ public class OpenPolicyAgentIntegrationTest {
                     "--server",
                     "--log-format=json-pretty",
                     "--set=decision_logs.console=true",
+                    "--addr=:8181",
                     "file:/config/test.rego");
 
 
