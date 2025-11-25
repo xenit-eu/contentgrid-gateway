@@ -74,9 +74,12 @@ dependencies {
 
 	implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
 
-	implementation platform('com.contentgrid.thunx:thunx-bom:0.12.0')
+	implementation platform('com.contentgrid.thunx:thunx-bom:0.13.0')
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
+    implementation('com.contentgrid.thunx:thunx-spring-api'){
+        exclude group: 'org.springframework.data', module: 'spring-data-rest-webmvc'
+    }
 
 	implementation platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.2')
 	implementation 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'

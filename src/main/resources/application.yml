@@ -37,3 +37,6 @@ contentgrid:
       path: /me
   configuration.discovery.kubernetes:
     enabled: "${contentgrid.gateway.runtime-platform.enabled:false}"
+  thunx:
+    abac:
+      source: none
