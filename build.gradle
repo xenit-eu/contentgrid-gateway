@@ -4,7 +4,7 @@ plugins {
 	id 'java'
 	id 'java-test-fixtures'
 	id 'jacoco'
-	id 'org.springframework.boot' version '3.5.8'
+	id 'org.springframework.boot' version '3.5.9'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.sonarqube' version '7.2.2.6593'
 	id "be.vbgn.ci-detect" version "0.5.0"
