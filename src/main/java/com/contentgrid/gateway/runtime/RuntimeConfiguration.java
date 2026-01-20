@@ -222,11 +222,6 @@ public class RuntimeConfiguration {
         @ConditionalOnCloudPlatform(CloudPlatform.KUBERNETES)
         static class KubernetesServiceDiscoveryConfiguration {
 
-            public static final LabelSelector GATEWAY_LABEL_SELECTOR = new LabelSelectorBuilder()
-                    .addToMatchLabels(KubernetesLabels.K8S_MANAGEDBY, "contentgrid")
-                    .addToMatchLabels(KubernetesLabels.CONTENTGRID_SERVICETYPE, "gateway")
-                    .build();
-
             @Bean
             ServiceDiscovery serviceDiscovery(ServiceDiscoveryProperties properties, KubernetesClient kubernetesClient,
                     ServiceCatalog serviceCatalog, Fabric8ServiceInstanceMapper instanceMapper) {

@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.runtime.servicediscovery;
 
+import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.api.model.Service;
@@ -28,8 +29,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, AutoCloseab
     private SharedIndexInformer<Service> informer;
 
     private static final LabelSelector selector = new LabelSelectorBuilder()
-            .addToMatchLabels("app.kubernetes.io/managed-by", "contentgrid")
-            .addToMatchLabels("app.contentgrid.com/service-type", "api")
+            .addToMatchLabels(KubernetesLabels.CONTENTGRID_SERVICETYPE, "api")
             .build();
 
     // TODO this should by a bean-init method
