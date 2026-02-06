@@ -11,7 +11,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,14 +35,7 @@ public class DynamicJwtAuthenticationManagerResolver implements
     private Consumer<JwtReactiveAuthenticationManager> authenticationManagerConfigurer = jwtReactiveAuthenticationManager -> {};
     @Setter
     private BiFunction<ReactiveAuthenticationManager, ServerWebExchange, Mono<ReactiveAuthenticationManager>> postProcessor = (authenticationManager, exchange) -> Mono.just(authenticationManager);
-    private final Map<AuthenticationManagerKey, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
-
-    private record AuthenticationManagerKey(
-            @NonNull String issuer,
-            String jwkSetUri
-    ) {
-
-    }
+    private final Map<String, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
 
     @Override
     public Mono<ReactiveAuthenticationManager> resolve(ServerWebExchange exchange) {
@@ -54,9 +46,8 @@ public class DynamicJwtAuthenticationManagerResolver implements
                         Stream.of(configuration.getIssuerUri()),
                         configuration.getAdditionalIssuerUris().stream()
                 ).collect(Collectors.toSet()))
-                .map(issuer -> new AuthenticationManagerKey(issuer, null))
-                .flatMap(authenticationManagerKey -> this.authenticationManagers.computeIfAbsent(
-                        authenticationManagerKey, this::createJwtAuthenticationManager))
+                .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(
+                        issuer, this::createJwtAuthenticationManager))
                 .collectList()
                 .filter(Predicate.not(List::isEmpty))
                 .map(DelegatingReactiveAuthenticationManager::new)
@@ -71,14 +62,13 @@ public class DynamicJwtAuthenticationManagerResolver implements
     }
 
     // Note: this is copied from Spring Security TrustedIssuerJwtAuthenticationManagerResolver
-    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(
-            AuthenticationManagerKey authenticationManagerKey) {
+    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(String issuer) {
         return Mono.<ReactiveAuthenticationManager>fromCallable(() -> {
                     var authenticationManager = new JwtReactiveAuthenticationManager(
-                            createJwtDecoder(authenticationManagerKey));
+                            createJwtDecoder(issuer));
                     authenticationManagerConfigurer.accept(authenticationManager);
                     return new IssuerGatedJwtAuthenticationManager(
-                            authenticationManagerKey.issuer()::equals,
+                            issuer::equals,
                             authenticationManager
                     );
                 })
@@ -86,10 +76,9 @@ public class DynamicJwtAuthenticationManagerResolver implements
                 .cache(manager -> Duration.ofMillis(Long.MAX_VALUE), ex -> Duration.ZERO, () -> Duration.ZERO);
     }
 
-    private static ReactiveJwtDecoder createJwtDecoder(AuthenticationManagerKey authenticationManagerKey) {
+    private static ReactiveJwtDecoder createJwtDecoder(String issuer) {
         return ReactiveJwtDecoderBuilder.create()
-                .issuer(authenticationManagerKey.issuer())
-                .jwkSetUri(authenticationManagerKey.jwkSetUri())
+                .issuer(issuer)
                 .build();
     }
 
