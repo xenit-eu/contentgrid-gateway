@@ -78,7 +78,7 @@ dependencies {
 	implementation 'com.contentgrid.thunx:thunx-gateway-spring-boot-starter'
 	implementation 'com.contentgrid.thunx:thunx-encoding-json'
 
-	implementation platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.2')
+	implementation platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.3')
 	implementation 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'
 	runtimeOnly('com.contentgrid.configuration:contentgrid-configuration-kubernetes-fabric8') {
 		// We need an older kubernetes client than provided by contentgrid configuration to be compatible with Spring Boot
@@ -121,7 +121,7 @@ dependencies {
 	testFixturesApi 'org.springframework:spring-webflux'
 	testFixturesApi 'org.springframework.security:spring-security-crypto'
 	testFixturesApi 'org.springframework.cloud:spring-cloud-commons'
-	testFixturesApi platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.2')
+	testFixturesApi platform('com.contentgrid.configuration:contentgrid-configuration-bom:0.1.3')
 	testFixturesApi 'com.contentgrid.configuration:contentgrid-configuration-contentgrid-apps'
 
 	testFixturesImplementation platform('org.springframework.cloud:spring-cloud-dependencies:2025.0.0')
