@@ -1,19 +1,22 @@
 package com.contentgrid.gateway.security.bearer;
 
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import lombok.NonNull;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.DelegatingReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManagerResolver;
-import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager;
@@ -27,32 +30,27 @@ public class DynamicJwtAuthenticationManagerResolver implements
         ReactiveAuthenticationManagerResolver<ServerWebExchange> {
 
     private final ApplicationIdRequestResolver applicationIdResolver;
-    private final ReactiveClientRegistrationIdResolver reactiveClientRegistrationIdResolver;
-    private final ReactiveClientRegistrationRepository clientRegistrationRepository;
+    private final ApplicationConfigurationRepository applicationConfigurationRepository;
     @Setter
     private Consumer<JwtReactiveAuthenticationManager> authenticationManagerConfigurer = jwtReactiveAuthenticationManager -> {};
     @Setter
     private BiFunction<ReactiveAuthenticationManager, ServerWebExchange, Mono<ReactiveAuthenticationManager>> postProcessor = (authenticationManager, exchange) -> Mono.just(authenticationManager);
-    private final Map<AuthenticationManagerKey, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
-
-    private record AuthenticationManagerKey(
-            @NonNull String issuer,
-            String jwkSetUri
-    ) {
-
-    }
+    private final Map<String, Mono<ReactiveAuthenticationManager>> authenticationManagers = new ConcurrentHashMap<>();
 
     @Override
     public Mono<ReactiveAuthenticationManager> resolve(ServerWebExchange exchange) {
 
         return Mono.justOrEmpty(this.applicationIdResolver.resolveApplicationId(exchange))
-                .flatMap(this.reactiveClientRegistrationIdResolver::resolveRegistrationId)
-                .flatMap(this.clientRegistrationRepository::findByRegistrationId)
-                .map(clientRegistration -> new AuthenticationManagerKey(
-                        clientRegistration.getProviderDetails().getIssuerUri(),
-                        clientRegistration.getProviderDetails().getJwkSetUri()))
-                .flatMap(authenticationManagerKey -> this.authenticationManagers.computeIfAbsent(
-                        authenticationManagerKey, this::createJwtAuthenticationManager))
+                .mapNotNull(this.applicationConfigurationRepository::getApplicationConfiguration)
+                .flatMapIterable(configuration -> Stream.concat(
+                        Stream.of(configuration.getIssuerUri()),
+                        configuration.getAdditionalIssuerUris().stream()
+                ).collect(Collectors.toSet()))
+                .flatMap(issuer -> this.authenticationManagers.computeIfAbsent(
+                        issuer, this::createJwtAuthenticationManager))
+                .collectList()
+                .filter(Predicate.not(List::isEmpty))
+                .map(DelegatingReactiveAuthenticationManager::new)
                 .flatMap(authenticationManager -> postProcessor.apply(authenticationManager, exchange))
                 .checkpoint()
 
@@ -64,22 +62,23 @@ public class DynamicJwtAuthenticationManagerResolver implements
     }
 
     // Note: this is copied from Spring Security TrustedIssuerJwtAuthenticationManagerResolver
-    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(
-            AuthenticationManagerKey authenticationManagerKey) {
+    private Mono<ReactiveAuthenticationManager> createJwtAuthenticationManager(String issuer) {
         return Mono.<ReactiveAuthenticationManager>fromCallable(() -> {
                     var authenticationManager = new JwtReactiveAuthenticationManager(
-                            createJwtDecoder(authenticationManagerKey));
+                            createJwtDecoder(issuer));
                     authenticationManagerConfigurer.accept(authenticationManager);
-                    return authenticationManager;
+                    return new IssuerGatedJwtAuthenticationManager(
+                            issuer::equals,
+                            authenticationManager
+                    );
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .cache(manager -> Duration.ofMillis(Long.MAX_VALUE), ex -> Duration.ZERO, () -> Duration.ZERO);
     }
 
-    private static ReactiveJwtDecoder createJwtDecoder(AuthenticationManagerKey authenticationManagerKey) {
+    private static ReactiveJwtDecoder createJwtDecoder(String issuer) {
         return ReactiveJwtDecoderBuilder.create()
-                .issuer(authenticationManagerKey.issuer())
-                .jwkSetUri(authenticationManagerKey.jwkSetUri())
+                .issuer(issuer)
                 .build();
     }
 

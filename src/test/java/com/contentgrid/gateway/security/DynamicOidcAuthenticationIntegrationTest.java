@@ -6,15 +6,11 @@ import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
 import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
 import com.contentgrid.configuration.applications.ApplicationConfiguration;
 import com.contentgrid.configuration.applications.ApplicationId;
-import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.nimbusds.oauth2.sdk.GeneralException;
-import com.nimbusds.oauth2.sdk.id.Issuer;
-import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
@@ -131,22 +127,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                         .build()
         ));
 
-        log.info("Starting public OIDC authz code flow");
-
-        // fetch OIDC metadata
-        var metadata = OIDCProviderMetadata.resolve(Issuer.parse(realm.getIssuerUrl()));
-        assertThat(metadata).isNotNull();
-
-        // create the authorization request
-        var authzCodeRequest = this.createPkceAuthorizationCodeRequest(metadata.getAuthorizationEndpointURI(), client);
-        // get authorization code, with keycloak login
-        var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), user);
-
-        // exchange the Authorization Code (+ PKCE code verifier) for an Access Token with the Keycloak token endpoint
-        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse,
-                authzCodeRequest.getCodeVerifier());
-        assertThat(tokenResponse.isSuccess()).isTrue();
-        assertThat(tokenResponse.getAccessToken()).isNotNull();
+        var tokenResponse = performPublicAuthorizationCodeFlow(realm, client, user);
 
         // validate what we can do with the access token
         assertRequest_withBearer(appId, tokenResponse.getAccessToken())
@@ -175,6 +156,76 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         // HTTP 401 - no client-registration associated with app-id anymore
         assertRequest_withBearer(appId, tokenResponse.getAccessToken()).expectStatus().isUnauthorized();
 
+    }
+
+    @Test
+    void publicClient_authorizationCodeFlow_withMultipleIssuers() throws GeneralException, IOException {
+
+        var realm0 = createRealm("test-public-client0");
+        var client0 = createPublicClient(realm0, "public-client0", "http://localhost:9999");
+        var user0 = createUser(realm0, "test0");
+
+        var realm1 = createRealm("test-public-client1");
+        var client1 = createPublicClient(realm1, "public-client1", "http://localhost:6666");
+        var user1 = createUser(realm1, "test1");
+
+        var appId = ApplicationId.random();
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client0.clientId())
+                        .issuerUri(realm0.getIssuerUrl())
+                        .additionalIssuerUri(realm1.getIssuerUrl())
+                        .build()
+        ));
+
+        var tokenResponse0 = performPublicAuthorizationCodeFlow(realm0, client0, user0);
+
+        // validate what we can do with the access token of user0
+        assertRequest_withBearer(appId, tokenResponse0.getAccessToken())
+                .expectStatus().is2xxSuccessful()
+                .expectBody(TestAuthenticationDetails.class)
+                .value(authenticationDetails -> {
+                    assertThat(authenticationDetails.getPrincipal()).satisfies(principal -> {
+                        assertThat(principal.getType()).isEqualTo(ActorType.USER);
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.ISS)).isEqualTo(realm0.getIssuerUrl());
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.SUB)).isEqualTo(user0.userId());
+                    });
+                    assertThat(authenticationDetails.getActor()).isNull();
+                });
+
+        var tokenResponse1 = performPublicAuthorizationCodeFlow(realm1, client1, user1);
+
+        // validate what we can do with the access token of user1
+        assertRequest_withBearer(appId, tokenResponse1.getAccessToken())
+                .expectStatus().is2xxSuccessful()
+                .expectBody(TestAuthenticationDetails.class)
+                .value(authenticationDetails -> {
+                    assertThat(authenticationDetails.getPrincipal()).satisfies(principal -> {
+                        assertThat(principal.getType()).isEqualTo(ActorType.USER);
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.ISS)).isEqualTo(realm1.getIssuerUrl());
+                        assertThat(principal.getClaims().getClaimAsString(JwtClaimNames.SUB)).isEqualTo(user1.userId());
+                    });
+                    assertThat(authenticationDetails.getActor()).isNull();
+                });
+
+        // HTTP 401 - because bearer token is invalid
+        assertRequest_withBearer(appId, "").expectStatus().isUnauthorized();
+        // HTTP 401 - no redirect expected, because Accept header is not compatible with HTML
+        assertRequest_withBearer(appId, null).expectStatus().isUnauthorized();
+        // HTTP 401 - request not associated with an app-id
+        assertRequest_withBearer(null, tokenResponse0.getAccessToken()).expectStatus().isUnauthorized();
+        assertRequest_withBearer(null, tokenResponse1.getAccessToken()).expectStatus().isUnauthorized();
+        // HTTP 401 - access token cannot be associated with app-id
+        assertRequest_withBearer(ApplicationId.from("invalid"), tokenResponse0.getAccessToken()).expectStatus().isUnauthorized();
+        assertRequest_withBearer(ApplicationId.from("invalid"), tokenResponse1.getAccessToken()).expectStatus().isUnauthorized();
+
+        // revoke app-id configuration
+        applicationConfigurationRepository.revoke("config-id");
+        // HTTP 401 - no client-registration associated with app-id anymore
+        assertRequest_withBearer(appId, tokenResponse0.getAccessToken()).expectStatus().isUnauthorized();
+        assertRequest_withBearer(appId, tokenResponse1.getAccessToken()).expectStatus().isUnauthorized();
     }
 
     private ResponseSpec assertRequest_withBearer(ApplicationId appId, String accessToken) {

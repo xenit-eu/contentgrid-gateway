@@ -6,13 +6,16 @@ import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.test.security.ClaimAccessorMixin;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
+import com.nimbusds.oauth2.sdk.GeneralException;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallenge;
 import com.nimbusds.oauth2.sdk.pkce.CodeChallengeMethod;
 import com.nimbusds.oauth2.sdk.pkce.CodeVerifier;
+import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import jakarta.ws.rs.core.Response.Status.Family;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -378,6 +381,28 @@ abstract class AbstractKeycloakIntegrationTest {
                 .expectBody().isEmpty();
 
         return authorizationCodeResponse.getResponseCookies().toSingleValueMap().get("SESSION");
+    }
+
+    TokenResponse performPublicAuthorizationCodeFlow(Realm realm, PublicClientRegistration client, UserCredentials user)
+            throws GeneralException, IOException {
+        log.info("Starting public OIDC authz code flow");
+
+        // fetch OIDC metadata
+        var metadata = OIDCProviderMetadata.resolve(Issuer.parse(realm.getIssuerUrl()));
+        assertThat(metadata).isNotNull();
+
+        // create the authorization request
+        var authzCodeRequest = this.createPkceAuthorizationCodeRequest(metadata.getAuthorizationEndpointURI(), client);
+        // get authorization code, with keycloak login
+        var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), user);
+
+        // exchange the Authorization Code (+ PKCE code verifier) for an Access Token with the Keycloak token endpoint
+        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse,
+                authzCodeRequest.getCodeVerifier());
+        assertThat(tokenResponse.isSuccess()).isTrue();
+        assertThat(tokenResponse.getAccessToken()).isNotNull();
+
+        return tokenResponse;
     }
 
     @RequiredArgsConstructor

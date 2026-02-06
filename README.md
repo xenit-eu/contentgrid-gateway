@@ -256,13 +256,11 @@ Additionally, following properties are required to be configured:
 To discover ContentGrid applications, following kubernetes objects are required:
 
 - One `Service` object with labels:
-    - `app.kubernetes.io/managed-by=contentgrid`
     - `app.contentgrid.com/service-type=api`
     - `app.contentgrid.com/application-id`: Set to the application ID
     - `app.contentgrid.com/deployment-id`: Set to the deployment ID
 
 - One or more `ConfigMap` or `Secret` objects with labels:
-    - `app.kubernetes.io/managed-by=contentgrid`
     - `app.contentgrid.com/service-type=gateway`
     - `app.contentgrid.com/application-id`: Set to the application ID
 
@@ -289,13 +287,14 @@ value will be selected.
 
 `ConfigMap`s and `Secret`s can contain following data for configuration:
 
-| Configuration Key             | Type   | Description                                                                                                   |
-|-------------------------------|--------|---------------------------------------------------------------------------------------------------------------|
-| `contentgrid.routing.domains` | list   | Domainnames that will be routed to the application                                                            |
-| `contentgrid.cors.origins`    | list   | Origins (protocol + domainname + port if not default) that will be allowed as CORS orgin for this application |
-| `contentgrid.idp.issuer-uri`  | string | OpenID Connect issuer that is trusted for issuing tokens to this application                                  |
-| `contentgrid.idp.client-id`   | string | OAuth Client Id to initiate OpenID Connect authentication from the gateway                                    |
-| `contentgrid.idp.secret`      | string | OAuth Client Secret to initiate OpenID Connect authentication from the gateway                                |
+| Configuration Key                        | Type   | Description                                                                                                   |
+|------------------------------------------|--------|---------------------------------------------------------------------------------------------------------------|
+| `contentgrid.routing.domains`            | list   | Domainnames that will be routed to the application                                                            |
+| `contentgrid.cors.origins`               | list   | Origins (protocol + domainname + port if not default) that will be allowed as CORS orgin for this application |
+| `contentgrid.idp.issuer-uri`             | string | OpenID Connect issuer that is trusted for issuing tokens to this application                                  |
+| `contentgrid.idp.client-id`              | string | OAuth Client Id to initiate OpenID Connect authentication from the gateway                                    |
+| `contentgrid.idp.client-secret`          | string | OAuth Client Secret to initiate OpenID Connect authentication from the gateway                                |
+| `contentgrid.idp.additional-issuer-uris` | list   | Additional issuer uris that are trusted for issuing tokens to this application                                |
 
 ## Local development for management gateway
 
