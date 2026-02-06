@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.runtime.security.bearer;
 
 import com.contentgrid.configuration.applications.ApplicationId;
+import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.security.authority.ClaimUtil;
 import com.contentgrid.gateway.runtime.security.authority.ExtensionDelegationGrantedAuthorityConverter;
@@ -15,7 +16,6 @@ import com.contentgrid.gateway.security.bearer.DynamicJwtAuthenticationManagerRe
 import com.contentgrid.gateway.security.bearer.IssuerGatedJwtAuthenticationManager;
 import com.contentgrid.gateway.security.bearer.PostValidatingJwtAuthenticationManager;
 import com.contentgrid.gateway.security.bearer.ReactiveJwtDecoderBuilder;
-import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -31,7 +31,6 @@ import org.springframework.security.authentication.ReactiveAuthenticationManager
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
@@ -82,8 +81,7 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
     @Bean
     Customizer<OAuth2ResourceServerSpec> configureRuntimeJwtAuthenticationManagerResolver(
             ApplicationIdRequestResolver applicationIdResolver,
-            ReactiveClientRegistrationIdResolver registrationIdResolver,
-            ReactiveClientRegistrationRepository clientRegistrationRepository,
+            ApplicationConfigurationRepository applicationConfigurationRepository,
             RuntimePlatformExternalIssuerProperties externalIssuerProperties,
             @ActorConverterType(ActorType.USER)
             Converter<ClaimAccessor, Actor> userActorConverter,
@@ -105,8 +103,7 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
             // Normally, audience checks are part of ReactiveJwtDecoder, but here we are left with checking the 'aud' claim with a wrapping ReactiveAuthenticationManager
             var resolver = new DynamicJwtAuthenticationManagerResolver(
                     applicationIdResolver,
-                    registrationIdResolver,
-                    clientRegistrationRepository
+                    applicationConfigurationRepository
             );
 
             var extensionSystemAuthenticationManager = createAuthenticationManager(
