@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.nimbusds.oauth2.sdk.GeneralException;
-import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -88,22 +87,7 @@ class StaticOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegratio
     void keycloakOIDCwithPKCE_bearerAuth() throws GeneralException, IOException {
 
         var client = createPublicClient(REALM, "public-client", "http://localhost:9999");
-
-        // fetch OIDC metadata
-        var metadata = OIDCProviderMetadata.resolve(REALM.getIssuer());
-        assertThat(metadata).isNotNull();
-
-        // create the authorization request
-        var authzCodeRequest = this.createPkceAuthorizationCodeRequest(metadata.getAuthorizationEndpointURI(), client);
-
-        // get authorization code, with keycloak login
-        var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), USER);
-
-        // exchange the Authorization Code (+ PKCE code verifier) for an Access Token with the Keycloak token endpoint
-        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse,
-                authzCodeRequest.getCodeVerifier());
-        assertThat(tokenResponse.isSuccess()).isTrue();
-        assertThat(tokenResponse.getAccessToken()).isNotNull();
+        var tokenResponse = performPublicAuthorizationCodeFlow(REALM, client, USER);
 
         // validate what we can do with the access token
         assertRequest_withBearer(tokenResponse.getAccessToken())

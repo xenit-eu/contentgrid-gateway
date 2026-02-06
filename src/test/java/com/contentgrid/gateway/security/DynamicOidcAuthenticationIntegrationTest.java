@@ -10,8 +10,6 @@ import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.nimbusds.oauth2.sdk.GeneralException;
-import com.nimbusds.oauth2.sdk.id.Issuer;
-import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -228,28 +226,6 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
         // HTTP 401 - no client-registration associated with app-id anymore
         assertRequest_withBearer(appId, tokenResponse0.getAccessToken()).expectStatus().isUnauthorized();
         assertRequest_withBearer(appId, tokenResponse1.getAccessToken()).expectStatus().isUnauthorized();
-    }
-
-    private TokenResponse performPublicAuthorizationCodeFlow(Realm realm, PublicClientRegistration client, UserCredentials user)
-            throws GeneralException, IOException {
-        log.info("Starting public OIDC authz code flow");
-
-        // fetch OIDC metadata
-        var metadata = OIDCProviderMetadata.resolve(Issuer.parse(realm.getIssuerUrl()));
-        assertThat(metadata).isNotNull();
-
-        // create the authorization request
-        var authzCodeRequest = this.createPkceAuthorizationCodeRequest(metadata.getAuthorizationEndpointURI(), client);
-        // get authorization code, with keycloak login
-        var authzCodeResponse = this.getAuthorizationCodeResponse(authzCodeRequest.uri(), user);
-
-        // exchange the Authorization Code (+ PKCE code verifier) for an Access Token with the Keycloak token endpoint
-        var tokenResponse = this.completeTokenExchange(client, metadata.getTokenEndpointURI(), authzCodeResponse,
-                authzCodeRequest.getCodeVerifier());
-        assertThat(tokenResponse.isSuccess()).isTrue();
-        assertThat(tokenResponse.getAccessToken()).isNotNull();
-
-        return tokenResponse;
     }
 
     private ResponseSpec assertRequest_withBearer(ApplicationId appId, String accessToken) {
