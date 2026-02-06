@@ -37,7 +37,7 @@ public class DynamicVirtualHostApplicationIdResolver implements ApplicationIdReq
 
         var requestHost = requestURI.getHost();
         if (requestHost == null) {
-            log.warn("URI {} does not have have Host information", requestURI);
+            log.warn("URI {} does not have Host information", requestURI);
             return Optional.empty();
         }
 
