@@ -2,15 +2,31 @@ contentgrid:
   gateway:
     runtime-platform:
       enabled: true
+  configuration:
+    static:
+      contentgrid-apps:
+        app1:
+          composition-key: app1
+          configuration:
+            contentgrid.routing.domains: localhost
+            contentgrid.idp.issuer-uri: http://localhost:8082/realms/cg-holmes
+            contentgrid.idp.client-id: test-client
+            contentgrid.idp.client-secret: w0Mu5REJPc3xbnEFh3xX8OhY6INZpJFw
+
 
 testing:
   bootstrap:
     enable: false
 
-spring:
-  main:
-    cloud-platform: kubernetes # bypass detection this is running on K8S
+#spring:
+#  main:
+#    cloud-platform: kubernetes # bypass detection this is running on K8S
 
 servicediscovery:
-  namespace: default
+#  namespace: default
   enabled: true
+  static:
+    deployments:
+      - application-id: app1
+        deployment-id: deployment1
+        uri: http://localhost:8083

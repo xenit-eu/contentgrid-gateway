@@ -27,6 +27,8 @@ import com.contentgrid.gateway.runtime.routing.RuntimeServiceInstanceSelector;
 import com.contentgrid.gateway.runtime.routing.SimpleRuntimeServiceInstanceSelector;
 import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
+import com.contentgrid.gateway.runtime.servicediscovery.StaticServiceDiscovery;
+import com.contentgrid.gateway.runtime.servicediscovery.StaticServiceDiscovery.StaticServiceDiscoveryProperties;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
@@ -42,8 +44,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.cloud.CloudPlatform;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.TokenRelayGatewayFilterFactory;
@@ -231,5 +235,23 @@ public class RuntimeConfiguration {
             }
 
         }
+
+        @ConditionalOnMissingBean(ServiceDiscovery.class)
+        static class StaticServiceDiscoveryConfiguration {
+
+            @Bean
+            @ConfigurationProperties("servicediscovery.static")
+            StaticServiceDiscovery.StaticServiceDiscoveryProperties staticServiceDiscoveryProperties() {
+                return new StaticServiceDiscoveryProperties();
+            }
+
+            @Bean
+            ServiceDiscovery staticServiceDiscovery(StaticServiceDiscoveryProperties staticServiceDiscoveryProperties, ServiceCatalog serviceCatalog) {
+                return new StaticServiceDiscovery(staticServiceDiscoveryProperties, serviceCatalog);
+            }
+
+        }
+
     }
+
 }
