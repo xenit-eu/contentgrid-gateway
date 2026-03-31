@@ -82,10 +82,9 @@ class CorsIntegrationTest {
 
     private WebTestClient.RequestHeadersSpec<?> preflight(String hostname) {
         return this.http.options()
-                .uri(uri -> uri.scheme("http").host("host-behind-proxy").port(8080).path("/me").build())
+                .uri(uri -> uri.scheme("http").host(hostname).port(8080).path("/me").build())
                 .header("Access-Control-Request-Method", "GET")
-                .header("Access-Control-Request-Headers", "authorization")
-                .header("Host", hostname);
+                .header("Access-Control-Request-Headers", "authorization");
 
     }
 }
