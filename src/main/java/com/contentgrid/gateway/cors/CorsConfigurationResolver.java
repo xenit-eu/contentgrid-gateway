@@ -29,12 +29,11 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
 
     @Override
     public CorsConfiguration getCorsConfiguration(ServerWebExchange exchange) {
-        var host =  exchange.getRequest().getHeaders().getHost();
+        var host = exchange.getRequest().getURI().getHost();
         if (host == null) {
             return null;
         }
 
-        var hostname = host.getHostName();
-        return configurations.getOrDefault(hostname, this.fallback);
+        return configurations.getOrDefault(host, this.fallback);
     }
 }
