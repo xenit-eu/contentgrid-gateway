@@ -242,7 +242,7 @@ public class GatewayApplication {
         http.cors(cors -> cors.configurationSource(corsConfig));
 
         http.csrf(CsrfSpec::disable);
-        http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.SAMEORIGIN)));
+        http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.mode(Mode.DENY)));
 
         if (reactiveUserDetailsServiceOptional.isEmpty() && reactiveAuthenticationManagerOptional.isEmpty()) {
             http.authenticationManager((authentication) -> Mono.error(new UsernameNotFoundException(authentication.getName())));

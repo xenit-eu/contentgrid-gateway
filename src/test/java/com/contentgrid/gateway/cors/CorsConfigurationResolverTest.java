@@ -22,8 +22,7 @@ class CorsConfigurationResolverTest {
         var resolver = new CorsConfigurationResolver(properties);
 
         var request = MockServerHttpRequest
-                .get("/me")
-                .header("Host", "api.contentgrid.com");
+                .get("http://api.contentgrid.com/me");
         var cors = resolver.getCorsConfiguration(MockServerWebExchange.from(request));
 
         assertThat(cors).isNotNull();
