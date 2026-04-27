@@ -27,7 +27,7 @@ class CorsConfigurationResolverTest {
 
         assertThat(cors).isNotNull();
         assertThat(cors.getAllowedOrigins()).singleElement().isEqualTo("console.contentgrid.com");
-        assertThat(cors.getAllowedHeaders()).contains("Authorization", "Content-Type");
+        assertThat(cors.getAllowedHeaders()).contains("Authorization", "Content-Type", "Last-Event-ID");
         assertThat(cors.getAllowedMethods()).singleElement().isEqualTo("*");
         assertThat(cors.getMaxAge()).isEqualTo(1800L);
         assertThat(cors.getAllowCredentials()).isNull();

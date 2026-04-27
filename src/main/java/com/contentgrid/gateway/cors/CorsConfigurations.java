@@ -13,7 +13,9 @@ import org.springframework.web.cors.CorsConfiguration;
 public class CorsConfigurations {
 
     public static final List<String> DEFAULT_ALLOWED_METHODS = List.of("*");
-    public static final List<String> DEFAULT_ALLOWED_HEADERS = List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE);
+    // The assistant uses text/event-streams to communicate. This header is needed to revisit a text event stream after a network connection reset
+    public static final String LAST_EVENT_ID = "Last-Event-ID";
+    public static final List<String> DEFAULT_ALLOWED_HEADERS = List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, LAST_EVENT_ID);
     public static final Duration DEFAULT_MAX_AGE = Duration.of(30, ChronoUnit.MINUTES);
 
     public static CorsConfiguration applyDefaults(@Nullable CorsConfiguration cors) {
