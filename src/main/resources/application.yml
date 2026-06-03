@@ -16,6 +16,8 @@ spring:
             - Abac
           # This looks unsafe, but the gateway is always supposed to be deployed behind a proxy that _replaces_ X-Forwarded-For/Forwarded headers with only trusted addresses
           trusted-proxies: .*
+          x-forwarded:
+            proto-append: false # uvicorn (for the assistant) doesn't support a comma-separated list for X-Forwarded-Proto: https://github.com/Kludex/uvicorn/pull/2104; and only sending a single value should be fine for all services
 
 management:
   endpoints:
