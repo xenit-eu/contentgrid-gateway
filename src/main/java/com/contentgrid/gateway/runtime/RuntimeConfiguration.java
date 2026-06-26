@@ -12,6 +12,8 @@ import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.authorization.PolicyPackageAuthorizationManager;
+import com.contentgrid.gateway.runtime.authorization.PolicyPackageTokenGatewayFilter;
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvider;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -34,7 +36,6 @@ import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
-import com.contentgrid.gateway.runtime.authorization.PolicyPackageAuthorizationManager;
 import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
@@ -111,12 +112,17 @@ public class RuntimeConfiguration {
             );
         });
 
-        GatewayFilter tokenFilter = jwtSignerRegistry.hasSigner("apps")?
-                locallyIssuedJwtGatewayFilterFactory.apply(c -> {
-                    c.setSigner("apps");
-                    c.setClaimsResolver("apps");
-                }) :
-                tokenRelayGatewayFilterFactory.apply();
+        GatewayFilter tokenFilter;
+        if (jwtSignerRegistry.hasSigner("apps")) {
+            // mint a gateway JWT for apps using the shared OPA; relay the original token for migrated apps
+            var mint = locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                c.setSigner("apps");
+                c.setClaimsResolver("apps");
+            });
+            tokenFilter = new PolicyPackageTokenGatewayFilter(mint, tokenRelayGatewayFilterFactory.apply());
+        } else {
+            tokenFilter = tokenRelayGatewayFilterFactory.apply();
+        }
 
         routes.route(r -> r
                 .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
@@ -215,8 +221,10 @@ public class RuntimeConfiguration {
     }
 
     /**
-     * Replaces the thunx-autoconfigured authorization manager (which backs off via
-     * {@code @ConditionalOnMissingBean}), wrapping it so applications without a policy package skip OPA.
+     * Rebuilds the same authorization manager thunx would autoconfigure and wraps it so applications
+     * without a policy package skip OPA. Defining this bean makes the thunx one back off
+     * ({@code @ConditionalOnMissingBean}); the condition mirrors thunx's own, so this is registered
+     * exactly when OPA is configured.
      */
     @Bean
     @ConditionalOnProperty("opa.service.url")

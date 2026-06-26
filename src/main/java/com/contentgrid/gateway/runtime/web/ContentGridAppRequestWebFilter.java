@@ -58,6 +58,11 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                 .then(chain.filter(exchange));
     }
 
+    public static boolean isMigratedApplication(ServerWebExchange exchange) {
+        return exchange.getAttribute(CONTENTGRID_SERVICE_INSTANCE_ATTR) != null
+                && exchange.getAttribute(CONTENTGRID_POLICY_PACKAGE_ATTR) == null;
+    }
+
     private Mono<?> logServiceInstanceNotFound(ServerWebExchange exchange) {
         // EndpointRequest requires application context
         // but application context is always null in a MockServerWebExchange (from tests)
