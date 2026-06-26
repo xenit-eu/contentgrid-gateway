@@ -34,8 +34,12 @@ import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
+import com.contentgrid.gateway.runtime.authorization.PolicyPackageAuthorizationManager;
+import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
+import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
+import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -57,9 +61,12 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -205,6 +212,18 @@ public class RuntimeConfiguration {
     OpaQueryProvider<ServerWebExchange> opaQueryProvider(ServiceCatalog serviceCatalog,
             ContentGridDeploymentMetadata deploymentMetadata) {
         return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
+    }
+
+    /**
+     * Replaces the thunx-autoconfigured authorization manager (which backs off via
+     * {@code @ConditionalOnMissingBean}), wrapping it so applications without a policy package skip OPA.
+     */
+    @Bean
+    @ConditionalOnProperty("opa.service.url")
+    ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthorizationManager(
+            PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient) {
+        var delegate = new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(pdpClient));
+        return new PolicyPackageAuthorizationManager(delegate);
     }
 
     @Bean
