@@ -221,16 +221,23 @@ public class RuntimeConfiguration {
     }
 
     /**
-     * Rebuilds the same authorization manager thunx would autoconfigure and wraps it so applications
-     * without a policy package skip OPA. Defining this bean makes the thunx one back off
-     * ({@code @ConditionalOnMissingBean}); the condition mirrors thunx's own, so this is registered
-     * exactly when OPA is configured.
+     * Wraps the OPA-backed authorization manager so applications without a policy package skip OPA.
+     * Rebuilds the delegate thunx would autoconfigure (defining this bean makes thunx's own back off via
+     * {@code @ConditionalOnMissingBean}). Gated on {@code opa.service.url} — the property thunx's
+     * OpaClient -> PolicyDecisionPointClient chain is itself built from. This property guard is NOT
+     * identical to thunx's {@code @ConditionalOnBean(PolicyDecisionPointClient)}: if the property is set
+     * but no PDP client is present, return {@code null} so the gateway keeps its default manager rather
+     * than failing to start (matching the pre-existing fallback behaviour).
      */
     @Bean
     @ConditionalOnProperty("opa.service.url")
     ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthorizationManager(
-            PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient) {
-        var delegate = new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(pdpClient));
+            ObjectProvider<PolicyDecisionPointClient<Authentication, ServerWebExchange>> pdpClient) {
+        var client = pdpClient.getIfAvailable();
+        if (client == null) {
+            return null;
+        }
+        var delegate = new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(client));
         return new PolicyPackageAuthorizationManager(delegate);
     }
 
