@@ -315,4 +315,93 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
     }
 
+    @Nested
+    @Import(KindClientConfiguration.class)
+    @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.runtime-platform.enabled=true",
+            "spring.main.cloud-platform=kubernetes",
+            "servicediscovery.namespace=default",
+            "servicediscovery.enabled=true",
+            // OPA is configured but deliberately unreachable: a migrated app must skip it, so any OPA
+            // call would fail to connect and the request would not be 2xx.
+            "opa.service.url=http://opa.invalid:8181"
+    })
+    @AutoConfigureWebTestClient
+    public class MigratedAppSkipsOpaTest {
+
+        @Autowired
+        ApplicationContext context;
+
+        private WebTestClient webTestClient;
+
+        @BeforeEach
+        public void setup() {
+            this.webTestClient = WebTestClient
+                    .bindToApplicationContext(this.context)
+                    .apply(springSecurity())
+                    .configureClient()
+                    .responseTimeout(Duration.ofHours(1))
+                    .build();
+        }
+
+        @Test
+        public void serviceWithoutPolicyPackage_skipsOpaAndIsServed() {
+            var appId = ApplicationId.random();
+            var deploymentId = DeploymentId.random();
+
+            // a Service WITHOUT the authz.contentgrid.com/policy-package label -> migrated to sidecar OPA
+            Service service = new ServiceBuilder()
+                    .withNewMetadata()
+                    .withName("integration-test-migrated-service")
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "api",
+                            "app.contentgrid.com/application-id", appId.toString(),
+                            "app.contentgrid.com/deployment-id", deploymentId.toString()
+                    ))
+                    .endMetadata()
+                    .withNewSpec()
+                    .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
+                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
+                    .endSpec()
+                    .build();
+
+            ConfigMap configMap = new ConfigMapBuilder()
+                    .withNewMetadata()
+                    .withName("app-" + UUID.randomUUID())
+                    .withLabels(Map.of(
+                            "app.kubernetes.io/managed-by", "contentgrid",
+                            "app.contentgrid.com/service-type", "gateway",
+                            "app.contentgrid.com/application-id", appId.toString()
+                    ))
+                    .endMetadata()
+                    .addToData(Map.of(Keys.ROUTING_DOMAINS, "%s.userapps.contentgrid.com".formatted(appId)))
+                    .build();
+
+            try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml()))
+                    .build()) {
+                client.resource(service).inNamespace("default").create();
+                client.resource(configMap).inNamespace("default").create();
+                logger.info("Created k8s resources");
+            }
+
+            // Without the skip the gateway would query the (unreachable) OPA with the "0 == 1" deny sentinel
+            // and fail; a 2xx proves OPA was skipped for the migrated application.
+            await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(() -> {
+                        webTestClient
+                                .mutateWith(mockOidcLogin())
+                                .get()
+                                .uri("https://{appId}.userapps.contentgrid.com/test", appId)
+                                .header("Host", "%s.userapps.contentgrid.com".formatted(appId))
+                                .exchange()
+                                .expectStatus().is2xxSuccessful()
+                                .expectBody(String.class)
+                                .value(body -> assertThat(body).isEqualTo("Hello ContentGrid!"));
+                    });
+        }
+    }
+
 }
