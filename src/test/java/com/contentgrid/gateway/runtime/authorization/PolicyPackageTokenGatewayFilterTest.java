@@ -1,11 +1,9 @@
 package com.contentgrid.gateway.runtime.authorization;
 
-import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_POLICY_PACKAGE_ATTR;
-import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_SERVICE_INSTANCE_ATTR;
+import static com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager.ABAC_POLICY_PREDICATE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 
-import com.contentgrid.configuration.applications.ApplicationId;
-import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
+import com.contentgrid.thunx.predicates.model.Scalar;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,9 +33,8 @@ class PolicyPackageTokenGatewayFilterTest {
     }
 
     @Test
-    void migratedApplication_relaysOriginalToken() {
-        var service = ServiceInstanceStubs.serviceInstance(ApplicationId.random());
-        var exchange = exchange(e -> e.getAttributes().put(CONTENTGRID_SERVICE_INSTANCE_ATTR, service));
+    void noAbacPredicate_relaysOriginalToken() {
+        var exchange = exchange(e -> { });
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
@@ -46,12 +43,8 @@ class PolicyPackageTokenGatewayFilterTest {
     }
 
     @Test
-    void applicationWithPolicyPackage_mintsToken() {
-        var service = ServiceInstanceStubs.serviceInstance(ApplicationId.random());
-        var exchange = exchange(e -> {
-            e.getAttributes().put(CONTENTGRID_SERVICE_INSTANCE_ATTR, service);
-            e.getAttributes().put(CONTENTGRID_POLICY_PACKAGE_ATTR, "contentgrid.userapps.example");
-        });
+    void abacPredicatePresent_mintsToken() {
+        var exchange = exchange(e -> e.getAttributes().put(ABAC_POLICY_PREDICATE_ATTR, Scalar.of(true)));
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 

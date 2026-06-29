@@ -1,7 +1,6 @@
 package com.contentgrid.gateway.runtime.authorization;
 
-import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.isMigratedApplication;
-
+import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -10,9 +9,10 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Relays the original user token for an application without a policy package (migrated to a sidecar OPA);
- * otherwise delegates to the token-minting filter. Skipping the per-request token minting is the point of
- * the bypass: a migrated application authorizes itself, so the gateway just forwards the token.
+ * Relays the original user token when the gateway produced no ABAC predicate — i.e. OPA was skipped for a
+ * migrated application that authorizes itself via its sidecar; otherwise delegates to the token-minting
+ * filter. Keying off the residual set by the authorization manager keeps this in lockstep with whether
+ * OPA actually ran, rather than re-deriving the "migrated" check (the two could disagree).
  */
 @RequiredArgsConstructor
 public class PolicyPackageTokenGatewayFilter implements GatewayFilter {
@@ -25,6 +25,7 @@ public class PolicyPackageTokenGatewayFilter implements GatewayFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        return (isMigratedApplication(exchange) ? relay : mint).filter(exchange, chain);
+        var opaSkipped = exchange.getAttribute(ReactivePolicyAuthorizationManager.ABAC_POLICY_PREDICATE_ATTR) == null;
+        return (opaSkipped ? relay : mint).filter(exchange, chain);
     }
 }
