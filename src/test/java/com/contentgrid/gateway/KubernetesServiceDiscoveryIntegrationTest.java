@@ -327,7 +327,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             "opa.service.url=http://opa.invalid:8181"
     })
     @AutoConfigureWebTestClient
-    public class MigratedAppSkipsOpaTest {
+    class MigratedAppSkipsOpaTest {
 
         @Autowired
         ApplicationContext context;
@@ -335,7 +335,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         private WebTestClient webTestClient;
 
         @BeforeEach
-        public void setup() {
+        void setup() {
             this.webTestClient = WebTestClient
                     .bindToApplicationContext(this.context)
                     .apply(springSecurity())
@@ -345,7 +345,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
 
         @Test
-        public void serviceWithoutPolicyPackage_skipsOpaAndIsServed() {
+        void serviceWithoutPolicyPackage_skipsOpaAndIsServed() {
             var appId = ApplicationId.random();
             var deploymentId = DeploymentId.random();
 
