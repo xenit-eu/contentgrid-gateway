@@ -27,6 +27,7 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     public static final String CONTENTGRID_SERVICE_INSTANCE_ATTR = "com.contentgrid.gateway.service-instance";
     public static final String CONTENTGRID_APP_ID_ATTR = "com.contentgrid.gateway.application-id";
     public static final String CONTENTGRID_DEPLOY_ID_ATTR = "com.contentgrid.gateway.deployment-id";
+    public static final String CONTENTGRID_POLICY_PACKAGE_ATTR = "com.contentgrid.gateway.policy-package";
 
     @NonNull
     private final ContentGridDeploymentMetadata serviceMetadata;
@@ -42,6 +43,7 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                 {
                     var appId = serviceMetadata.getApplicationId(service);
                     var deployId = serviceMetadata.getDeploymentId(service);
+                    var policyPackage = serviceMetadata.getPolicyPackage(service);
 
                     log.debug("{} {} -> app-id: {} deploy-id: {}",
                             exchange.getRequest().getMethod().name(), exchange.getRequest().getURI(),
@@ -51,8 +53,14 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                     attributes.put(CONTENTGRID_SERVICE_INSTANCE_ATTR, service);
                     appId.ifPresent(value -> attributes.put(CONTENTGRID_APP_ID_ATTR, value));
                     deployId.ifPresent(value -> attributes.put(CONTENTGRID_DEPLOY_ID_ATTR, value));
+                    policyPackage.ifPresent(value -> attributes.put(CONTENTGRID_POLICY_PACKAGE_ATTR, value));
                 })
                 .then(chain.filter(exchange));
+    }
+
+    public static boolean isMigratedApplication(ServerWebExchange exchange) {
+        return exchange.getAttribute(CONTENTGRID_SERVICE_INSTANCE_ATTR) != null
+                && exchange.getAttribute(CONTENTGRID_POLICY_PACKAGE_ATTR) == null;
     }
 
     private Mono<?> logServiceInstanceNotFound(ServerWebExchange exchange) {

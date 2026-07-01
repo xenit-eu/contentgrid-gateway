@@ -12,6 +12,8 @@ import com.contentgrid.gateway.runtime.actuate.ContentGridActuatorEndpoint;
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.authorization.PolicyPackageAuthorizationManager;
+import com.contentgrid.gateway.runtime.authorization.PolicyPackageTokenGatewayFilter;
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvider;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
@@ -34,8 +36,11 @@ import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.LocallyIssuedJwtGatewayFilterFactory;
 import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolver;
+import com.contentgrid.thunx.pdp.PolicyDecisionComponentImpl;
+import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
+import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -57,9 +62,12 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -104,12 +112,17 @@ public class RuntimeConfiguration {
             );
         });
 
-        GatewayFilter tokenFilter = jwtSignerRegistry.hasSigner("apps")?
-                locallyIssuedJwtGatewayFilterFactory.apply(c -> {
-                    c.setSigner("apps");
-                    c.setClaimsResolver("apps");
-                }) :
-                tokenRelayGatewayFilterFactory.apply();
+        GatewayFilter tokenFilter;
+        if (jwtSignerRegistry.hasSigner("apps")) {
+            // mint a gateway JWT for apps using the shared OPA; relay the original token for migrated apps
+            var mint = locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                c.setSigner("apps");
+                c.setClaimsResolver("apps");
+            });
+            tokenFilter = new PolicyPackageTokenGatewayFilter(mint, tokenRelayGatewayFilterFactory.apply());
+        } else {
+            tokenFilter = tokenRelayGatewayFilterFactory.apply();
+        }
 
         routes.route(r -> r
                 .predicate(exchange -> applicationIdRequestResolver.resolveApplicationId(exchange).isPresent())
@@ -205,6 +218,27 @@ public class RuntimeConfiguration {
     OpaQueryProvider<ServerWebExchange> opaQueryProvider(ServiceCatalog serviceCatalog,
             ContentGridDeploymentMetadata deploymentMetadata) {
         return new RuntimeOpaQueryProvider(serviceCatalog, deploymentMetadata);
+    }
+
+    /**
+     * Wraps the OPA-backed authorization manager so applications without a policy package skip OPA.
+     * Rebuilds the delegate thunx would autoconfigure (defining this bean makes thunx's own back off via
+     * {@code @ConditionalOnMissingBean}). Gated on {@code opa.service.url} — the property thunx's
+     * OpaClient -> PolicyDecisionPointClient chain is itself built from. This property guard is NOT
+     * identical to thunx's {@code @ConditionalOnBean(PolicyDecisionPointClient)}: if the property is set
+     * but no PDP client is present, return {@code null} so the gateway keeps its default manager rather
+     * than failing to start (matching the pre-existing fallback behaviour).
+     */
+    @Bean
+    @ConditionalOnProperty("opa.service.url")
+    ReactiveAuthorizationManager<AuthorizationContext> reactiveAuthorizationManager(
+            ObjectProvider<PolicyDecisionPointClient<Authentication, ServerWebExchange>> pdpClient) {
+        var client = pdpClient.getIfAvailable();
+        if (client == null) {
+            return null;
+        }
+        var delegate = new ReactivePolicyAuthorizationManager(new PolicyDecisionComponentImpl<>(client));
+        return new PolicyPackageAuthorizationManager(delegate);
     }
 
     @Bean
