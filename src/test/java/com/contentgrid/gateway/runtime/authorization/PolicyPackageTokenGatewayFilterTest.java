@@ -2,12 +2,15 @@ package com.contentgrid.gateway.runtime.authorization;
 
 import static com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager.ABAC_POLICY_PREDICATE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.contentgrid.thunx.predicates.model.Scalar;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -17,39 +20,39 @@ import reactor.test.StepVerifier;
 
 class PolicyPackageTokenGatewayFilterTest {
 
-    private GatewayFilter mint;
-    private GatewayFilter relay;
+    private GatewayFilter legacyMint;
+    private GatewayFilter sidecarMint;
     private GatewayFilterChain chain;
     private PolicyPackageTokenGatewayFilter filter;
 
     @BeforeEach
     void setup() {
-        this.mint = Mockito.mock(GatewayFilter.class);
-        this.relay = Mockito.mock(GatewayFilter.class);
-        this.chain = Mockito.mock(GatewayFilterChain.class);
-        this.filter = new PolicyPackageTokenGatewayFilter(mint, relay);
-        Mockito.lenient().when(mint.filter(any(), any())).thenReturn(Mono.empty());
-        Mockito.lenient().when(relay.filter(any(), any())).thenReturn(Mono.empty());
+        this.legacyMint = mock(GatewayFilter.class);
+        this.sidecarMint = mock(GatewayFilter.class);
+        this.chain = mock(GatewayFilterChain.class);
+        this.filter = new PolicyPackageTokenGatewayFilter(legacyMint, sidecarMint);
+        lenient().when(legacyMint.filter(any(), any())).thenReturn(Mono.empty());
+        lenient().when(sidecarMint.filter(any(), any())).thenReturn(Mono.empty());
     }
 
     @Test
-    void noAbacPredicate_relaysOriginalToken() {
+    void noAbacPredicate_mintsSidecarToken() {
         var exchange = exchange(e -> { });
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
-        Mockito.verify(relay).filter(exchange, chain);
-        Mockito.verify(mint, Mockito.never()).filter(any(), any());
+        verify(sidecarMint).filter(exchange, chain);
+        verify(legacyMint, never()).filter(any(), any());
     }
 
     @Test
-    void abacPredicatePresent_mintsToken() {
+    void abacPredicatePresent_mintsLegacyToken() {
         var exchange = exchange(e -> e.getAttributes().put(ABAC_POLICY_PREDICATE_ATTR, Scalar.of(true)));
 
         StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
 
-        Mockito.verify(mint).filter(exchange, chain);
-        Mockito.verify(relay, Mockito.never()).filter(any(), any());
+        verify(legacyMint).filter(exchange, chain);
+        verify(sidecarMint, never()).filter(any(), any());
     }
 
     private static MockServerWebExchange exchange(Consumer<MockServerWebExchange> customizer) {

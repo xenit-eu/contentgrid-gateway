@@ -114,12 +114,15 @@ public class RuntimeConfiguration {
 
         GatewayFilter tokenFilter;
         if (jwtSignerRegistry.hasSigner("apps")) {
-            // mint a gateway JWT for apps using the shared OPA; relay the original token for migrated apps
-            var mint = locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+            var legacyMint = locallyIssuedJwtGatewayFilterFactory.apply(c -> {
                 c.setSigner("apps");
                 c.setClaimsResolver("apps");
             });
-            tokenFilter = new PolicyPackageTokenGatewayFilter(mint, tokenRelayGatewayFilterFactory.apply());
+            var sidecarMint = locallyIssuedJwtGatewayFilterFactory.apply(c -> {
+                c.setSigner("apps");
+                c.setClaimsResolver("apps-sidecar");
+            });
+            tokenFilter = new PolicyPackageTokenGatewayFilter(legacyMint, sidecarMint);
         } else {
             tokenFilter = tokenRelayGatewayFilterFactory.apply();
         }

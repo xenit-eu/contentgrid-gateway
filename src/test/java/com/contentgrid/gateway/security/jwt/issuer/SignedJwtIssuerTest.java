@@ -82,7 +82,8 @@ class SignedJwtIssuerTest {
             assertThat(token.getIssuedAt()).isBeforeOrEqualTo(Instant.now());
             assertThat(token.getClaimAsMap("act")).isEqualTo(Map.of(
                     "iss", "https://extensions.invalid/authentication/system",
-                    "sub", "extension123"
+                    "sub", "extension123",
+                    "kind", "extension"
             ));
             assertThat(token.getExpiresAt()).isBetween(Instant.now().plus(4, ChronoUnit.MINUTES), Instant.now().plus(5, ChronoUnit.MINUTES));
             assertThat(token.getTokenValue()).satisfies(verifyJwtSignedBy(issuer));
@@ -211,6 +212,26 @@ class SignedJwtIssuerTest {
         });
     }
 
+    @Test
+    void no_token_minted_without_authentication_details() {
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
+
+        // Authenticated principal, but without any AuthenticationDetails authority: no token may be minted
+        var exchange = createExchange(new TestingAuthenticationToken("user", null, List.of()));
+
+        assertThat(issuer.issueSubstitutionToken(exchange).blockOptional()).isEmpty();
+    }
+
+    @Test
+    void no_token_minted_for_anonymous_exchange() {
+        var issuer = new SignedJwtIssuer(CLAIMS_SIGNER, JwtClaimsResolver.empty());
+
+        // No security context at all (anonymous request): no token may be minted
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/").build());
+
+        assertThat(issuer.issueSubstitutionToken(exchange).blockOptional()).isEmpty();
+    }
+
     static ServerWebExchange createExchange(Authentication authentication) {
         var request = MockServerHttpRequest.get("/").build();
         var securityContext = new SecurityContextImpl(authentication);
@@ -223,7 +244,7 @@ class SignedJwtIssuerTest {
     @NotNull
     static ThrowingConsumer<String> verifyJwtSignedBy(SignedJwtIssuer issuer) {
         return tokenValue -> {
-            var decoder = NimbusJwtDecoder.withPublicKey(issuer.getJwkSet().getKeys().get(0).toRSAKey()
+            var decoder = NimbusJwtDecoder.withPublicKey(issuer.getJwkSet().getKeys().getFirst().toRSAKey()
                             .toRSAPublicKey())
                     .build();
 
