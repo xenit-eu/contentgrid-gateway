@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -24,15 +23,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class RuntimeSidecarJwtClaimsResolver implements JwtClaimsResolver {
 
-    /**
-     * Stable gateway issuer for minted sidecar tokens, from
-     * {@code contentgrid.gateway.runtime-platform.jwt.apps.issuer}. When blank, no issuer is set here, and
-     * {@link com.contentgrid.gateway.security.jwt.issuer.SignedJwtIssuer} falls back to copying the upstream
-     * {@code iss} claim, matching legacy (pre-sidecar) behaviour. The original issuer isn't lost in that case
-     * either way: it still travels inside the {@link ContentGridClaimNames#AUTH_PRINCIPAL} claim.
-     */
-    private final String issuer;
-
     @Override
     public Mono<JWTClaimsSet> resolveAdditionalClaims(ServerWebExchange exchange, AuthenticationDetails authenticationDetails) {
         ApplicationId applicationId = exchange.getRequiredAttribute(ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR);
@@ -42,10 +32,6 @@ public class RuntimeSidecarJwtClaimsResolver implements JwtClaimsResolver {
                 .audience("contentgrid:app:" + applicationId + ":" + deploymentId)
                 .claim(ContentGridClaimNames.AUTH_KIND, lowercaseName(AuthenticationModel.classify(authenticationDetails)))
                 .claim(ContentGridClaimNames.AUTH_PRINCIPAL, createPrincipalClaim(authenticationDetails));
-
-        if (StringUtils.hasText(issuer)) {
-            claimsBuilder.issuer(issuer);
-        }
 
         return Mono.just(claimsBuilder.build());
     }

@@ -1,5 +1,4 @@
 {
-  "iss": "https://gateway.example/apps",
   "aud": "contentgrid:app:a1:d1",
   "contentgrid:auth:kind": "system",
   "contentgrid:auth:principal": {
