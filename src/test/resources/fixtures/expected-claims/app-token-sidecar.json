@@ -1,0 +1,11 @@
+{
+  "iss": "https://auth.contentgrid.example/realms/abc",
+  "sub": "user",
+  "aud": "contentgrid:app:${MIGRATED_APP_ID}:${MIGRATED_DEPLOY_ID}",
+  "contentgrid:auth:kind": "user",
+  "contentgrid:auth:principal": {
+    "kind": "user",
+    "iss": "https://auth.contentgrid.example/realms/abc",
+    "sub": "user"
+  }
+}

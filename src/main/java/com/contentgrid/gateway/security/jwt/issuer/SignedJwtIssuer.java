@@ -3,7 +3,6 @@ package com.contentgrid.gateway.security.jwt.issuer;
 import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.AuthenticationDetails;
-import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.JWTClaimsSet;
 import java.text.ParseException;
@@ -11,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -133,6 +133,7 @@ public class SignedJwtIssuer implements JwtIssuer {
 
     private Map<String, Object> reconstructActorChain(Actor actor) {
         var claims = new HashMap<>(actor.getClaims().getClaims());
+        claims.putIfAbsent(ContentGridClaimNames.ACTOR_KIND, actor.getType().name().toLowerCase(Locale.ROOT));
         if(actor.getParent() != null) {
             claims.put(ContentGridClaimNames.ACT, reconstructActorChain(actor.getParent()));
         }
