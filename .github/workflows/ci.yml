@@ -24,9 +24,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      - name: Publish docker image
+      - name: Set up QEMU for cross-architecture image builds
         if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
-        run: ./gradlew bootBuildImage --publishImage
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - name: Publish docker images
+        if: ${{ github.ref == 'refs/heads/main' || startswith(github.ref, 'refs/tags/') }}
+        run: ./gradlew bootBuildLinuxAmd64Image --publishImage bootBuildLinuxArm64Image --publishImage
         env:
           ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_URL: ghcr.io
           ORG_GRADLE_PROJECT_DOCKER_PUBLISH_REGISTRY_USERNAME: ${{ github.actor }}
