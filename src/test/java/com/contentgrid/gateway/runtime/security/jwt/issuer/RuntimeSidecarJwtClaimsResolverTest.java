@@ -14,10 +14,10 @@ import com.contentgrid.gateway.security.authority.PrincipalAuthenticationDetails
 import com.contentgrid.gateway.test.security.jwt.ExpectedClaims;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 
@@ -25,7 +25,6 @@ class RuntimeSidecarJwtClaimsResolverTest {
 
     private static final ApplicationId APPLICATION_ID = ApplicationId.from("a1");
     private static final DeploymentId DEPLOYMENT_ID = DeploymentId.from("d1");
-    private static final String ISSUER = "https://gateway.example/apps";
 
     private static Actor userActor() {
         return new Actor(
@@ -43,10 +42,9 @@ class RuntimeSidecarJwtClaimsResolverTest {
         );
     }
 
-    @ParameterizedTest
-    @NullAndEmptySource
-    void noIssuerConfigured_leavesIssuerUnset(String issuer) {
-        var resolver = new RuntimeSidecarJwtClaimsResolver(issuer);
+    @Test
+    void leavesIssuerUnset() {
+        var resolver = new RuntimeSidecarJwtClaimsResolver();
         var authenticationDetails = new PrincipalAuthenticationDetailsGrantedAuthority(userActor());
 
         var claims = resolver.resolveAdditionalClaims(exchange(), authenticationDetails).block();
@@ -66,7 +64,7 @@ class RuntimeSidecarJwtClaimsResolverTest {
     @ParameterizedTest
     @MethodSource
     void assertClaims(AuthenticationDetails authDetails, String fixturePath) {
-        var resolver = new RuntimeSidecarJwtClaimsResolver(ISSUER);
+        var resolver = new RuntimeSidecarJwtClaimsResolver();
 
         var claims = resolver.resolveAdditionalClaims(exchange(), authDetails).block();
 

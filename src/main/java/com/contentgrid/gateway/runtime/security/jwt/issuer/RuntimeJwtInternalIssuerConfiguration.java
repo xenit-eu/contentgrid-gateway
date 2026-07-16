@@ -12,7 +12,6 @@ import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEn
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -33,10 +32,8 @@ public class RuntimeJwtInternalIssuerConfiguration {
 
     @Bean
     @NamedJwtClaimsResolver("apps-sidecar")
-    RuntimeSidecarJwtClaimsResolver runtimeSidecarJwtClaimsResolver(
-            @Value("${contentgrid.gateway.runtime-platform.jwt.apps.issuer:}") String issuer
-    ) {
-        return new RuntimeSidecarJwtClaimsResolver(issuer);
+    RuntimeSidecarJwtClaimsResolver runtimeSidecarJwtClaimsResolver() {
+        return new RuntimeSidecarJwtClaimsResolver();
     }
 
     private static final String AUTHENTICATION_ENCRYPTION = "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption";
