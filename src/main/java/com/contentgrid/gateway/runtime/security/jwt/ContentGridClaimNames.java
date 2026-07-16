@@ -28,4 +28,10 @@ public class ContentGridClaimNames {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc8693.html#name-act-actor-claim">RFC8693</a>
      */
     public static final String ACT = "act";
+
+    /**
+     * The specific resource (URI without origin) within an application for which the token was issued.
+     * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/specs/automation-extension-authentication.md#additional-jwt-claims">Automation extension authentication spec</a>
+     */
+    public static final String CONTEXT_APPLICATION_RESOURCE = "context:application:resource";
 }

@@ -7,6 +7,7 @@ import com.contentgrid.gateway.runtime.security.authority.ClaimUtil;
 import com.contentgrid.gateway.runtime.security.authority.ExtensionDelegationGrantedAuthorityConverter;
 import com.contentgrid.gateway.runtime.security.bearer.RuntimePlatformExternalIssuerProperties.OidcIssuerProperties;
 import com.contentgrid.gateway.runtime.security.jwt.ContentGridAudiences;
+import com.contentgrid.gateway.runtime.security.jwt.ContentGridClaimNames;
 import com.contentgrid.gateway.security.authority.Actor;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.ActorConverter;
@@ -26,12 +27,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.DelegatingReactiveAuthenticationManager;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2ResourceServerSpec;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.ClaimAccessor;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.jwt.JwtClaimValidator;
@@ -42,6 +45,7 @@ import org.springframework.security.oauth2.server.resource.web.server.BearerToke
 import org.springframework.security.oauth2.server.resource.web.server.authentication.ServerBearerTokenAuthenticationConverter;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint.DelegateEntry;
 import org.springframework.security.web.server.authentication.AuthenticationConverterServerWebExchangeMatcher;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @Configuration(proxyBeanMethods = false)
@@ -127,7 +131,8 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
                                             createApplicationSpecificExtensionAuthenticationManager(
                                                     applicationId,
                                                     extensionSystemAuthenticationManager,
-                                                    extensionDelegationAuthenticationManager
+                                                    extensionDelegationAuthenticationManager,
+                                                    webExchange
                                             ),
                                             authenticationManager
                                     ))
@@ -138,19 +143,34 @@ public class RuntimePlatformOAuth2ResourceServerConfiguration {
         };
     }
 
-    private static PostValidatingJwtAuthenticationManager<List<String>> createApplicationSpecificExtensionAuthenticationManager(
+    private static PostValidatingJwtAuthenticationManager createApplicationSpecificExtensionAuthenticationManager(
             ApplicationId applicationId,
             ReactiveAuthenticationManager extensionSystemAuthenticationManager,
-            ReactiveAuthenticationManager extensionDelegationAuthenticationManager
+            ReactiveAuthenticationManager extensionDelegationAuthenticationManager,
+            ServerWebExchange webExchange
     ) {
-        return new PostValidatingJwtAuthenticationManager<>(
-                new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
-                        aud -> aud != null && aud.contains(ContentGridAudiences.application(applicationId))),
+        var audValidator = new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
+                aud -> aud != null && aud.contains(ContentGridAudiences.application(applicationId)));
+        // Gateway extension spec: 'context:application:resource' must match the request URL exactly, if present.
+        // See ExtensionResourceJwtClaimValidator for the TODO on unspecified edge semantics (query strings, encoding).
+        var resourceValidator = new ExtensionResourceJwtClaimValidator(requestResource(webExchange.getRequest()));
+        return new PostValidatingJwtAuthenticationManager(
+                new DelegatingOAuth2TokenValidator<>(audValidator, resourceValidator),
                 new DelegatingReactiveAuthenticationManager(
                         extensionSystemAuthenticationManager,
                         extensionDelegationAuthenticationManager
                 )
         );
+    }
+
+    /**
+     * The request's resource, in the same "URI without origin" shape as {@code context:application:resource}
+     * (see {@link ContentGridClaimNames#CONTEXT_APPLICATION_RESOURCE}).
+     */
+    private static String requestResource(ServerHttpRequest request) {
+        var uri = request.getURI();
+        var query = uri.getRawQuery();
+        return query == null ? uri.getRawPath() : uri.getRawPath() + "?" + query;
     }
 
     @Bean

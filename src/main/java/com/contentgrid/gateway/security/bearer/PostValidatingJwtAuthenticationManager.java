@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken;
@@ -15,8 +15,8 @@ import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
-public class PostValidatingJwtAuthenticationManager<T> implements ReactiveAuthenticationManager{
-    private final JwtClaimValidator<T> validator;
+public class PostValidatingJwtAuthenticationManager implements ReactiveAuthenticationManager {
+    private final OAuth2TokenValidator<Jwt> validator;
     private final ReactiveAuthenticationManager delegate;
 
     @Override
