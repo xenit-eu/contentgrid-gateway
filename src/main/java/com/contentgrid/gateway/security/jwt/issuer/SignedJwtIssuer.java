@@ -133,7 +133,7 @@ public class SignedJwtIssuer implements JwtIssuer {
 
     private Map<String, Object> reconstructActorChain(Actor actor) {
         var claims = new HashMap<>(actor.getClaims().getClaims());
-        claims.putIfAbsent(ContentGridClaimNames.ACTOR_KIND, actor.getType().name().toLowerCase(Locale.ROOT));
+        claims.put(ContentGridClaimNames.ACTOR_KIND, actor.getType().name().toLowerCase(Locale.ROOT));
         if(actor.getParent() != null) {
             claims.put(ContentGridClaimNames.ACT, reconstructActorChain(actor.getParent()));
         }
