@@ -1,0 +1,11 @@
+{
+  "aud": "contentgrid:app:${MIGRATED_APP_ID}:${MIGRATED_DEPLOY_ID}",
+  "contentgrid:auth:kind": "system",
+  "contentgrid:auth:principal": {
+    "iss": "https://extensions.invalid/authentication/system",
+    "kind": "extension",
+    "sub": "my-extension"
+  },
+  "iss": "https://extensions.invalid/authentication/system",
+  "sub": "my-extension"
+}
