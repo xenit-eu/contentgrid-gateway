@@ -7,12 +7,12 @@ public class ContentGridClaimNames {
 
     /**
      * Contains encrypted claims of the principal in a delegated authentication token
-     * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/specs/automation-extension-authentication.md#additional-jwt-claims">Automation extension authentication spec</a>
+     * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/architecture/specs/extension-authentication.md#additional-jwt-claims">Automation extension authentication spec</a>
      */
     public static final String RESTRICT_PRINCIPAL_CLAIMS = "restrict:principal_claims";
 
     /**
-     * The application ID ({@link com.contentgrid.gateway.runtime.application.ApplicationId}) for which the token is valid
+     * The application ID ({@link com.contentgrid.configuration.applications.ApplicationId}) for which the token is valid
      * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/specs/automation-extension-authentication.md#additional-jwt-claims">Automation extension authentication spec</a>
      */
     public static final String CONTEXT_APPLICATION_ID = "context:application:id";
@@ -49,7 +49,7 @@ public class ContentGridClaimNames {
      * Member name used inside an {@link #ACT} object and inside {@link #AUTH_PRINCIPAL} to say whether that
      * actor/principal is a {@code "user"} or an {@code "extension"} (RFC 8693 §4.1 allows arbitrary identity
      * claims inside {@code act}).
-     * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/specs/automation-extension-authentication.md#gateway-extension">Automation extension authentication spec</a>
+     * @see <a href="https://github.com/xenit-eu/contentgrid-system-design/blob/main/architecture/specs/extension-authentication.md#gateway-extension">Automation extension authentication spec</a>
      */
     public static final String ACTOR_KIND = "kind";
 }
