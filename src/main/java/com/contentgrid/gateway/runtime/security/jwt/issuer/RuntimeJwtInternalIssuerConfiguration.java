@@ -30,6 +30,12 @@ public class RuntimeJwtInternalIssuerConfiguration {
         return new RuntimeJwtClaimsResolver();
     }
 
+    @Bean
+    @NamedJwtClaimsResolver("apps-sidecar")
+    RuntimeSidecarJwtClaimsResolver runtimeSidecarJwtClaimsResolver() {
+        return new RuntimeSidecarJwtClaimsResolver();
+    }
+
     private static final String AUTHENTICATION_ENCRYPTION = "contentgrid.gateway.runtime-platform.endpoints.authentication.encryption";
     private static final String AUTHENTICATION_ENCRYPTOR_FACTORY = AUTHENTICATION_ENCRYPTION + ".TextEncryptorFactory";
 

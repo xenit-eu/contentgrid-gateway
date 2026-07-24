@@ -1,0 +1,5 @@
+{
+  "iss": "https://auth.contentgrid.example/realms/abc",
+  "sub": "user",
+  "aud": "contentgrid:app:${APP_ID}:${DEPLOY_ID}"
+}

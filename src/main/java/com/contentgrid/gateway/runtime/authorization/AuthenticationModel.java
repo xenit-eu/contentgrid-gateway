@@ -88,13 +88,16 @@ public class AuthenticationModel {
         var authenticationDetails = maybeAuthenticationDetails.get();
 
         return AuthenticationModel.builder()
-                .kind(createAuthenticationKind(authenticationDetails))
+                .kind(classify(authenticationDetails))
                 .principal(createPrincipal(authenticationDetails))
                 .actor(createActor(authenticationDetails))
                 .build();
     }
 
-    private static AuthenticationKind createAuthenticationKind(AuthenticationDetails authenticationDetails) {
+    /**
+     * Classifies an authentication into a {@link AuthenticationKind}.
+     */
+    public static AuthenticationKind classify(AuthenticationDetails authenticationDetails) {
         if (authenticationDetails.getActor() != null) {
             return AuthenticationKind.DELEGATED;
         }

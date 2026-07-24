@@ -61,7 +61,9 @@ import reactor.netty.http.client.HttpClient;
 abstract class AbstractKeycloakIntegrationTest {
 
     @Container
-    private static final KeycloakContainer KEYCLOAK = new KeycloakContainer().withContextPath("/");
+    private static final KeycloakContainer KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.4.7")
+            .withContextPath("/")
+            .withRamPercentage(8, 15);
 
     static URI keycloakServerUrl() {
         return URI.create(KEYCLOAK.getAuthServerUrl());

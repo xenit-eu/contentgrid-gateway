@@ -1,5 +1,6 @@
 package com.contentgrid.gateway.runtime;
 
+import static com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata.ANNOTATION_POLICY_PACKAGE;
 import static com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata.LABEL_APPLICATION_ID;
 import static com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata.LABEL_DEPLOYMENT_ID;
 import static com.contentgrid.gateway.runtime.web.ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID;
@@ -10,6 +11,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_HOST_HEADER;
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_PORT_HEADER;
@@ -33,7 +37,9 @@ import com.contentgrid.gateway.security.authority.PrincipalAuthenticationDetails
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.PropertiesBasedTextEncryptorFactory.TextEncryptorProperties;
+import com.contentgrid.gateway.test.security.jwt.ExpectedClaims;
 import com.contentgrid.gateway.test.util.LoggingExchangeFilterFunction;
+import com.contentgrid.thunx.encoding.json.JsonThunkExpressionCoder;
 import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.PolicyDecisions;
 import com.contentgrid.thunx.predicates.model.Comparison;
@@ -52,7 +58,10 @@ import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
+import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -114,6 +123,7 @@ import org.springframework.web.server.ServerWebExchange;
                 "contentgrid.gateway.runtime-platform.endpoints.authentication.authorization: authenticated",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
+                "opa.service.url: https://opa",
                 "wiremock.reset-mappings-after-each-test: true"
         })
 @AutoConfigureWebTestClient
@@ -121,6 +131,9 @@ class RuntimeGatewayIntegrationTest {
 
     static final ApplicationId APP_ID = ApplicationId.random();
     static final DeploymentId DEPLOY_ID = DeploymentId.random();
+
+    static final ApplicationId APP_ID_WITH_OPA_SIDECAR = ApplicationId.random();
+    static final DeploymentId DEPLOY_ID_WITH_OPA_SIDECAR = DeploymentId.random();
 
     static final ApplicationId APP_ID_UNAVAILABLE = ApplicationId.random();
     static final ThunkExpression<Boolean> PARTIAL_EXPRESSION = Comparison.areEqual(
@@ -144,6 +157,7 @@ class RuntimeGatewayIntegrationTest {
         ApplicationIdRequestResolver applicationIdRequestResolver() {
             return new StaticVirtualHostApplicationIdResolver(Map.of(
                     hostname(APP_ID), APP_ID,
+                    hostname(APP_ID_WITH_OPA_SIDECAR), APP_ID_WITH_OPA_SIDECAR,
                     hostname("unavailable"),  APP_ID_UNAVAILABLE // this app has no deployments
             ));
         }
@@ -156,6 +170,10 @@ class RuntimeGatewayIntegrationTest {
                             .issuerUri(OIDC_ISSUER)
                             .routingDomain(hostname(APP_ID))
                             .build(),
+                    APP_ID_WITH_OPA_SIDECAR, ApplicationConfiguration.builder()
+                            .issuerUri(OIDC_ISSUER)
+                            .routingDomain(hostname(APP_ID_WITH_OPA_SIDECAR))
+                            .build(),
                     APP_ID_UNAVAILABLE, ApplicationConfiguration.builder()
                             .issuerUri(OIDC_ISSUER)
                             .routingDomain(hostname("unavailable"))
@@ -166,7 +184,7 @@ class RuntimeGatewayIntegrationTest {
         @Bean
         @SuppressWarnings("unchecked")
         PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpMockClient() {
-            return (PolicyDecisionPointClient<Authentication, ServerWebExchange>) Mockito.mock(PolicyDecisionPointClient.class);
+            return (PolicyDecisionPointClient<Authentication, ServerWebExchange>) mock(PolicyDecisionPointClient.class);
         }
 
         @Bean
@@ -228,8 +246,43 @@ class RuntimeGatewayIntegrationTest {
                 false,
                 Map.of(
                         LABEL_APPLICATION_ID, APP_ID.toString(),
-                        LABEL_DEPLOYMENT_ID, DEPLOY_ID.toString())
+                        LABEL_DEPLOYMENT_ID, DEPLOY_ID.toString(),
+                        ANNOTATION_POLICY_PACKAGE, "contentgrid.userapps.legacyapp")
         ));
+        // and once more for the migrated app: no policy package, authorization happens in the OPA sidecar
+        catalog.handleServiceAdded(new DefaultServiceInstance(
+                "instance-%s".formatted(UUID.randomUUID()),
+                "wiremock-migrated-%s".formatted(wireMockServer.hashCode()),
+                "localhost",
+                wireMockServer.port(),
+                false,
+                Map.of(
+                        LABEL_APPLICATION_ID, APP_ID_WITH_OPA_SIDECAR.toString(),
+                        LABEL_DEPLOYMENT_ID, DEPLOY_ID_WITH_OPA_SIDECAR.toString())
+        ));
+    }
+
+    /**
+     * Asserts the decoded JWT against the full expected claim set from a fixture, so unexpected claims can
+     * not sneak in unasserted. Time-based claims vary per run and are only checked for presence; other
+     * dynamic claims must be asserted and removed by the {@code dynamicClaims} consumer.
+     */
+    static void assertFullClaimSet(SignedJWT signedJwt, String expectedClaimsResource,
+            ThrowingConsumer<Map<String, Object>> dynamicClaims) throws ParseException {
+        var claims = new HashMap<>(signedJwt.getJWTClaimsSet().toJSONObject());
+        assertThat(claims.remove("iat")).isNotNull();
+        assertThat(claims.remove("exp")).isNotNull();
+        assertThat(claims.remove("re-iat")).isNotNull();
+        assertThat(claims).satisfies(dynamicClaims);
+        assertThat(claims).isEqualTo(ExpectedClaims.fromResource(
+                "/fixtures/expected-claims/" + expectedClaimsResource,
+                Map.of(
+                        "APP_ID", APP_ID.toString(),
+                        "DEPLOY_ID", DEPLOY_ID.toString(),
+                        "MIGRATED_APP_ID", APP_ID_WITH_OPA_SIDECAR.toString(),
+                        "MIGRATED_DEPLOY_ID", DEPLOY_ID_WITH_OPA_SIDECAR.toString(),
+                        "HOSTNAME", hostname(APP_ID)
+                )));
     }
 
     @Autowired
@@ -252,7 +305,7 @@ class RuntimeGatewayIntegrationTest {
     @Test
     void contentgridHeaders_expected() {
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
@@ -271,7 +324,7 @@ class RuntimeGatewayIntegrationTest {
     void xForwardedHeaders_expected() {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
@@ -292,7 +345,7 @@ class RuntimeGatewayIntegrationTest {
     void preserveHostHeader_expected() {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
@@ -311,7 +364,7 @@ class RuntimeGatewayIntegrationTest {
     void abacContextHeader_expected_for_conditional_access() {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
 
         webTestClient
@@ -333,7 +386,7 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
         var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
 
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
 
         webTestClient
@@ -372,7 +425,7 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
         var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
 
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
 
         webTestClient
@@ -412,7 +465,7 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
 
         // This should not affect this endpoint at all, authentication endpoint is configured to bypass OPA
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
 
         var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
@@ -476,7 +529,7 @@ class RuntimeGatewayIntegrationTest {
                     });
                 });
                 assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
-                        .doesNotThrowAnyException();;
+                        .doesNotThrowAnyException();
             });
         });
     }
@@ -487,7 +540,7 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
 
         // This should not affect this endpoint at all, authentication endpoint is configured to bypass OPA
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
 
         var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
@@ -568,10 +621,12 @@ class RuntimeGatewayIntegrationTest {
                     assertThat(claims.getJSONObjectClaim("act")).satisfies(actorClaim -> {
                         assertThat(actorClaim)
                                 .containsEntry("iss", EXTENSION_SYSTEM_ISSUER)
-                                .containsEntry("sub", "my-extension");
+                                .containsEntry("sub", "my-extension")
+                                .containsEntry("kind", "extension");
                         assertThat((Map<String, Object>)actorClaim.get("act")).containsExactlyInAnyOrderEntriesOf(Map.of(
                                 "iss", EXTENSION_SYSTEM_ISSUER,
-                                "sub", "other-extension"
+                                "sub", "other-extension",
+                                "kind", "extension"
                         ));
                     });
                 });
@@ -582,10 +637,112 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @Test
+    void authentication_endpoint_jwt_with_actors_with_sidecar(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID_WITH_OPA_SIDECAR);
+        wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
+
+
+        var authenticationSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("authentication");
+        var authenticationEncryptor = new PropertiesBasedTextEncryptorFactory(
+                applicationContext,
+                applicationContext.getBean("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption", TextEncryptorProperties.class)
+        );
+
+        webTestClient
+                .mutateWith(mockOidcLogin()
+                        .authorities(new DelegatedAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of(
+                                        JwtClaimNames.ISS, OIDC_ISSUER,
+                                        JwtClaimNames.SUB, "user",
+                                        "contentgrid:my-claim", "xyz"
+                                ),
+                                null),
+                                new Actor(
+                                        ActorType.EXTENSION,
+                                        () -> Map.of(
+                                                "iss", EXTENSION_SYSTEM_ISSUER,
+                                                "sub", "my-extension"
+                                        ),
+                                        new Actor(
+                                                ActorType.EXTENSION,
+                                                () -> Map.of(
+                                                        "iss", EXTENSION_SYSTEM_ISSUER,
+                                                        "sub", "other-extension"
+                                                ),
+                                                null
+                                        )
+                                ))))
+                .get().uri("https://{hostname}/.contentgrid/authentication/xyz", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        Mockito.verifyNoInteractions(pdpClient);
+
+        var jwkSet = authenticationSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:system:endpoints:authentication"), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/.contentgrid/authentication/xyz")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertThat(signedJwt.getJWTClaimsSet()).satisfies(claims -> {
+                    assertThat(claims.getAudience()).containsExactly("contentgrid:system:endpoints:authentication");
+                    assertThat(claims.getIssuer()).isEqualTo(OIDC_ISSUER);
+                    assertThat(claims.getSubject()).isEqualTo("user");
+
+                    assertThat(claims.getStringClaim("context:application:id")).isEqualTo(APP_ID_WITH_OPA_SIDECAR.toString());
+                    assertThat(claims.getStringListClaim("context:application:domains")).isEqualTo(List.of(hostname));
+
+                    // Validate that arbitrary user claims are not leaked
+                    assertThat(claims.getClaims()).doesNotContainKeys("contentgrid:my-claim", "other-claim");
+
+                    // Validate encrypted claims to be the claims of the original token
+                    assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
+                        assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
+                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            })).isEqualTo(Map.of(
+                                    "iss", OIDC_ISSUER,
+                                    "sub", "user",
+                                    "contentgrid:my-claim", "xyz"
+                            ));
+                        });
+                    });
+
+                    // Validate that actor chain is passed through
+                    assertThat(claims.getJSONObjectClaim("act")).satisfies(actorClaim -> {
+                        assertThat(actorClaim)
+                                .containsEntry("iss", EXTENSION_SYSTEM_ISSUER)
+                                .containsEntry("sub", "my-extension")
+                                .containsEntry("kind", "extension");
+                        assertThat((Map<String, Object>)actorClaim.get("act")).containsExactlyInAnyOrderEntriesOf(Map.of(
+                                "iss", EXTENSION_SYSTEM_ISSUER,
+                                "sub", "other-extension",
+                                "kind", "extension"
+                        ));
+                    });
+                });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+
+        // authorization is delegated to the appserver's OPA sidecar; the gateway must not consult OPA
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @Test
     void http403_expected_for_denied_access() {
         var hostname = hostname(APP_ID);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.denied()));
 
         webTestClient
@@ -601,7 +758,7 @@ class RuntimeGatewayIntegrationTest {
 
     @Test
     void unknown_domain_http404() {
-        Mockito.when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
                 .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.allowed()));
         webTestClient
                 // slightly fictive test: if the domain is unknown,
@@ -650,6 +807,188 @@ class RuntimeGatewayIntegrationTest {
                 .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
 
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void legacyApplication_legacyJWT(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        when(pdpClient.conditional(Mockito.any(), Mockito.any()))
+                .thenReturn(CompletableFuture.completedFuture(PolicyDecisions.conditional(PARTIAL_EXPRESSION)));
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        // an app with a policy package must still be authorized by the gateway's OPA
+        verify(pdpClient).conditional(Mockito.any(), Mockito.any());
+
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:app:" + APP_ID + ":" + DEPLOY_ID), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertFullClaimSet(signedJwt, "app-token-legacy.json", claims ->
+                        assertThat(claims.remove("x-abac-context")).isEqualTo(
+                                new String(new JsonThunkExpressionCoder().encode(PARTIAL_EXPRESSION),
+                                        StandardCharsets.UTF_8)));
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+    }
+
+    @Test
+    void migratedApplication_sidecarJWT(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID_WITH_OPA_SIDECAR);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:app:" + APP_ID_WITH_OPA_SIDECAR + ":" + DEPLOY_ID_WITH_OPA_SIDECAR), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertFullClaimSet(signedJwt, "app-token-sidecar.json", claims -> { });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+
+        // authorization is delegated to the appserver's OPA sidecar; the gateway must not consult OPA
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @Test
+    void migratedApplication_jwt_with_delegation(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID_WITH_OPA_SIDECAR);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        webTestClient
+                .mutateWith(mockOidcLogin()
+                        .authorities(new DelegatedAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.USER,
+                                () -> Map.of(
+                                        JwtClaimNames.ISS, OIDC_ISSUER,
+                                        JwtClaimNames.SUB, "user",
+                                        "contentgrid:my-claim", "xyz"
+                                ),
+                                null),
+                                new Actor(
+                                        ActorType.EXTENSION,
+                                        () -> Map.of(
+                                                "iss", EXTENSION_SYSTEM_ISSUER,
+                                                "sub", "my-extension"
+                                        ),
+                                        new Actor(
+                                                ActorType.EXTENSION,
+                                                () -> Map.of(
+                                                        "iss", EXTENSION_SYSTEM_ISSUER,
+                                                        "sub", "other-extension"
+                                                ),
+                                                null
+                                        )
+                                ))))
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        Mockito.verifyNoInteractions(pdpClient);
+
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(OIDC_ISSUER),
+                new ClientID("contentgrid:app:" + APP_ID_WITH_OPA_SIDECAR + ":" + DEPLOY_ID_WITH_OPA_SIDECAR), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertFullClaimSet(signedJwt, "app-token-sidecar-delegated.json", claims -> { });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+
+        // authorization is delegated to the appserver's OPA sidecar; the gateway must not consult OPA
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @Test
+    void migratedApplication_jwt_system(ApplicationContext applicationContext) {
+        var hostname = hostname(APP_ID_WITH_OPA_SIDECAR);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+        var appsSigner = applicationContext.getBean(JwtSignerRegistry.class).getRequiredSigner("apps");
+
+        webTestClient
+                .mutateWith(mockOidcLogin()
+                        .authorities(new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                ActorType.EXTENSION,
+                                () -> Map.of(
+                                        "iss", EXTENSION_SYSTEM_ISSUER,
+                                        "sub", "my-extension"
+                                ),
+                                null))))
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        Mockito.verifyNoInteractions(pdpClient);
+
+        var jwkSet = appsSigner.getSigningKeys();
+        var internalTokenValidator = new IDTokenValidator(
+                Issuer.parse(EXTENSION_SYSTEM_ISSUER),
+                new ClientID("contentgrid:app:" + APP_ID_WITH_OPA_SIDECAR + ":" + DEPLOY_ID_WITH_OPA_SIDECAR), // We are working from the perspective of the client application here
+                new JWSVerificationKeySelector<>(Family.SIGNATURE, (selector, context) -> selector.select(jwkSet)),
+                null
+        );
+
+
+        var requests = wireMockServer.findRequestsMatching(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")).build());
+        assertThat(requests.getRequests()).singleElement().satisfies(request -> {
+            assertBearerJwt(request, signedJwt -> {
+                assertFullClaimSet(signedJwt, "app-token-sidecar-system.json", claims -> { });
+                assertThatCode(() -> internalTokenValidator.validate(signedJwt, null))
+                        .doesNotThrowAnyException();
+            });
+        });
+
+        // authorization is delegated to the appserver's OPA sidecar; the gateway must not consult OPA
+        Mockito.verifyNoInteractions(pdpClient);
     }
 
     private static String hostname(@NonNull ApplicationId appId) {
