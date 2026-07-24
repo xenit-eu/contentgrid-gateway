@@ -12,7 +12,6 @@ import com.nimbusds.jwt.JWTClaimsSet.Builder;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -20,7 +19,6 @@ import reactor.core.publisher.Mono;
  * Claims resolver for migrated (sidecar-authorized) applications: OPA is skipped in the gateway because the
  * appserver's own OPA sidecar performs authorization.
  */
-@RequiredArgsConstructor
 public class RuntimeSidecarJwtClaimsResolver implements JwtClaimsResolver {
 
     @Override
