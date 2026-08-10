@@ -1,0 +1,10 @@
+{
+  "aud": "contentgrid:app:a1:d1",
+  "contentgrid:auth:kind": "user",
+  "contentgrid:auth:principal": {
+    "kind": "user",
+    "iss": "https://upstream-issuer.example",
+    "sub": "my-user",
+    "name": "My User"
+  }
+}

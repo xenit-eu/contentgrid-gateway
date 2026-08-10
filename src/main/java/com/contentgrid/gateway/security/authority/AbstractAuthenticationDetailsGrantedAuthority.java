@@ -2,7 +2,6 @@ package com.contentgrid.gateway.security.authority;
 
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 
 @Getter

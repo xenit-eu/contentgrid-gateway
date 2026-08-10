@@ -61,7 +61,13 @@ import reactor.netty.http.client.HttpClient;
 abstract class AbstractKeycloakIntegrationTest {
 
     @Container
-    private static final KeycloakContainer KEYCLOAK = new KeycloakContainer().withContextPath("/");
+    private static final KeycloakContainer KEYCLOAK = new KeycloakContainer("quay.io/keycloak/keycloak:26.4.7")
+            .withContextPath("/")
+            // Fixed heap, so JVM sizing is identical on every machine and in CI.
+            // Percentage-based sizing resolves against the docker host memory, which varies per machine.
+            // JAVA_OPTS_APPEND is used because the container overwrites JAVA_OPTS_KC_HEAP on start.
+            .withEnv("JAVA_OPTS_APPEND", "-Xms256m -Xmx512m")
+            .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withMemory(1024L * 1024 * 1024));
 
     static URI keycloakServerUrl() {
         return URI.create(KEYCLOAK.getAuthServerUrl());
