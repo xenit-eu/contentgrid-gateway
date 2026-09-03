@@ -4,7 +4,7 @@ services:
 
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:latest@sha256:1ce31d6d7ffab62189685e8c47881d4a561c5d38bd0dbd66e40ca83cef07923d
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
       - ./tracing/tempo.yaml:/etc/tempo.yaml
@@ -13,7 +13,7 @@ services:
       - "3200:3200"   # tempo
 
   grafana:
-    image: grafana/grafana:13.1.2
+    image: grafana/grafana:13.1.2@sha256:d177053ab62253815f130d81504f77063baf5fd4ca93299d6048453bd31e047a
     volumes:
       - ./tracing/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     environment:
@@ -25,7 +25,7 @@ services:
       - "3000:3000"
 
   otelcol:
-      image: otel/opentelemetry-collector:latest
+      image: otel/opentelemetry-collector:latest@sha256:e495787f07dbe432ce763ebaf5bc3d113850e9eee2250ade7a3da6a882d0d69a
       volumes:
         - ./tracing/otelconfig.yaml:/etc/otelcol/config.yaml
       ports:
