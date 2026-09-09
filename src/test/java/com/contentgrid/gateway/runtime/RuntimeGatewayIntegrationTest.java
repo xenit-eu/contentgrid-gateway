@@ -948,6 +948,27 @@ class RuntimeGatewayIntegrationTest {
         Mockito.verifyNoInteractions(pdpClient);
     }
 
+    /**
+     * The sidecar counterpart of {@link #no_auth_http401()}: an unauthenticated request to a migrated
+     * application must be rejected by the gateway, not forwarded to the appserver anonymously. The gateway is still
+     * responsible for authentication, while the opa policies check authorization.
+     */
+    @Test
+    void migratedApplication_noAuth_isNotProxied() {
+        var hostname = hostname(APP_ID_WITH_OPA_SIDECAR);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok("OK")));
+
+        webTestClient
+                // no login mutator: this request carries no credentials at all
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        wireMockServer.verify(0, anyRequestedFor(anyUrl()));
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
     private static String hostname(@NonNull ApplicationId appId) {
         return hostname(appId.toString());
     }
