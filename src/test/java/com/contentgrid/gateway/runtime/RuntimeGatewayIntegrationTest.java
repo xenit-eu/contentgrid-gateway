@@ -153,8 +153,8 @@ class RuntimeGatewayIntegrationTest {
 
     private static Stream<Arguments> legacyAndSidecarApplications() {
         return Stream.of(
-                Arguments.of("legacy application", APP_ID, DEPLOY_ID),
-                Arguments.of("application with opa sidecar", APP_ID_WITH_OPA_SIDECAR, DEPLOY_ID_WITH_OPA_SIDECAR)
+                Arguments.argumentSet("legacy application", APP_ID, DEPLOY_ID),
+                Arguments.argumentSet("application with opa sidecar", APP_ID_WITH_OPA_SIDECAR, DEPLOY_ID_WITH_OPA_SIDECAR)
         );
     }
 
@@ -938,9 +938,9 @@ class RuntimeGatewayIntegrationTest {
         Mockito.verifyNoInteractions(pdpClient);
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("legacyAndSidecarApplications")
-    void no_auth_http401(String description, ApplicationId applicationId, DeploymentId deploymentId) {
+    void no_auth_http401(ApplicationId applicationId, DeploymentId deploymentId) {
         var hostname = hostname(applicationId);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
 
@@ -957,9 +957,9 @@ class RuntimeGatewayIntegrationTest {
         Mockito.verifyNoInteractions(pdpClient);
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest
     @MethodSource("legacyAndSidecarApplications")
-    void browser_noAuth_http302_toOidcLogin(String description, ApplicationId applicationId) {
+    void browser_noAuth_http302_toOidcLogin(ApplicationId applicationId) {
         var hostname = hostname(applicationId);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
 
