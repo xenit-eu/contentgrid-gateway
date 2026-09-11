@@ -89,6 +89,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
@@ -149,6 +150,13 @@ class RuntimeGatewayIntegrationTest {
     public static final String EXTENSION_SYSTEM_ISSUER = "https://extensions.invalid/authentication/system";
 
     static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
+
+    private static Stream<Arguments> legacyAndSidecarApplications() {
+        return Stream.of(
+                Arguments.argumentSet("legacy application", APP_ID, DEPLOY_ID),
+                Arguments.argumentSet("application with opa sidecar", APP_ID_WITH_OPA_SIDECAR, DEPLOY_ID_WITH_OPA_SIDECAR)
+        );
+    }
 
     @Autowired
     PolicyDecisionPointClient<Authentication, ServerWebExchange> pdpClient;
@@ -795,24 +803,6 @@ class RuntimeGatewayIntegrationTest {
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
     }
 
-
-
-    @Test
-    void no_auth_http401() {
-        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
-
-        webTestClient
-                // DISABLED: .mutateWith(mockOidcLoginWithIssuer())
-                .get().uri("https://{hostname}/test", hostname(APP_ID))
-                .header("Host", hostname(APP_ID))
-                .exchange()
-                .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
-
-        wireMockServer.verify(0, anyRequestedFor(anyUrl()));
-    }
-
     @Test
     void legacyApplication_legacyJWT(ApplicationContext applicationContext) {
         var hostname = hostname(APP_ID);
@@ -945,6 +935,44 @@ class RuntimeGatewayIntegrationTest {
         });
 
         // authorization is delegated to the appserver's OPA sidecar; the gateway must not consult OPA
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @ParameterizedTest
+    @MethodSource("legacyAndSidecarApplications")
+    void no_auth_http401(ApplicationId applicationId, DeploymentId deploymentId) {
+        var hostname = hostname(applicationId);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
+
+        webTestClient
+                // no login mutator: this request carries no credentials at all
+                .get().uri("https://{hostname}/test", hostname)
+                .header("Host", hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(applicationId.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(deploymentId.toString()));
+
+        wireMockServer.verify(0, anyRequestedFor(anyUrl()));
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @ParameterizedTest
+    @MethodSource("legacyAndSidecarApplications")
+    void browser_noAuth_http302_toOidcLogin(ApplicationId applicationId) {
+        var hostname = hostname(applicationId);
+        wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
+
+        webTestClient
+                .get().uri("https://{hostname}/test", hostname)
+                .header(HOST, hostname)
+                // a browser navigating to the application asks for HTML
+                .accept(MediaType.TEXT_HTML, MediaType.APPLICATION_XHTML_XML, MediaType.ALL)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.FOUND)
+                .expectHeader().location("/oauth2/authorization/client-%s".formatted(applicationId));
+
+        wireMockServer.verify(0, anyRequestedFor(anyUrl()));
         Mockito.verifyNoInteractions(pdpClient);
     }
 
