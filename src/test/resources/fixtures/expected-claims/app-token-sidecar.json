@@ -6,6 +6,7 @@
   "contentgrid:auth:principal": {
     "kind": "user",
     "iss": "https://auth.contentgrid.example/realms/abc",
-    "sub": "user"
+    "sub": "user",
+    "name": "Test User"
   }
 }

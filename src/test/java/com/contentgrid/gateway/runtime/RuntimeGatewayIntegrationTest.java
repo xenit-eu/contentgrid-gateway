@@ -91,6 +91,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.OidcLoginMutator;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -221,7 +222,8 @@ class RuntimeGatewayIntegrationTest {
                         ActorType.USER,
                         () -> Map.of(
                                 JwtClaimNames.ISS, OIDC_ISSUER,
-                                JwtClaimNames.SUB, "user"
+                                JwtClaimNames.SUB, "user",
+                                StandardClaimNames.NAME, "Test User"
                         ),
                         null
                 )));
