@@ -47,7 +47,8 @@ class RuntimeCorsWebFilterTest {
         var request = MockServerHttpRequest.options("https://my-app.contentgrid.cloud/documents")
                 .header(HttpHeaders.ORIGIN, "https://frontend-domain.test")
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
-                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.AUTHORIZATION,
+                        HttpHeaders.IF_MATCH, HttpHeaders.IF_NONE_MATCH)
                 .build();
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
@@ -59,7 +60,8 @@ class RuntimeCorsWebFilterTest {
 
         assertThat(headers.getAccessControlAllowOrigin()).isEqualTo("https://frontend-domain.test");
         assertThat(headers.getAccessControlAllowMethods()).contains(HttpMethod.POST);
-        assertThat(headers.getAccessControlAllowHeaders()).contains(HttpHeaders.AUTHORIZATION);
+        assertThat(headers.getAccessControlAllowHeaders()).contains(HttpHeaders.AUTHORIZATION,
+                HttpHeaders.IF_MATCH, HttpHeaders.IF_NONE_MATCH);
         assertThat(headers.getVary()).containsExactly(
                         HttpHeaders.ORIGIN,
                         HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
@@ -152,6 +154,7 @@ class RuntimeCorsWebFilterTest {
                 .containsExactlyInAnyOrder(
                         ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID,
                         ContentGridRuntimeHeaders.CONTENTGRID_DEPLOYMENT_ID,
-                        HttpHeaders.CONTENT_DISPOSITION);
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        HttpHeaders.ETAG);
     }
 }
