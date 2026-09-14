@@ -1,5 +1,7 @@
 package com.contentgrid.gateway.cors;
 
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
+
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,8 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.web.reactive.server.WebTestClient;
-
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
 @Slf4j
 @SpringBootTest(properties = {
@@ -58,6 +58,19 @@ class CorsIntegrationTest {
                 .expectBody().isEmpty();
 
         log.info(result.toString());
+    }
+
+    @Test
+    public void corsPreflight_conditionalRequestHeaders() {
+        this.http.options()
+                .uri(uri -> uri.scheme("http").host("api.contentgrid.com").port(8080).path("/me").build())
+                .header("Access-Control-Request-Method", "GET")
+                .header("Access-Control-Request-Headers", "if-match, if-none-match")
+                .header("Origin", "https://console.contentgrid.com")
+                .exchange()
+                .expectHeader().valueEquals("Access-Control-Allow-Headers", "if-match, if-none-match")
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "ETag")
+                .expectBody().isEmpty();
     }
 
     @Test
