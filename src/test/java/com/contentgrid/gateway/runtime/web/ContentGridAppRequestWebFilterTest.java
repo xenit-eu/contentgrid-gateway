@@ -2,6 +2,7 @@ package com.contentgrid.gateway.runtime.web;
 
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_APP_ID_ATTR;
 import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_DEPLOY_ID_ATTR;
+import static com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter.CONTENTGRID_SERVICE_INSTANCE_ATTR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -10,6 +11,7 @@ import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
+import java.util.Optional;
 import lombok.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,7 @@ class ContentGridAppRequestWebFilterTest {
         Mockito.when(requestRouter.route(any(ServerWebExchange.class)))
                 .thenReturn(Mono.just(ServiceInstanceStubs.serviceInstance(deploymentId, appId)));
 
-        var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);
+        var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter, exchange -> Optional.of(appId));
 
         var request = createExchange(appId);
         var result = filter.filter(request, chain);
@@ -51,6 +53,7 @@ class ContentGridAppRequestWebFilterTest {
 
         assertThat(request.getAttributes()).containsEntry(CONTENTGRID_APP_ID_ATTR, appId);
         assertThat(request.getAttributes()).containsEntry(CONTENTGRID_DEPLOY_ID_ATTR, deploymentId);
+        assertThat(ContentGridAppRequestWebFilter.isNotDeployedApplication(request)).isFalse();
     }
 
     @Test
@@ -58,7 +61,7 @@ class ContentGridAppRequestWebFilterTest {
         var appId = ApplicationId.random();
         Mockito.when(requestRouter.route(any(ServerWebExchange.class))).thenReturn(Mono.empty());
 
-        var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);
+        var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter, exchange -> Optional.empty());
 
         var request = createExchange(appId);
         var result = filter.filter(request, chain);
@@ -67,6 +70,25 @@ class ContentGridAppRequestWebFilterTest {
 
         assertThat(request.getAttributes()).doesNotContainKey(CONTENTGRID_APP_ID_ATTR);
         assertThat(request.getAttributes()).doesNotContainKey(CONTENTGRID_DEPLOY_ID_ATTR);
+        assertThat(ContentGridAppRequestWebFilter.isNotDeployedApplication(request)).isFalse();
+    }
+
+    @Test
+    void notDeployedApplication_hasApplicationIdOnly() {
+        var appId = ApplicationId.random();
+        Mockito.when(requestRouter.route(any(ServerWebExchange.class))).thenReturn(Mono.empty());
+
+        var filter = new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter, exchange -> Optional.of(appId));
+
+        var request = createExchange(appId);
+        var result = filter.filter(request, chain);
+
+        StepVerifier.create(result).verifyComplete();
+
+        assertThat(request.getAttributes()).containsEntry(CONTENTGRID_APP_ID_ATTR, appId);
+        assertThat(request.getAttributes()).doesNotContainKey(CONTENTGRID_DEPLOY_ID_ATTR);
+        assertThat(request.getAttributes()).doesNotContainKey(CONTENTGRID_SERVICE_INSTANCE_ATTR);
+        assertThat(ContentGridAppRequestWebFilter.isNotDeployedApplication(request)).isTrue();
     }
 
     @NonNull
