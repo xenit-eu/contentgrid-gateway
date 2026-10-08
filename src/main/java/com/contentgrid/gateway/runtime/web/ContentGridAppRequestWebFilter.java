@@ -1,6 +1,7 @@
 package com.contentgrid.gateway.runtime.web;
 
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
+import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.RuntimeRequestRouter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +36,16 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
     @NonNull
     private final RuntimeRequestRouter requestRouter;
 
+    @NonNull
+    private final ApplicationIdRequestResolver applicationIdResolver;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        // a provisioned application has an app-id, even when there is no deployment (yet); set it explicitly, so
+        // isNotDeployedApplication and the ContentGrid-Application-Id header don't rely on a caching resolver
+        this.applicationIdResolver.resolveApplicationId(exchange)
+                .ifPresent(appId -> exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, appId));
+
         return this.requestRouter.route(exchange)
                 .switchIfEmpty(Mono.defer(() -> this.logServiceInstanceNotFound(exchange).then(Mono.empty())))
                 .doOnNext(service ->
@@ -63,6 +72,11 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                 && exchange.getAttribute(CONTENTGRID_POLICY_PACKAGE_ATTR) == null;
     }
 
+    public static boolean isNotDeployedApplication(ServerWebExchange exchange) {
+        return exchange.getAttribute(CONTENTGRID_APP_ID_ATTR) != null
+                && exchange.getAttribute(CONTENTGRID_SERVICE_INSTANCE_ATTR) == null;
+    }
+
     private Mono<?> logServiceInstanceNotFound(ServerWebExchange exchange) {
         // EndpointRequest requires application context
         // but application context is always null in a MockServerWebExchange (from tests)
@@ -78,7 +92,6 @@ public class ContentGridAppRequestWebFilter implements WebFilter {
                         var uri = exchange.getRequest().getURI();
 
                         log.warn("No service found for {} {}", method, uri);
-                        // return HTTP 503 early here in the future ?
                     }
                 })
                 .flatMap(result -> Mono.empty());
