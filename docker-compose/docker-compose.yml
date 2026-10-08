@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   opa:
-    image: ${OPENPOLICYAGENT_DOCKER_IMAGE:-docker.io/openpolicyagent/opa:1.20.1-debug@sha256:f6aa14fd47f8863bbd3726675e36b946ad20bd63a34c10fcf8c35884832491f3}
+    image: ${OPENPOLICYAGENT_DOCKER_IMAGE:-docker.io/openpolicyagent/opa:1.21.0-debug@sha256:e87b0177eee7b05f54d292104493b01a4986fec656e06c7623786e0c41183c17}
     ports:
       - "8181:8181"
     # WARNING: OPA is NOT running with an authorization policy configured. This
