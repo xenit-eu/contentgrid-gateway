@@ -1,6 +1,5 @@
 package com.contentgrid.gateway.runtime.application;
 
-import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;

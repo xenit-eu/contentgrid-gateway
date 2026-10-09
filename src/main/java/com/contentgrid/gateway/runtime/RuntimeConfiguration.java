@@ -17,7 +17,6 @@ import com.contentgrid.gateway.runtime.authorization.PolicyPackageTokenGatewayFi
 import com.contentgrid.gateway.runtime.authorization.RuntimeOpaQueryProvider;
 import com.contentgrid.gateway.runtime.config.ApplicationConfigurationRepository;
 import com.contentgrid.gateway.runtime.config.ComposableApplicationConfigurationRepository;
-import com.contentgrid.gateway.runtime.config.kubernetes.KubernetesLabels;
 import com.contentgrid.gateway.runtime.cors.RuntimeCorsConfigurationSource;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.runtime.routing.CachingApplicationIdRequestResolver;
@@ -41,8 +40,6 @@ import com.contentgrid.thunx.pdp.PolicyDecisionPointClient;
 import com.contentgrid.thunx.pdp.opa.OpaQueryProvider;
 import com.contentgrid.thunx.spring.gateway.filter.AbacGatewayFilterFactory;
 import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
-import io.fabric8.kubernetes.api.model.LabelSelector;
-import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
