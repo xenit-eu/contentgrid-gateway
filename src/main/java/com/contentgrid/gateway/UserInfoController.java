@@ -1,11 +1,6 @@
 package com.contentgrid.gateway;
 
 import com.contentgrid.gateway.runtime.authorization.AuthenticationModel;
-import com.contentgrid.gateway.security.authority.Actor;
-import com.contentgrid.gateway.security.authority.AuthenticationDetails;
-import java.util.Map;
-import lombok.Builder;
-import lombok.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
