@@ -2,7 +2,6 @@ package com.contentgrid.gateway.test.security.jwt;
 
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsSigner;
 import com.contentgrid.gateway.test.security.CryptoTestUtils;
-import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.factories.DefaultJWSSignerFactory;
