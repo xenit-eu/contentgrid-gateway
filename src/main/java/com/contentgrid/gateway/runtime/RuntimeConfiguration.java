@@ -31,6 +31,7 @@ import com.contentgrid.gateway.runtime.servicediscovery.KubernetesServiceDiscove
 import com.contentgrid.gateway.runtime.servicediscovery.ServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.StaticServiceDiscovery;
 import com.contentgrid.gateway.runtime.servicediscovery.StaticServiceDiscovery.StaticServiceDiscoveryProperties;
+import com.contentgrid.gateway.runtime.web.ContentGridAppNotDeployedWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridAppRequestWebFilter;
 import com.contentgrid.gateway.runtime.web.ContentGridResponseHeadersWebFilter;
 import com.contentgrid.gateway.security.jwt.issuer.JwtSignerRegistry;
@@ -44,10 +45,12 @@ import com.contentgrid.thunx.spring.security.ReactivePolicyAuthorizationManager;
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
+import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnCloudPlatform;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -62,12 +65,17 @@ import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceI
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
+import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 
@@ -180,8 +188,26 @@ public class RuntimeConfiguration {
     @Order(CONTENTGRID_WEB_FILTER_CHAIN_FILTER_ORDER)
     ContentGridAppRequestWebFilter contentGridAppRequestWebFilter(
             ContentGridDeploymentMetadata serviceMetadata,
-            RuntimeRequestRouter requestRouter) {
-        return new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter);
+            RuntimeRequestRouter requestRouter,
+            ApplicationIdRequestResolver applicationIdResolver) {
+        return new ContentGridAppRequestWebFilter(serviceMetadata, requestRouter, applicationIdResolver);
+    }
+
+    @Bean
+    Customizer<ServerHttpSecurity> contentGridAppNotDeployedSecurityCustomizer(
+            RuntimePlatformProperties runtimePlatformProperties,
+            ServerCodecConfigurer codecConfigurer
+    ) {
+        // actuators are served by the gateway itself and runtime endpoints have their own upstream,
+        // so neither needs an application deployment
+        var excludedRequests = Stream.<ServerWebExchangeMatcher>concat(
+                Stream.of(EndpointRequest.toAnyEndpoint()),
+                runtimePlatformProperties.endpoints()
+                        .map(endpoint -> ServerWebExchangeMatchers.pathMatchers(endpoint.pathPattern()))
+        ).toList();
+        var filter = new ContentGridAppNotDeployedWebFilter(new OrServerWebExchangeMatcher(excludedRequests),
+                codecConfigurer.getWriters());
+        return http -> http.addFilterBefore(filter, SecurityWebFiltersOrder.AUTHORIZATION);
     }
 
     @Bean

@@ -6,8 +6,10 @@ import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
 import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
 import com.contentgrid.configuration.applications.ApplicationConfiguration;
 import com.contentgrid.configuration.applications.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
+import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.nimbusds.oauth2.sdk.GeneralException;
 import java.io.IOException;
@@ -41,6 +43,9 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
     @Autowired
     DynamicallyConfigurable<String, ApplicationId, ApplicationConfiguration> applicationConfigurationRepository;
 
+    @Autowired
+    ServiceCatalog serviceCatalog;
+
     @TestConfiguration(proxyBeanMethods = false)
     static class IntegrationTestConfiguration {
 
@@ -72,6 +77,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                         .issuerUri(realm.getIssuerUrl())
                         .build()
         ));
+        serviceCatalog.handleServiceAdded(ServiceInstanceStubs.serviceInstance(appId));
 
         log.info("Starting confidential OIDC authz code flow");
 
@@ -126,6 +132,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                         .issuerUri(realm.getIssuerUrl())
                         .build()
         ));
+        serviceCatalog.handleServiceAdded(ServiceInstanceStubs.serviceInstance(appId));
 
         var tokenResponse = performPublicAuthorizationCodeFlow(realm, client, user);
 
@@ -179,6 +186,7 @@ class DynamicOidcAuthenticationIntegrationTest extends AbstractKeycloakIntegrati
                         .additionalIssuerUri(realm1.getIssuerUrl())
                         .build()
         ));
+        serviceCatalog.handleServiceAdded(ServiceInstanceStubs.serviceInstance(appId));
 
         var tokenResponse0 = performPublicAuthorizationCodeFlow(realm0, client0, user0);
 

@@ -18,7 +18,10 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_HOST_HEADER;
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_PORT_HEADER;
 import static org.springframework.cloud.gateway.filter.headers.XForwardedHeadersFilter.X_FORWARDED_PROTO_HEADER;
+import static org.springframework.http.HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN;
+import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpHeaders.HOST;
+import static org.springframework.http.HttpHeaders.ORIGIN;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockOidcLogin;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
 
@@ -64,6 +67,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -74,7 +78,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -142,6 +145,7 @@ class RuntimeGatewayIntegrationTest {
     static final DeploymentId DEPLOY_ID_WITH_OPA_SIDECAR = DeploymentId.random();
 
     static final ApplicationId APP_ID_UNAVAILABLE = ApplicationId.random();
+    static final String APP_UNAVAILABLE_CORS_ORIGIN = "https://frontend.contentgrid.invalid";
     static final ThunkExpression<Boolean> PARTIAL_EXPRESSION = Comparison.areEqual(
             SymbolicReference.parse("input.entity.public"),
             Scalar.of(true)
@@ -152,10 +156,12 @@ class RuntimeGatewayIntegrationTest {
 
     static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
 
-    private static Stream<Arguments> legacyAndSidecarApplications() {
+    private static Stream<Arguments> legacySidecarAndNotDeployedApplications() {
         return Stream.of(
                 Arguments.argumentSet("legacy application", APP_ID, DEPLOY_ID),
-                Arguments.argumentSet("application with opa sidecar", APP_ID_WITH_OPA_SIDECAR, DEPLOY_ID_WITH_OPA_SIDECAR)
+                Arguments.argumentSet("application with opa sidecar", APP_ID_WITH_OPA_SIDECAR,
+                        DEPLOY_ID_WITH_OPA_SIDECAR),
+                Arguments.argumentSet("application without deployment", APP_ID_UNAVAILABLE, null)
         );
     }
 
@@ -171,7 +177,7 @@ class RuntimeGatewayIntegrationTest {
             return new StaticVirtualHostApplicationIdResolver(Map.of(
                     hostname(APP_ID), APP_ID,
                     hostname(APP_ID_WITH_OPA_SIDECAR), APP_ID_WITH_OPA_SIDECAR,
-                    hostname("unavailable"),  APP_ID_UNAVAILABLE // this app has no deployments
+                    hostname(APP_ID_UNAVAILABLE), APP_ID_UNAVAILABLE // this app has no deployments
             ));
         }
 
@@ -189,7 +195,8 @@ class RuntimeGatewayIntegrationTest {
                             .build(),
                     APP_ID_UNAVAILABLE, ApplicationConfiguration.builder()
                             .issuerUri(OIDC_ISSUER)
-                            .routingDomain(hostname("unavailable"))
+                            .routingDomain(hostname(APP_ID_UNAVAILABLE))
+                            .corsOrigin(APP_UNAVAILABLE_CORS_ORIGIN)
                             .build()
             ));
         }
@@ -790,19 +797,77 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @Test
-    @Disabled("ACC-948 currently returns HTTP 404")
     void service_unavailable_http503() {
         // application is provisioned, but no deployments available in the service catalog
+        var hostname = hostname(APP_ID_UNAVAILABLE);
+
         webTestClient
                 .mutateWith(mockOidcLoginWithIssuer())
-                .get().uri("https://{hostname}/test", hostname("unavailable"))
-                .header("Host", hostname("unknown"))
+                .get().uri("https://{hostname}/test", hostname)
+                .header(HOST, hostname)
+                .header(ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
                 .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID_UNAVAILABLE.toString()))
-                .expectHeader().doesNotExist(CONTENTGRID_DEPLOYMENT_ID);
+                .expectHeader().doesNotExist(CONTENTGRID_DEPLOYMENT_ID)
+                // CORS applies first, so a browser frontend can read the problem detail
+                .expectHeader().valueEquals(ACCESS_CONTROL_ALLOW_ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
+                .expectHeader().valueEquals(CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.title").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+                .jsonPath("$.status").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .jsonPath("$.detail").isEqualTo("No deployment of this application is currently available")
+                .jsonPath("$.instance").doesNotExist();
+
+        // answered before authorization: nothing reaches OPA or an upstream
+        wireMockServer.verify(0, anyRequestedFor(anyUrl()));
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    @Test
+    void service_unavailable_logout_http302() {
+        // logging out must keep working without a deployment; this keeps the filter after logout, and so also after
+        // CORS and authentication
+        var hostname = hostname(APP_ID_UNAVAILABLE);
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .post().uri("https://{hostname}/logout", hostname)
+                .header(HOST, hostname)
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.FOUND);
 
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
+        Mockito.verifyNoInteractions(pdpClient);
+    }
+
+    private static Stream<Arguments> notDeployedApplicationPaths() {
+        return Stream.of(
+                // only configured runtime endpoints are excluded
+                Arguments.argumentSet("unknown runtime endpoint", "/.contentgrid/unknown/xyz",
+                        HttpStatus.SERVICE_UNAVAILABLE),
+                // runtime endpoints have their own upstream, they do not need an application deployment
+                Arguments.argumentSet("authentication endpoint", "/.contentgrid/authentication/xyz", HttpStatus.OK),
+                // the management port is the same as the server port in this test
+                Arguments.argumentSet("actuator", "/actuator/info", HttpStatus.OK)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("notDeployedApplicationPaths")
+    void service_unavailable_onlyForApplicationPaths(String path, HttpStatus expectedStatus) {
+        var hostname = hostname(APP_ID_UNAVAILABLE);
+        wireMockServer.stubFor(WireMock.get("/.contentgrid/authentication/xyz").willReturn(WireMock.ok("OK")));
+
+        webTestClient
+                .mutateWith(mockOidcLoginWithIssuer())
+                .get().uri("https://{hostname}" + path, hostname)
+                .header(HOST, hostname)
+                .exchange()
+                .expectStatus().isEqualTo(expectedStatus);
+
+        Mockito.verifyNoInteractions(pdpClient);
     }
 
     @Test
@@ -941,7 +1006,7 @@ class RuntimeGatewayIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("legacyAndSidecarApplications")
+    @MethodSource("legacySidecarAndNotDeployedApplications")
     void no_auth_http401(ApplicationId applicationId, DeploymentId deploymentId) {
         var hostname = hostname(applicationId);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));
@@ -953,14 +1018,14 @@ class RuntimeGatewayIntegrationTest {
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
                 .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(applicationId.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(deploymentId.toString()));
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(Objects.toString(deploymentId, null)));
 
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
         Mockito.verifyNoInteractions(pdpClient);
     }
 
     @ParameterizedTest
-    @MethodSource("legacyAndSidecarApplications")
+    @MethodSource("legacySidecarAndNotDeployedApplications")
     void browser_noAuth_http302_toOidcLogin(ApplicationId applicationId) {
         var hostname = hostname(applicationId);
         wireMockServer.stubFor(WireMock.get("/test").willReturn(WireMock.ok()));

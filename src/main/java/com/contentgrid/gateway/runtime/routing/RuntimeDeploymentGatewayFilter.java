@@ -33,6 +33,7 @@ public class RuntimeDeploymentGatewayFilter implements GlobalFilter, Ordered {
 
         ServiceInstance serviceInstance = exchange.getAttribute(CONTENTGRID_SERVICE_INSTANCE_ATTR);
         if (serviceInstance == null) {
+            // fallback only: ContentGridAppNotDeployedWebFilter already answers requests for an undeployed application
             var host = exchange.getRequest().getURI().getHost();
             var message = "Unable to find service instance for %s".formatted(host);
             throw NotFoundException.create(false /* HTTP 503 */, message);

@@ -6,10 +6,12 @@ import com.contentgrid.configuration.api.fragments.ConfigurationFragment;
 import com.contentgrid.configuration.api.fragments.DynamicallyConfigurable;
 import com.contentgrid.configuration.applications.ApplicationConfiguration;
 import com.contentgrid.configuration.applications.ApplicationId;
+import com.contentgrid.gateway.runtime.application.ServiceCatalog;
 import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.jwt.issuer.JwtClaimsSigner;
 import com.contentgrid.gateway.security.jwt.issuer.encrypt.TextEncryptorFactory;
+import com.contentgrid.gateway.test.runtime.ServiceInstanceStubs;
 import com.contentgrid.gateway.test.security.FakeBase64TextEncryptorFactory;
 import com.contentgrid.gateway.test.security.TestAuthenticationDetails;
 import com.contentgrid.gateway.test.security.jwt.SingleKeyJwtClaimsSigner;
@@ -35,6 +37,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -67,6 +70,9 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
 
     @Autowired
     DynamicallyConfigurable<String, ApplicationId, ApplicationConfiguration> applicationConfigurationRepository;
+
+    @Autowired
+    ServiceCatalog serviceCatalog;
 
     @Autowired
     @Qualifier("contentgrid.gateway.runtime-platform.endpoints.authentication.encryption.TextEncryptorFactory")
@@ -124,6 +130,7 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                         .issuerUri(realm.getIssuerUrl())
                         .build()
         ));
+        serviceCatalog.handleServiceAdded(ServiceInstanceStubs.serviceInstance(appId));
 
         var bearerToken = createBearerToken(Map.of(
                 JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
@@ -187,6 +194,7 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
                         .issuerUri(realm.getIssuerUrl())
                         .build()
         ));
+        serviceCatalog.handleServiceAdded(ServiceInstanceStubs.serviceInstance(appId));
 
         var bearerToken = createBearerToken(Map.of(
                 JwtClaimNames.ISS, EXTENSION_DELEGATE_ISSUER,
@@ -258,6 +266,35 @@ class ExtensionBearerTokenAuthenticationIntegrationTest extends AbstractKeycloak
         ;
         applicationConfigurationRepository.revoke("config-id");
     }
+
+    @Test
+    void notDeployedApplication_extensionSystemJwt_http503() {
+        // the application is not deployed; the only 503 test without central OPA, and with a bearer token that the
+        // authentication filter in the security chain validates before the not-deployed filter runs
+        var appId = ApplicationId.random();
+        applicationConfigurationRepository.register(new ConfigurationFragment<>(
+                "config-id",
+                appId,
+                ApplicationConfiguration.builder()
+                        .clientId(client.clientId())
+                        .issuerUri(realm.getIssuerUrl())
+                        .build()
+        ));
+
+        var bearerToken = createBearerToken(Map.of(
+                JwtClaimNames.ISS, EXTENSION_SYSTEM_ISSUER,
+                JwtClaimNames.SUB, "extension123",
+                JwtClaimNames.IAT, Instant.now().getEpochSecond(),
+                JwtClaimNames.EXP, Instant.now().plus(5, ChronoUnit.MINUTES).getEpochSecond(),
+                JwtClaimNames.AUD, "contentgrid:application:" + appId
+        ));
+
+        assertRequest_withBearer(appId, bearerToken)
+                .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+
+        applicationConfigurationRepository.revoke("config-id");
+    }
+
     @SneakyThrows
     private static String createBearerToken(Map<String, Object> rawJwtClaims) {
         return JWT_SIGNER.sign(JWTClaimsSet.parse(rawJwtClaims)).serialize();

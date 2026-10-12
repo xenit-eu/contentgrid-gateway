@@ -189,10 +189,13 @@ public class GatewayApplication {
             List<Customizer<OAuth2ResourceServerSpec>> oauth2resourceServerCustomizer,
             List<Customizer<List<DelegateEntry>>> authenticationEntryPointCustomizer,
             List<Customizer<ServerHttpSecurity.AuthorizeExchangeSpec>> authorizeCustomizer,
+            List<Customizer<ServerHttpSecurity>> httpSecurityCustomizer,
             AuthenticationRefresher authenticationRefresher,
             Optional<ReactiveAuthenticationManager> reactiveAuthenticationManagerOptional,
             Optional<ReactiveUserDetailsService> reactiveUserDetailsServiceOptional
     ) {
+        httpSecurityCustomizer.forEach(customizer -> customizer.customize(http));
+
         http.authorizeExchange(exchange -> {
             authorizeCustomizer.forEach(customizer -> customizer.customize(exchange));
 
