@@ -44,6 +44,6 @@ public class ServiceInstanceStubs {
 
     @NonNull
     public static String randomPolicyPackage() {
-        return "contentgrid.userapps.x" + UUID.randomUUID().toString().replaceAll("-", "");
+        return "contentgrid.userapps.x" + UUID.randomUUID().toString().replace("-", "");
     }
 }
