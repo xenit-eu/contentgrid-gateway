@@ -88,7 +88,7 @@ class ContentGridActuatorEndpointTest {
                                 }
                             ]
                         }
-                        """.replaceAll("\\{APP_ID}", appId.toString()));
+                        """.replace("{APP_ID}", appId.toString()));
     }
 
     @Test
@@ -118,7 +118,7 @@ class ContentGridActuatorEndpointTest {
                                  }
                              }
                         }
-                        """.replaceAll("\\{APP_ID}", appId.toString()));
+                        """.replace("{APP_ID}", appId.toString()));
     }
 
     @Test
@@ -167,7 +167,7 @@ class ContentGridActuatorEndpointTest {
                             }
                         }
                         """
-                        .replaceAll("\\{APP_ID}", appId.toString())
+                        .replace("{APP_ID}", appId.toString())
                 );
     }
 
@@ -198,7 +198,7 @@ class ContentGridActuatorEndpointTest {
                             "issuerUri": null
                         }
                         """
-                        .replaceAll("\\{APP_ID}", appId.toString())
+                        .replace("{APP_ID}", appId.toString())
                 );
     }
 
@@ -243,7 +243,7 @@ class ContentGridActuatorEndpointTest {
                             }
                         }
                         """
-                        .replaceAll("\\{APP_ID}", appId.toString())
+                        .replace("{APP_ID}", appId.toString())
                 );
     }
 
@@ -283,7 +283,7 @@ class ContentGridActuatorEndpointTest {
                             }
                         }
                         """
-                        .replaceAll("\\{APP_ID}", appId.toString())
+                        .replace("{APP_ID}", appId.toString())
                 );
 
         wiremock.verify(getRequestedFor(WireMock.urlEqualTo("/realms/contentgrid/.well-known/openid-configuration")));
