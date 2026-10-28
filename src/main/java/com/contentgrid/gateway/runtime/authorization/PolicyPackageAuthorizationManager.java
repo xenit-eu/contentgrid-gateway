@@ -6,7 +6,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authorization.AuthenticatedReactiveAuthorizationManager;
-import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
@@ -31,13 +31,13 @@ public class PolicyPackageAuthorizationManager implements ReactiveAuthorizationM
             AuthenticatedReactiveAuthorizationManager.authenticated();
 
     @Override
-    public Mono<AuthorizationDecision> check(Mono<Authentication> authentication, AuthorizationContext context) {
+    public Mono<AuthorizationResult> authorize(Mono<Authentication> authentication, AuthorizationContext context) {
         var exchange = context.getExchange();
         if (isMigratedApplication(exchange)) {
             log.debug("No policy package for '{}': skipping OPA, requiring authentication only",
                     exchange.getRequest().getURI().getHost());
-            return authenticated.check(authentication, context);
+            return authenticated.authorize(authentication, context);
         }
-        return delegate.check(authentication, context);
+        return delegate.authorize(authentication, context);
     }
 }

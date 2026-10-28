@@ -10,7 +10,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -84,9 +83,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -335,8 +334,8 @@ class RuntimeGatewayIntegrationTest {
                 .header("Host", hostname(APP_ID))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.OK)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(APP_ID.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, deployId -> assertThat(deployId).isEqualTo(DEPLOY_ID.toString()));
 
         wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
     }
@@ -808,7 +807,7 @@ class RuntimeGatewayIntegrationTest {
                 .header(ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID_UNAVAILABLE.toString()))
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(APP_ID_UNAVAILABLE.toString()))
                 .expectHeader().doesNotExist(CONTENTGRID_DEPLOYMENT_ID)
                 // CORS applies first, so a browser frontend can read the problem detail
                 .expectHeader().valueEquals(ACCESS_CONTROL_ALLOW_ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
@@ -1017,8 +1016,8 @@ class RuntimeGatewayIntegrationTest {
                 .header("Host", hostname)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(applicationId.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(Objects.toString(deploymentId, null)));
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(applicationId.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, deployId -> assertThat(deployId).isEqualTo(Objects.toString(deploymentId, null)));
 
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
         Mockito.verifyNoInteractions(pdpClient);

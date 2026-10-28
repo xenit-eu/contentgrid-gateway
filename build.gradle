@@ -100,16 +100,18 @@ dependencies {
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock:5.0.3' // TODO: use org.wiremock.integrations:wiremock-spring-boot
 
-	testImplementation 'io.rest-assured:rest-assured'
+	testImplementation 'io.rest-assured:rest-assured:6.3.0'
 	testImplementation 'io.projectreactor:reactor-test'
 
 	testImplementation 'org.testcontainers:testcontainers'
-	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:4.4.0'
 
-	testImplementation 'org.testcontainers:k3s'
+	testImplementation 'org.testcontainers:testcontainers-k3s'
 	testImplementation 'org.awaitility:awaitility'
 
 	testFixturesCompileOnly 'org.projectlombok:lombok'

@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class OidcClientConfigurationTest {
 
@@ -33,7 +33,7 @@ class OidcClientConfigurationTest {
         @Autowired
         ReactiveClientRegistrationIdResolver clientIdResolver;
 
-        @MockBean
+        @MockitoBean
         ReactiveClientRegistrationResolver clientResolver;
 
 

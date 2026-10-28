@@ -147,9 +147,9 @@ class RuntimeCorsWebFilterTest {
 
         // not rejected by CorsWebFilter
         assertThat(response.getStatusCode()).isNull();
-        assertThat(response.getHeaders()).containsEntry(HttpHeaders.VARY,
+        assertThat(response.getHeaders().hasHeaderValues(HttpHeaders.VARY,
                 List.of(HttpHeaders.ORIGIN, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
-                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
+                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS))).isTrue();
         assertThat(response.getHeaders().getAccessControlExposeHeaders())
                 .containsExactlyInAnyOrder(
                         ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID,

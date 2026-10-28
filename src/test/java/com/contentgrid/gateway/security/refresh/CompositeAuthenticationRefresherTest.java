@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -59,7 +61,7 @@ class CompositeAuthenticationRefresherTest {
     }
 
     private static Authentication createAuthentication(String subject) {
-        return new AbstractAuthenticationToken(null) {
+        return new AbstractAuthenticationToken((Collection<? extends GrantedAuthority>) null) {
             @Override
             public Object getCredentials() {
                 return null;

@@ -4,9 +4,8 @@ import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.oauth2.client.ClientsConfiguredCondition;
+import org.springframework.boot.security.oauth2.client.autoconfigure.ConditionalOnOAuth2ClientRegistrationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity.OAuth2LoginSpec;
@@ -45,7 +44,7 @@ class OidcClientConfiguration {
     }
 
     @Bean
-    @Conditional(ClientsConfiguredCondition.class)
+    @ConditionalOnOAuth2ClientRegistrationProperties
     Customizer<OAuth2LoginSpec> staticOAuth2Login() {
         return oAuth2LoginSpec -> {
             // no-op is fine, this will load defaults

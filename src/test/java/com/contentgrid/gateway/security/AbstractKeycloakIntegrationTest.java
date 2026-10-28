@@ -29,7 +29,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.hamcrest.Matchers;
 import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.ClientRepresentation;
@@ -362,9 +361,11 @@ abstract class AbstractKeycloakIntegrationTest {
                 .expectHeader().contentType(MediaType.APPLICATION_JSON)
                 .expectBody(new ParameterizedTypeReference<Map<String, Object>>() {
                 })
-                .value(Matchers.hasKey("access_token"))
-                .value(Matchers.hasKey("id_token"))
-                .value(Matchers.hasEntry("token_type", "Bearer"))
+                .value(body -> {
+                    assertThat(body).containsKey("access_token");
+                    assertThat(body).containsKey("id_token");
+                    assertThat(body).containsEntry("token_type", "Bearer");
+                })
                 .returnResult().getResponseBody();
 
         return new TokenResponse(tokenResponse);
