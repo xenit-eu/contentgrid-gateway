@@ -1,7 +1,5 @@
 package com.contentgrid.gateway.test.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,6 +17,8 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 @RequiredArgsConstructor
 public class LoggingExchangeFilterFunction implements ExchangeFilterFunction {
@@ -88,13 +88,13 @@ public class LoggingExchangeFilterFunction implements ExchangeFilterFunction {
                                 DataBufferUtils.join(cache).subscribe(data -> {
                                     var contentType = response.headers().contentType().orElse(null);
                                     if (isJsonCompatible(contentType)) {
-                                        var mapper = new ObjectMapper();
+                                        var mapper = JsonMapper.builder().build();
 
                                         var content = data.toString(StandardCharsets.UTF_8);
                                         try {
                                             var prettyJson = mapper.readTree(content).toPrettyString();
                                             sb.append("\n").append(prettyJson);
-                                        } catch (JsonProcessingException e) {
+                                        } catch (JacksonException e) {
                                             sb.append("<failed json decoding: %s>".formatted(content));
                                         }
                                     } else {

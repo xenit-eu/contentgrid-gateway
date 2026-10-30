@@ -8,8 +8,6 @@ import com.contentgrid.gateway.security.oidc.ReactiveClientRegistrationIdResolve
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +36,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.annotation.JsonNaming;
 
 @RequiredArgsConstructor
 @RestControllerEndpoint(id = "contentgrid")

@@ -40,8 +40,7 @@ import org.springframework.http.HttpCookie;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.http.codec.json.Jackson2JsonDecoder;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.http.codec.json.JacksonJsonDecoder;
 import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -54,6 +53,7 @@ import org.springframework.web.util.UriTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.netty.http.client.HttpClient;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Testcontainers
@@ -82,9 +82,9 @@ abstract class AbstractKeycloakIntegrationTest {
             .responseTimeout(Duration.ofHours(1)) // for interactive debugging
             .codecs(clientCodecConfigurer -> {
                 clientCodecConfigurer.defaultCodecs().enableLoggingRequestDetails(true);
-                clientCodecConfigurer.defaultCodecs().jackson2JsonDecoder(new Jackson2JsonDecoder(
-                        Jackson2ObjectMapperBuilder.json()
-                                .mixIn(ClaimAccessor.class, ClaimAccessorMixin.class)
+                clientCodecConfigurer.defaultCodecs().jacksonJsonDecoder(new JacksonJsonDecoder(
+                        JsonMapper.builder()
+                                .addMixIn(ClaimAccessor.class, ClaimAccessorMixin.class)
                                 .build()));
             })
             .build();
