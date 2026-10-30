@@ -102,7 +102,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webflux-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testImplementation 'org.springframework.cloud:spring-cloud-contract-wiremock:5.0.3' // TODO: use org.wiremock.integrations:wiremock-spring-boot
+	testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
 
 	testImplementation 'io.rest-assured:rest-assured:6.3.0'
 	testImplementation 'io.projectreactor:reactor-test'

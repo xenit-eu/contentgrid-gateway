@@ -131,8 +131,7 @@ import org.springframework.web.server.ServerWebExchange;
                 "contentgrid.gateway.runtime-platform.endpoints.authentication.authorization: authenticated",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
-                "opa.service.url: https://opa",
-                "wiremock.reset-mappings-after-each-test: true"
+                "opa.service.url: https://opa"
         })
 @AutoConfigureWebTestClient
 class RuntimeGatewayIntegrationTest {
