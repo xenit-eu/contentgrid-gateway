@@ -284,7 +284,7 @@ public class ContentGridActuatorEndpoint {
             return new ClientRegistrationModel(
                     client.getRegistrationId(),
                     client.getClientId(),
-                    "*".repeat(client.getClientSecret() == null ? 0 : client.getClientSecret().length()),
+                    "*".repeat(client.getClientSecret().length()),
                     client.getClientAuthenticationMethod(),
                     client.getAuthorizationGrantType(),
                     client.getRedirectUri(),

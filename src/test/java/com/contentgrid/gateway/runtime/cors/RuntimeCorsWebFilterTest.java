@@ -53,7 +53,7 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
         var headers = response.getHeaders();
@@ -81,7 +81,7 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, ApplicationId.random()); // <-- CorsConfig lookup fails
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -100,7 +100,7 @@ class RuntimeCorsWebFilterTest {
                 .build();
         var exchange = MockServerWebExchange.from(request); // <-- no application id resolved
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -121,7 +121,7 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -141,7 +141,7 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -161,7 +161,7 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 

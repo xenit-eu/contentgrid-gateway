@@ -105,7 +105,7 @@ class CorsConfigurationResolverTest {
 
     private static void assertRequestForbidden(CorsConfigurationResolver resolver, MockServerHttpRequest request) {
         var exchange = MockServerWebExchange.from(request);
-        new CorsWebFilter(resolver).filter(exchange, (_exchange) -> Mono.empty()).block();
+        new CorsWebFilter(resolver).filter(exchange, _exchange -> Mono.empty()).block();
 
         var response = exchange.getResponse();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
