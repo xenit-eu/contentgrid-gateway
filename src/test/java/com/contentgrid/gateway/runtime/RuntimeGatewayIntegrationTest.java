@@ -812,7 +812,7 @@ class RuntimeGatewayIntegrationTest {
                 .expectHeader().valueEquals(ACCESS_CONTROL_ALLOW_ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
                 .expectHeader().valueEquals(CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                 .expectBody()
-                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.type").doesNotExist()
                 .jsonPath("$.title").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
                 .jsonPath("$.status").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value())
                 .jsonPath("$.detail").isEqualTo("No deployment of this application is currently available")
