@@ -48,8 +48,6 @@ import com.contentgrid.thunx.predicates.model.Comparison;
 import com.contentgrid.thunx.predicates.model.Scalar;
 import com.contentgrid.thunx.predicates.model.SymbolicReference;
 import com.contentgrid.thunx.predicates.model.ThunkExpression;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -100,17 +98,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ServerWebExchange;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Integration tests for ContentGrid Gateway using the Runtime profile.
- *
+ * <p>
  * This integration test sets up a WireMock server on a random port on localhost as a backend service. This
  * WireMock server is then registered in the application catalog.
- *
+ * <p>
  * Additionally, a (fake) domain is mapped to this service in the service catalog.
- *
+ * <p>
  * The gateway is configured with the runtime Spring Security setup, requiring OIDC.
- *
+ * <p>
  * A {@link WebTestClient} bean, bound to the {@link ApplicationContext} is provided, which bypasses the HTTP server
  * and uses mock requests and responses.
  * OIDC login can be simulated with WebTestClient using:
@@ -152,6 +152,7 @@ class RuntimeGatewayIntegrationTest {
     static final String OIDC_ISSUER = "https://auth.contentgrid.example/realms/abc";
     public static final String EXTENSION_SYSTEM_ISSUER = "https://extensions.invalid/authentication/system";
 
+    static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
     static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
 
     private static Stream<Arguments> legacySidecarAndNotDeployedApplications() {
@@ -538,7 +539,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
@@ -627,7 +628,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
@@ -726,7 +727,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
