@@ -22,7 +22,8 @@ public class CorsConfigurations {
 
     public static CorsConfiguration applyDefaults(@Nullable CorsConfiguration cors) {
         if (cors == null) {
-            return null;
+            // The default CorsConfiguration denies all CORS requests
+            return new CorsConfiguration();
         }
 
         cors = new CorsConfiguration(cors);
