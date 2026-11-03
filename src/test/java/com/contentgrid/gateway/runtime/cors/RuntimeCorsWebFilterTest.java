@@ -24,13 +24,13 @@ import reactor.core.publisher.Mono;
 
 class RuntimeCorsWebFilterTest {
 
-    private ApplicationId applicationId = ApplicationId.random();
+    private static final ApplicationId APPLICATION_ID = ApplicationId.random();
     private RuntimeCorsConfigurationSource corsSource;
 
     @BeforeEach
     void setup() {
         var appConfigRepo = new StaticApplicationConfigurationRepository(Map.of(
-                applicationId,
+                APPLICATION_ID,
                 ApplicationConfiguration.builder()
                         .corsOrigin("https://frontend-domain.test")
                         .build()
@@ -51,9 +51,9 @@ class RuntimeCorsWebFilterTest {
                         HttpHeaders.IF_MATCH, HttpHeaders.IF_NONE_MATCH)
                 .build();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
         var headers = response.getHeaders();
@@ -81,13 +81,33 @@ class RuntimeCorsWebFilterTest {
         var exchange = MockServerWebExchange.from(request);
         exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, ApplicationId.random()); // <-- CorsConfig lookup fails
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
         assertThat(response.getStatusCode())
                 .isNotNull()
                 .satisfies(status -> assertThat(status).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(response.getHeaders().getAccessControlExposeHeaders()).isEmpty();
+    }
+
+    @Test
+    void preflightRequest_denied_missingApplicationId() {
+
+        var request = MockServerHttpRequest.options("https://my-app.contentgrid.cloud/documents")
+                .header(HttpHeaders.ORIGIN, "https://frontend-domain.test")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
+                .build();
+        var exchange = MockServerWebExchange.from(request); // <-- no application id resolved
+
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
+
+        var response = exchange.getResponse();
+
+        assertThat(response.getStatusCode())
+                .isNotNull()
+                .satisfies(status -> assertThat(status).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(response.getHeaders().getAccessControlAllowOrigin()).isNull();
         assertThat(response.getHeaders().getAccessControlExposeHeaders()).isEmpty();
     }
 
@@ -99,9 +119,9 @@ class RuntimeCorsWebFilterTest {
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
                 .build();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -119,9 +139,9 @@ class RuntimeCorsWebFilterTest {
                 .build();
         assertThat(CorsUtils.isPreFlightRequest(request)).isFalse();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
@@ -139,17 +159,17 @@ class RuntimeCorsWebFilterTest {
                 .build();
         assertThat(CorsUtils.isPreFlightRequest(request)).isFalse();
         var exchange = MockServerWebExchange.from(request);
-        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, applicationId);
+        exchange.getAttributes().put(CONTENTGRID_APP_ID_ATTR, APPLICATION_ID);
 
-        new CorsWebFilter(corsSource).filter(exchange, (_exchange) -> Mono.empty());
+        new CorsWebFilter(corsSource).filter(exchange, _exchange -> Mono.empty());
 
         var response = exchange.getResponse();
 
         // not rejected by CorsWebFilter
         assertThat(response.getStatusCode()).isNull();
-        assertThat(response.getHeaders()).containsEntry(HttpHeaders.VARY,
+        assertThat(response.getHeaders().hasHeaderValues(HttpHeaders.VARY,
                 List.of(HttpHeaders.ORIGIN, HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD,
-                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS));
+                        HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS))).isTrue();
         assertThat(response.getHeaders().getAccessControlExposeHeaders())
                 .containsExactlyInAnyOrder(
                         ContentGridRuntimeHeaders.CONTENTGRID_APPLICATION_ID,

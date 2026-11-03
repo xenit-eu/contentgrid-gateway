@@ -11,10 +11,6 @@ import com.contentgrid.gateway.security.jwt.issuer.actuate.JWKSetEndpoint;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefresher;
 import com.contentgrid.gateway.security.refresh.AuthenticationRefreshingServerSecurityContextRepository;
 import com.contentgrid.thunx.pdp.opa.OpaInputProvider;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,15 +20,15 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.actuate.autoconfigure.security.reactive.EndpointRequest;
-import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.info.InfoEndpoint;
-import org.springframework.boot.actuate.metrics.MetricsEndpoint;
-import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
+import org.springframework.boot.micrometer.metrics.actuate.endpoint.MetricsEndpoint;
+import org.springframework.boot.micrometer.metrics.autoconfigure.export.prometheus.PrometheusScrapeEndpoint;
+import org.springframework.boot.security.autoconfigure.actuate.web.reactive.EndpointRequest;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -68,6 +64,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @SpringBootApplication
@@ -89,7 +87,7 @@ public class GatewayApplication {
             List<BootstrapUser> users = bootstrapProperties.getUsers();
             users.forEach(user -> log.info("Bootstrapping user '{}' with authorities {}", user.getUsername(),
                     user.getAuthorities()));
-            ObjectMapper mapper = new ObjectMapper();
+            JsonMapper mapper = JsonMapper.builder().build();
             return new MapReactiveUserDetailsService(users.stream()
                     .map(user -> user.convert(mapper))
                     .collect(Collectors.toList()));
@@ -109,27 +107,23 @@ public class GatewayApplication {
             String username;
             String authorities;
 
-            public UserDetails convert(ObjectMapper mapper) {
-                try {
-                    TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {
-                    };
-                    var claims = mapper.readValue(authorities, typeRef);
-                    claims.putIfAbsent(JwtClaimNames.SUB, username);
-                    claims.putIfAbsent(StandardClaimNames.NAME, username);
-                    return User
-                            .withUsername(username)
-                            .password(NOOP_PASSWORD + username)
-                            .authorities(
-                                    new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
-                                            ActorType.USER,
-                                            () -> claims,
-                                            null
-                                    ))
-                            )
-                            .build();
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
+            public UserDetails convert(JsonMapper mapper) {
+                TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {
+                };
+                var claims = mapper.readValue(authorities, typeRef);
+                claims.putIfAbsent(JwtClaimNames.SUB, username);
+                claims.putIfAbsent(StandardClaimNames.NAME, username);
+                return User
+                        .withUsername(username)
+                        .password(NOOP_PASSWORD + username)
+                        .authorities(
+                                new PrincipalAuthenticationDetailsGrantedAuthority(new Actor(
+                                        ActorType.USER,
+                                        () -> claims,
+                                        null
+                                ))
+                        )
+                        .build();
             }
         }
     }

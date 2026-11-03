@@ -5,6 +5,7 @@ import static com.contentgrid.gateway.cors.CorsConfigurations.applyDefaults;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import lombok.NonNull;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -13,6 +14,7 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
 
     private final Map<String, CorsConfiguration> configurations = new LinkedHashMap<>();
 
+    @NonNull
     private final CorsConfiguration fallback;
 
 
@@ -31,7 +33,8 @@ public class CorsConfigurationResolver implements CorsConfigurationSource {
     public CorsConfiguration getCorsConfiguration(ServerWebExchange exchange) {
         var host = exchange.getRequest().getURI().getHost();
         if (host == null) {
-            return null;
+            // The default CorsConfiguration denies all CORS requests
+            return new CorsConfiguration();
         }
 
         return configurations.getOrDefault(host, this.fallback);

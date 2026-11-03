@@ -8,14 +8,17 @@ import com.contentgrid.configuration.applications.ApplicationConfiguration;
 import com.contentgrid.configuration.applications.ApplicationId;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -24,7 +27,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
         properties = "contentgrid.gateway.runtime-platform.enabled=true",
         webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
-@AutoConfigureWireMock(port = 0)
 class ContentGridActuatorEndpointTest {
 
     @LocalServerPort
@@ -36,8 +38,22 @@ class ContentGridActuatorEndpointTest {
     @Autowired
     WebTestClient testClient;
 
-    @Autowired
-    WireMockServer wiremock;
+    static WireMockServer wiremock = new WireMockServer(new WireMockConfiguration().dynamicPort());
+
+    @BeforeAll
+    static void startWiremock() {
+        wiremock.start();
+    }
+
+    @AfterEach
+    void resetWiremock() {
+        wiremock.resetAll();
+    }
+
+    @AfterAll
+    static void shutdownWiremock() {
+        wiremock.stop();
+    }
 
 
     @Test

@@ -5,7 +5,6 @@ import com.contentgrid.gateway.runtime.routing.ApplicationIdRequestResolver;
 import java.util.Optional;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.springframework.lang.Nullable;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
@@ -21,12 +20,12 @@ public class RuntimeCorsConfigurationSource implements CorsConfigurationSource {
 
     private final CorsConfigurationMapper corsConfigurationMapper = new RuntimeCorsConfigurationMapper();
 
-    @Nullable
     @Override
     public CorsConfiguration getCorsConfiguration(@NonNull ServerWebExchange exchange) {
         return this.applicationIdResolver.resolveApplicationId(exchange)
                 .flatMap(appId -> Optional.ofNullable(appConfigRepository.getApplicationConfiguration(appId)))
                 .map(this.corsConfigurationMapper)
-                .orElse(null);
+                // Deny all CORS requests when there is no application or no application configuration
+                .orElseGet(CorsConfiguration::new);
     }
 }

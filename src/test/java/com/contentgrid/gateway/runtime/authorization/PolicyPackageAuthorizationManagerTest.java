@@ -43,8 +43,8 @@ class PolicyPackageAuthorizationManagerTest {
     void migratedApplication_authenticatedUser_skipsOpaAndAllows() {
         var context = migratedApplicationContext();
 
-        StepVerifier.create(manager.check(Mono.just(authenticatedUser()), context))
-                .assertNext(decision -> assertThat(decision.isGranted()).isTrue())
+        StepVerifier.create(manager.authorize(Mono.just(authenticatedUser()), context))
+                .assertNext(result -> assertThat(result.isGranted()).isTrue())
                 .verifyComplete();
 
         // the OPA-backed manager must not be consulted for a migrated application
@@ -55,8 +55,8 @@ class PolicyPackageAuthorizationManagerTest {
     void migratedApplication_withoutAuthentication_isDenied() {
         var context = migratedApplicationContext();
 
-        StepVerifier.create(manager.check(Mono.empty(), context))
-                .assertNext(decision -> assertThat(decision.isGranted()).isFalse())
+        StepVerifier.create(manager.authorize(Mono.empty(), context))
+                .assertNext(result -> assertThat(result.isGranted()).isFalse())
                 .verifyComplete();
 
         Mockito.verifyNoInteractions(delegate);
@@ -68,8 +68,8 @@ class PolicyPackageAuthorizationManagerTest {
         var anonymous = new AnonymousAuthenticationToken("key", "anonymousUser",
                 List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
 
-        StepVerifier.create(manager.check(Mono.just(anonymous), context))
-                .assertNext(decision -> assertThat(decision.isGranted()).isFalse())
+        StepVerifier.create(manager.authorize(Mono.just(anonymous), context))
+                .assertNext(result -> assertThat(result.isGranted()).isFalse())
                 .verifyComplete();
 
         Mockito.verifyNoInteractions(delegate);
@@ -82,26 +82,26 @@ class PolicyPackageAuthorizationManagerTest {
             exchange.getAttributes().put(CONTENTGRID_SERVICE_INSTANCE_ATTR, service);
             exchange.getAttributes().put(CONTENTGRID_POLICY_PACKAGE_ATTR, "contentgrid.userapps.example");
         });
-        when(delegate.check(any(), any())).thenReturn(Mono.just(new AuthorizationDecision(true)));
+        when(delegate.authorize(any(), any())).thenReturn(Mono.just(new AuthorizationDecision(true)));
 
-        StepVerifier.create(manager.check(Mono.empty(), context))
-                .assertNext(decision -> assertThat(decision.isGranted()).isTrue())
+        StepVerifier.create(manager.authorize(Mono.empty(), context))
+                .assertNext(result -> assertThat(result.isGranted()).isTrue())
                 .verifyComplete();
 
-        verify(delegate).check(any(), any());
+        verify(delegate).authorize(any(), any());
     }
 
     @Test
     void unresolvedApplication_delegates_preservingFailClosed() {
         // no service-instance attribute -> not a resolved app; must NOT be treated as migrated
         var context = authorizationContext(exchange -> { });
-        when(delegate.check(any(), any())).thenReturn(Mono.just(new AuthorizationDecision(false)));
+        when(delegate.authorize(any(), any())).thenReturn(Mono.just(new AuthorizationDecision(false)));
 
-        StepVerifier.create(manager.check(Mono.empty(), context))
-                .assertNext(decision -> assertThat(decision.isGranted()).isFalse())
+        StepVerifier.create(manager.authorize(Mono.empty(), context))
+                .assertNext(result -> assertThat(result.isGranted()).isFalse())
                 .verifyComplete();
 
-        verify(delegate).check(any(), any());
+        verify(delegate).authorize(any(), any());
     }
 
     /**

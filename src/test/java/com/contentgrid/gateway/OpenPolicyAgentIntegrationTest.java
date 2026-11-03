@@ -1,22 +1,23 @@
 package com.contentgrid.gateway;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.matchesRegex;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import io.restassured.response.ValidatableResponse;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.test.web.reactive.server.WebTestClient.ResponseSpec;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.junit.jupiter.Container;
@@ -47,27 +48,21 @@ public class OpenPolicyAgentIntegrationTest {
         registry.add("opa.service.url", () -> url);
     }
 
-    @BeforeEach
-    void setupRestAssured() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
+    private static ResponseSpec tryGetAliceProfile(WebTestClient http) {
+        ResponseCookie sessionCookie = http.post()
+                .uri("/login")
+                .body(BodyInserters.fromFormData("username", "alice").with("password", "alice"))
+                .exchange()
+                .returnResult(Void.class)
+                .getResponseCookies()
+                .getFirst("SESSION");
+        assertThat(sessionCookie).isNotNull();
 
-    private static ValidatableResponse tryGetAliceProfile(int port) {
-        RestAssured.port = port;
-
-        String sessionCookie = given()
-                .body("username=alice&password=alice")
-                .contentType(ContentType.URLENC)
-                .post("/login")
-                .then()
-                .extract().cookie("SESSION");
-
-        return given()
-                .accept(ContentType.JSON)
-                .cookie("SESSION", sessionCookie)
-                .get("/me")
-                .then()
-                .log().body();
+        return http.get()
+                .uri("/me")
+                .accept(MediaType.APPLICATION_JSON)
+                .cookie("SESSION", sessionCookie.getValue())
+                .exchange();
     }
 
     @Nested
@@ -79,16 +74,16 @@ public class OpenPolicyAgentIntegrationTest {
             // "gateway.example" matches the package name
             "opa.query=data.gateway.example.allow == true",
     })
+    @AutoConfigureWebTestClient
     public class HappyPathTest {
-        @Value("${local.server.port}")
-        private int port;
+        @Autowired
+        private WebTestClient http;
 
         @Test
         public void testConfiguredOpaQueryHappyPath() {
-            tryGetAliceProfile(port)
-                .assertThat().statusCode(200)
-                .and()
-                .assertThat().body(matchesRegex(".*\"name\":\\s*\"alice\".*"));
+            tryGetAliceProfile(http)
+                .expectStatus().isOk()
+                .expectBody().jsonPath("$.principal.name").isEqualTo("alice");
         }
     }
 
@@ -101,14 +96,15 @@ public class OpenPolicyAgentIntegrationTest {
             // "non.matching" does not match the package name
             "opa.query=data.gateway.non.matching.allow == true",
     })
+    @AutoConfigureWebTestClient
     public class UnhappyPathTest {
-        @Value("${local.server.port}")
-        private int port;
+        @Autowired
+        private WebTestClient http;
 
         @Test
         public void testConfiguredOpaQueryUnhappyPath() {
-            tryGetAliceProfile(port)
-                .assertThat().statusCode(403);
+            tryGetAliceProfile(http)
+                .expectStatus().isForbidden();
         }
     }
 }

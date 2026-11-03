@@ -1,13 +1,13 @@
 package com.contentgrid.gateway.runtime.authorization;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 
 @Value
@@ -23,13 +23,14 @@ public class RequestModel {
                 .method(request.getMethod().name())
                 .path(List.of(uriToPathArray(request.getURI())))
                 .query(request.getQueryParams())
-                .headers(
-                        request.getHeaders()
-                                .entrySet()
-                                .stream()
-                                .collect(Collectors.toMap(e -> e.getKey().toLowerCase(Locale.ROOT), Entry::getValue))
-                )
+                .headers(headersToMap(request.getHeaders()))
                 .build();
+    }
+
+    private static Map<String, List<String>> headersToMap(HttpHeaders headers) {
+        Map<String, List<String>> result = new HashMap<>();
+        headers.forEach((key, value) -> result.put(key.toLowerCase(Locale.ROOT), value));
+        return result;
     }
 
     private static String[] uriToPathArray(URI uri) {

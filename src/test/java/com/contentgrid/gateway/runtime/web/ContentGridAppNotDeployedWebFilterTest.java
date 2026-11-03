@@ -71,7 +71,6 @@ class ContentGridAppNotDeployedWebFilterTest {
                 .isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         assertThat(new JsonContent(response.getBodyAsString().block())).isStrictlyEqualTo("""
                 {
-                    "type": "about:blank",
                     "title": "Service Unavailable",
                     "status": 503,
                     "detail": "No deployment of this application is currently available"

@@ -1,22 +1,20 @@
 package com.contentgrid.gateway;
 
-import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.oneOf;
 
 import com.contentgrid.gateway.security.authority.Actor.ActorType;
 import com.contentgrid.gateway.security.authority.AuthenticationDetails;
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
         "testing.bootstrap.enable=true",
@@ -25,30 +23,21 @@ import org.springframework.security.test.context.support.WithUserDetails;
         "testing.bootstrap.users.1.username=bob",
         "testing.bootstrap.users.1.authorities={\"employers\": [\"BE0999999999\", \"BE0123456789\"], \"customers\": [\"BE9988776655\", \"BE5544332211\", \"BE0987654321\"], \"singlevalue\": \"BE1234567890\"}"
 })
-@AutoConfigureMockMvc
+@AutoConfigureWebTestClient
 public class BootstrapUsersTest {
 
-    @Value("${local.server.port}")
-    private int port;
-
-    @BeforeEach
-    void setupRestAssured() {
-        RestAssured.port = port;
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
+    @Autowired
+    private WebTestClient http;
 
     @Test
     public void testLogin() {
 
-        given()
-                .accept(ContentType.JSON)
-                .body("username=bob&password=bob")
-                .contentType(ContentType.URLENC)
-                .post("/login")
-                .then()
-                .log().body()
-                .assertThat()
-                .statusCode(oneOf(200, 302));
+        http.post()
+                .uri("/login")
+                .accept(MediaType.APPLICATION_JSON)
+                .body(BodyInserters.fromFormData("username", "bob").with("password", "bob"))
+                .exchange()
+                .expectStatus().value(status -> assertThat(status).isIn(200, 302));
     }
 
     @Test

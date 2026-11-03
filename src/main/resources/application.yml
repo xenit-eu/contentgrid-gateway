@@ -1,5 +1,9 @@
 server:
   forward-headers-strategy: native
+  reactive:
+    session:
+      cookie:
+        same-site: lax
 
 logging.level:
   reactor.netty.http.server.AccessLog: INFO
@@ -18,6 +22,10 @@ spring:
           trusted-proxies: .*
           x-forwarded:
             proto-append: false # uvicorn (for the assistant) doesn't support a comma-separated list for X-Forwarded-Proto: https://github.com/Kludex/uvicorn/pull/2104; and only sending a single value should be fine for all services
+    kubernetes:
+      # Service discovery is done by our own KubernetesServiceDiscovery, not by the Spring Cloud DiscoveryClient
+      discovery:
+        enabled: false
 
 management:
   endpoints:

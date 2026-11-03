@@ -10,7 +10,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,8 +48,6 @@ import com.contentgrid.thunx.predicates.model.Comparison;
 import com.contentgrid.thunx.predicates.model.Scalar;
 import com.contentgrid.thunx.predicates.model.SymbolicReference;
 import com.contentgrid.thunx.predicates.model.ThunkExpression;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
@@ -84,9 +81,9 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -101,17 +98,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ServerWebExchange;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Integration tests for ContentGrid Gateway using the Runtime profile.
- *
+ * <p>
  * This integration test sets up a WireMock server on a random port on localhost as a backend service. This
  * WireMock server is then registered in the application catalog.
- *
+ * <p>
  * Additionally, a (fake) domain is mapped to this service in the service catalog.
- *
+ * <p>
  * The gateway is configured with the runtime Spring Security setup, requiring OIDC.
- *
+ * <p>
  * A {@link WebTestClient} bean, bound to the {@link ApplicationContext} is provided, which bypasses the HTTP server
  * and uses mock requests and responses.
  * OIDC login can be simulated with WebTestClient using:
@@ -132,8 +131,7 @@ import org.springframework.web.server.ServerWebExchange;
                 "contentgrid.gateway.runtime-platform.endpoints.authentication.authorization: authenticated",
                 "contentgrid.gateway.jwt.signers.apps.active-keys: classpath:fixtures/internal-issuer.pem",
                 "contentgrid.gateway.jwt.signers.authentication.active-keys: classpath:fixtures/authentication-issuer.pem",
-                "opa.service.url: https://opa",
-                "wiremock.reset-mappings-after-each-test: true"
+                "opa.service.url: https://opa"
         })
 @AutoConfigureWebTestClient
 class RuntimeGatewayIntegrationTest {
@@ -154,6 +152,7 @@ class RuntimeGatewayIntegrationTest {
     static final String OIDC_ISSUER = "https://auth.contentgrid.example/realms/abc";
     public static final String EXTENSION_SYSTEM_ISSUER = "https://extensions.invalid/authentication/system";
 
+    static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
     static WireMockServer wireMockServer = new WireMockServer(new WireMockConfiguration().dynamicPort());
 
     private static Stream<Arguments> legacySidecarAndNotDeployedApplications() {
@@ -335,8 +334,8 @@ class RuntimeGatewayIntegrationTest {
                 .header("Host", hostname(APP_ID))
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.OK)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(DEPLOY_ID.toString()));
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(APP_ID.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, deployId -> assertThat(deployId).isEqualTo(DEPLOY_ID.toString()));
 
         wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/test")));
     }
@@ -540,7 +539,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
@@ -629,7 +628,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
@@ -728,7 +727,7 @@ class RuntimeGatewayIntegrationTest {
                     // Validate encrypted claims to be the claims of the original token
                     assertThat(claims.getStringClaim("restrict:principal_claims")).satisfies(encryptedClaims -> {
                         assertThat(authenticationEncryptor.newEncryptor().decrypt(encryptedClaims)).satisfies(decrypted -> {
-                            assertThat(new ObjectMapper().readValue(decrypted, new TypeReference<Map<String, Object>>() {
+                            assertThat(JSON_MAPPER.readValue(decrypted, new TypeReference<Map<String, Object>>() {
                             })).isEqualTo(Map.of(
                                     "iss", OIDC_ISSUER,
                                     "sub", "user",
@@ -808,13 +807,13 @@ class RuntimeGatewayIntegrationTest {
                 .header(ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(APP_ID_UNAVAILABLE.toString()))
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(APP_ID_UNAVAILABLE.toString()))
                 .expectHeader().doesNotExist(CONTENTGRID_DEPLOYMENT_ID)
                 // CORS applies first, so a browser frontend can read the problem detail
                 .expectHeader().valueEquals(ACCESS_CONTROL_ALLOW_ORIGIN, APP_UNAVAILABLE_CORS_ORIGIN)
                 .expectHeader().valueEquals(CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                 .expectBody()
-                .jsonPath("$.type").isEqualTo("about:blank")
+                .jsonPath("$.type").doesNotExist()
                 .jsonPath("$.title").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
                 .jsonPath("$.status").isEqualTo(HttpStatus.SERVICE_UNAVAILABLE.value())
                 .jsonPath("$.detail").isEqualTo("No deployment of this application is currently available")
@@ -1017,8 +1016,8 @@ class RuntimeGatewayIntegrationTest {
                 .header("Host", hostname)
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
-                .expectHeader().value(CONTENTGRID_APPLICATION_ID, is(applicationId.toString()))
-                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, is(Objects.toString(deploymentId, null)));
+                .expectHeader().value(CONTENTGRID_APPLICATION_ID, appId -> assertThat(appId).isEqualTo(applicationId.toString()))
+                .expectHeader().value(CONTENTGRID_DEPLOYMENT_ID, deployId -> assertThat(deployId).isEqualTo(Objects.toString(deploymentId, null)));
 
         wireMockServer.verify(0, anyRequestedFor(anyUrl()));
         Mockito.verifyNoInteractions(pdpClient);
