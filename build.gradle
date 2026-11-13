@@ -133,6 +133,8 @@ dependencies {
 
 test {
 	useJUnitPlatform()
+	// Kubernetes tests supply their own configuration; never invoke local kubeconfig credential helpers.
+	systemProperty 'kubernetes.auth.tryKubeConfig', 'false'
 }
 
 bootBuildImage {

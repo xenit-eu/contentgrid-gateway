@@ -58,6 +58,24 @@ This profile applies the following changes:
 
 ## Configuration
 
+### Logging
+
+Application logs are written to stdout as newline-delimited JSON in every profile, including
+`bootRun`. Each record has `type: "application"`, a numeric UNIX-epoch `timestamp`, `loggerName`, uppercase
+`severity`, `thread`, `shortMessage` and `fullMessage`; exceptions and stack traces are included in `fullMessage`.
+There are no file or stderr logging appenders. Source fields `sourceClassName`, `sourceLineNumber` and
+`sourceMethodName` are not collected or emitted.
+
+HTTP access logging is disabled by default. Enable it with the JVM system property
+`-Dreactor.netty.http.server.accessLogEnabled=true`; `./gradlew runtimeBootRun` already enables it. Completed
+requests then produce one `type: "access"` record with numeric `requestTime` in seconds, integer `responseStatus`,
+`requestMethod`, `requestUri` (including the query string), and, when available, the `request` line and forwarded
+client `remoteAddr`. Access records are also newline-delimited JSON on stdout.
+
+The `requestUri` preserves the original URI, including query parameters. Query strings can contain
+sensitive data, so review what clients send before enabling access logging in an environment with centralized log
+collection.
+
 ### Testing properties
 
 Testing configuration allows setting up local users for testing.
