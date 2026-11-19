@@ -29,8 +29,6 @@ public class SimpleContentGridDeploymentMetadata implements ContentGridDeploymen
     public Optional<String> getPolicyPackage(ServiceInstance service) {
         var policyPackage = service.getMetadata().get(ANNOTATION_POLICY_PACKAGE);
         if (!StringUtils.hasText(policyPackage)) {
-            log.warn("Service {} (deployment:{}) has no policy package defined",
-                    service.getServiceId(), this.getDeploymentId(service));
             return Optional.empty();
         }
         return Optional.of(policyPackage);
