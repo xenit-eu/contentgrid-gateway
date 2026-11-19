@@ -7,8 +7,11 @@ server:
 
 logging.level:
   reactor.netty.http.server.AccessLog: INFO
+logging.structured.format.console: com.contentgrid.gateway.logging.GatewayStructuredLogFormatter
 
 spring:
+  main:
+    banner-mode: "off"
   cloud:
     gateway:
       server:
