@@ -10,8 +10,15 @@ import com.contentgrid.configuration.applications.ApplicationConfiguration.Keys;
 import com.contentgrid.configuration.applications.ApplicationId;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
 import com.contentgrid.gateway.runtime.application.ServiceCatalog;
+import com.contentgrid.gateway.runtime.application.SimpleContentGridDeploymentMetadata;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointBuilder;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSliceBuilder;
+import java.util.HashMap;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -26,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -170,7 +178,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .withNewSpec()
                     // Swapping out the port to match the NGINX port, so we can reroute the request
                     .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
-                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
                     .endSpec()
                     .build();
 
@@ -189,6 +196,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml()))
                     .build()) {
                 client.resource(service).inNamespace("default").create();
+                client.resource(endpointSlice(service, true)).inNamespace("default").create();
                 client.resource(configMap).inNamespace("default").create();
                 logger.info("Created k8s resources");
             }
@@ -273,7 +281,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .endMetadata()
                     .withNewSpec()
                     .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
-                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
                     .endSpec()
                     .build();
 
@@ -293,6 +300,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .build()) {
                 client.resource(new NamespaceBuilder().withNewMetadata().withName("resynctest").endMetadata().build()).create();
                 client.resource(service).inNamespace("resynctest").create();
+                client.resource(endpointSlice(service, true)).inNamespace("resynctest").create();
                 client.resource(configMap).inNamespace("resynctest").create();
                 logger.info("Created k8s resources");
             }
@@ -361,7 +369,6 @@ public class KubernetesServiceDiscoveryIntegrationTest {
                     .endMetadata()
                     .withNewSpec()
                     .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
-                    .withSelector(Map.of("app.contentgrid.com/deployment-id", deploymentId.toString()))
                     .endSpec()
                     .build();
 
@@ -380,6 +387,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
             try (KubernetesClient client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml()))
                     .build()) {
                 client.resource(service).inNamespace("default").create();
+                client.resource(endpointSlice(service, true)).inNamespace("default").create();
                 client.resource(configMap).inNamespace("default").create();
                 logger.info("Created k8s resources");
             }
@@ -403,4 +411,137 @@ public class KubernetesServiceDiscoveryIntegrationTest {
         }
     }
 
+
+    // the EndpointSlice controller ignores Services without a selector, so the test plays its role
+    static EndpointSlice endpointSlice(Service service, boolean ready) {
+        var labels = new HashMap<>(service.getMetadata().getLabels());
+        labels.put("kubernetes.io/service-name", service.getMetadata().getName());
+        return new EndpointSliceBuilder()
+                .withNewMetadata()
+                .withName(service.getMetadata().getName() + "-slice")
+                .withLabels(labels)
+                .endMetadata()
+                .withAddressType("IPv4")
+                .withEndpoints(new EndpointBuilder()
+                        .withAddresses("10.0.0.1")
+                        .withNewConditions().withReady(ready).endConditions()
+                        .build())
+                .build();
+    }
+
+    static Service apiService(String name, ApplicationId appId, DeploymentId deploymentId, Map<String, String> selector) {
+        return new ServiceBuilder()
+                .withNewMetadata()
+                .withName(name)
+                .withLabels(Map.of(
+                        "app.kubernetes.io/managed-by", "contentgrid",
+                        "app.contentgrid.com/service-type", "api",
+                        "app.contentgrid.com/application-id", appId.toString(),
+                        "app.contentgrid.com/deployment-id", deploymentId.toString()
+                ))
+                .endMetadata()
+                .withNewSpec()
+                .withPorts(new ServicePortBuilder().withPort(NGINX.getFirstMappedPort()).withName("http").build())
+                .withSelector(selector)
+                .endSpec()
+                .build();
+    }
+
+    @Nested
+    @Import(KindClientConfiguration.class)
+    @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
+            "contentgrid.gateway.runtime-platform.enabled=true",
+            "spring.main.cloud-platform=kubernetes",
+            "servicediscovery.namespace=" + ReadinessTest.NAMESPACE,
+            "servicediscovery.enabled=true"
+    })
+    class ReadinessTest {
+
+        static final String NAMESPACE = "readinesstest";
+
+        @Autowired
+        ServiceCatalog serviceCatalog;
+
+        private KubernetesClient client;
+
+        @BeforeEach
+        void setup() {
+            this.client = new KubernetesClientBuilder().withConfig(fromKubeconfig(K8S.getKubeConfigYaml())).build();
+            if (client.namespaces().withName(NAMESPACE).get() == null) {
+                client.resource(new NamespaceBuilder().withNewMetadata().withName(NAMESPACE).endMetadata().build())
+                        .create();
+            }
+        }
+
+        @AfterEach
+        void teardown() {
+            this.client.close();
+        }
+
+        @Test
+        void serviceIsOnlyRoutable_whileItHasReadyEndpoints() {
+            var appId = ApplicationId.random();
+            var service = apiService("readiness-" + UUID.randomUUID(), appId, DeploymentId.random(), null);
+
+            var created = client.resource(service).inNamespace(NAMESPACE).create();
+            assertStaysEmpty(appId);
+
+            client.resource(endpointSlice(service, false)).inNamespace(NAMESPACE).create();
+            assertStaysEmpty(appId);
+
+            client.resource(endpointSlice(service, true)).inNamespace(NAMESPACE).forceConflicts().serverSideApply();
+            await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).singleElement().satisfies(instance ->
+                            assertThat(instance.getMetadata())
+                                    .containsEntry(SimpleContentGridDeploymentMetadata.METADATA_CREATION_TIMESTAMP,
+                                            created.getMetadata().getCreationTimestamp())));
+
+            client.resource(endpointSlice(service, false)).inNamespace(NAMESPACE).forceConflicts().serverSideApply();
+            await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).isEmpty());
+
+            client.resource(endpointSlice(service, true)).inNamespace(NAMESPACE).forceConflicts().serverSideApply();
+            await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).hasSize(1));
+
+            client.resource(endpointSlice(service, true)).inNamespace(NAMESPACE).delete();
+            await().atMost(30, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).isEmpty());
+        }
+
+        @Test
+        void serviceWithSelector_becomesRoutableWhenItsPodIsReady() {
+            // the EndpointSlice controller copies the Service labels onto the EndpointSlices it manages
+            var appId = ApplicationId.random();
+            var deploymentId = DeploymentId.random();
+            var podLabels = Map.of("app.contentgrid.com/deployment-id", deploymentId.toString());
+            var service = apiService("pod-" + UUID.randomUUID(), appId, deploymentId, podLabels);
+
+            client.resource(service).inNamespace(NAMESPACE).create();
+            assertStaysEmpty(appId);
+
+            var pod = new PodBuilder()
+                    .withNewMetadata().withName("pod-" + deploymentId).withLabels(podLabels).endMetadata()
+                    .withNewSpec()
+                    .withTerminationGracePeriodSeconds(0L)
+                    .withContainers(new ContainerBuilder().withName("pause")
+                            .withImage("registry.k8s.io/pause:3.10").build())
+                    .endSpec()
+                    .build();
+            client.resource(pod).inNamespace(NAMESPACE).create();
+            await().atMost(2, TimeUnit.MINUTES).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).hasSize(1));
+
+            client.resource(pod).inNamespace(NAMESPACE).withGracePeriod(0).delete();
+            await().atMost(1, TimeUnit.MINUTES).untilAsserted(() ->
+                    assertThat(serviceCatalog.findByApplicationId(appId)).isEmpty());
+        }
+
+        private void assertStaysEmpty(ApplicationId appId) {
+            Assertions.assertThrows(ConditionTimeoutException.class, () ->
+                    await()
+                            .atMost(Duration.ofSeconds(3))
+                            .until(() -> !serviceCatalog.findByApplicationId(appId).isEmpty()));
+        }
+    }
 }

@@ -268,8 +268,10 @@ The ContentGrid gateway will discover running ContentGrid applications using the
 There can be multiple deployments of the same Application ID running at the same time, these are disambiguated
 by the Deployment ID.
 
+Only deployments whose `Service` has at least one ready endpoint receive traffic.
+
 Routing requests to a specific Deployment ID is not implemented yet.
-All requests will be routed to the same, arbitrarily selected Deployment ID.
+When several deployments of an application are ready, all requests go to the youngest one (by `Service` creation time).
 
 `Service`s can have annotations for configuration:
 
