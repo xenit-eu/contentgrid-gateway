@@ -11,13 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.web.server.ServerWebExchange;
 
-/**
- * Selects the youngest deployment of an application.
- * <p>
- * Service discovery only offers deployments that have ready endpoints. When a new deployment is rolled out next to
- * an old one, traffic moves to the new deployment as soon as it is ready. The choice only depends on the candidates,
- * so all gateway replicas make the same choice.
- */
 @Slf4j
 @RequiredArgsConstructor
 public class SimpleRuntimeServiceInstanceSelector implements RuntimeServiceInstanceSelector {

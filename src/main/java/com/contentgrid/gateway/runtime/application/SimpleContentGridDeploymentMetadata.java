@@ -15,9 +15,6 @@ public class SimpleContentGridDeploymentMetadata implements ContentGridDeploymen
     public static final String LABEL_APPLICATION_ID = "app.contentgrid.com/application-id";
     public static final String LABEL_DEPLOYMENT_ID = "app.contentgrid.com/deployment-id";
     public static final String ANNOTATION_POLICY_PACKAGE = "authz.contentgrid.com/policy-package";
-    /**
-     * Not a Kubernetes label: service discovery adds the creation timestamp of the Kubernetes Service under this key.
-     */
     public static final String METADATA_CREATION_TIMESTAMP = "k8s_creation_timestamp";
 
     public Optional<ApplicationId> getApplicationId(@NonNull ServiceInstance service) {

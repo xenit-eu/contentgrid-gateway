@@ -25,12 +25,6 @@ import org.springframework.cloud.client.DefaultServiceInstance;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.kubernetes.fabric8.loadbalancer.Fabric8ServiceInstanceMapper;
 
-/**
- * Discovers api Services, and only offers a Service while it has at least one ready endpoint.
- * <p>
- * Readiness comes from the EndpointSlices of the Service. The EndpointSlice controller copies the Service labels onto
- * the EndpointSlices, so the same label selector is used for both.
- */
 @Slf4j
 @RequiredArgsConstructor
 public class KubernetesServiceDiscovery implements ServiceDiscovery, AutoCloseable {
@@ -59,6 +53,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, AutoCloseab
     public void discoverApis() {
         this.endpointSliceInformer = client.discovery().v1().endpointSlices()
                 .inNamespace(namespace)
+                // the EndpointSlice controller copies the Service labels onto its EndpointSlices
                 .withLabelSelector(selector)
                 .runnableInformer(resyncInterval.toMillis());
         this.endpointSliceInformer.addIndexers(Map.of(BY_SERVICE_NAME, slice ->
@@ -103,10 +98,7 @@ public class KubernetesServiceDiscovery implements ServiceDiscovery, AutoCloseab
         }
     }
 
-    /**
-     * Offers the Service when it exists and has a ready endpoint, and withdraws it otherwise. Always looks at the
-     * current state of both informer caches, so the outcome does not depend on the order in which events arrive.
-     */
+    // reads both informer caches instead of the event, so the outcome does not depend on the order of events
     private synchronized void reconcile(String serviceName) {
         var service = this.informer.getStore().getByKey(Cache.namespaceKeyFunc(namespace, serviceName));
         if (service == null) {

@@ -412,10 +412,7 @@ public class KubernetesServiceDiscoveryIntegrationTest {
     }
 
 
-    /**
-     * Builds an EndpointSlice for a selector-less {@link Service}, like the EndpointSlice controller would for a
-     * Service with a selector: it carries the labels of the Service and the {@code kubernetes.io/service-name} label.
-     */
+    // the EndpointSlice controller ignores Services without a selector, so the test plays its role
     static EndpointSlice endpointSlice(Service service, boolean ready) {
         var labels = new HashMap<>(service.getMetadata().getLabels());
         labels.put("kubernetes.io/service-name", service.getMetadata().getName());
