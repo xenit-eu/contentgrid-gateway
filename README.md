@@ -268,8 +268,13 @@ The ContentGrid gateway will discover running ContentGrid applications using the
 There can be multiple deployments of the same Application ID running at the same time, these are disambiguated
 by the Deployment ID.
 
+Only deployments whose `Service` has at least one ready endpoint (from its `EndpointSlice`s) receive traffic.
+The `EndpointSlice` controller copies the `Service` labels onto the `EndpointSlice`s, so they are selected with the same labels.
+The gateway therefore needs `list` and `watch` permissions on `endpointslices` (API group `discovery.k8s.io`) next to `services`.
+
 Routing requests to a specific Deployment ID is not implemented yet.
-All requests will be routed to the same, arbitrarily selected Deployment ID.
+When several deployments of an application are ready, all requests go to the oldest one (by `Service` creation time).
+A new deployment takes over once the old one is removed or stops being ready.
 
 `Service`s can have annotations for configuration:
 

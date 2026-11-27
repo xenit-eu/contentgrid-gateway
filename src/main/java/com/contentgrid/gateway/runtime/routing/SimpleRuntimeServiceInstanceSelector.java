@@ -2,13 +2,22 @@ package com.contentgrid.gateway.runtime.routing;
 
 import com.contentgrid.gateway.runtime.application.ContentGridDeploymentMetadata;
 import com.contentgrid.gateway.runtime.application.DeploymentId;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.web.server.ServerWebExchange;
 
+/**
+ * Selects the oldest deployment of an application.
+ * <p>
+ * Service discovery only offers deployments that have ready endpoints. When a new deployment is rolled out next to
+ * an old one, traffic keeps going to the old deployment until it is removed (or stops being ready), and then moves to
+ * the new one. The choice only depends on the candidates, so all gateway replicas make the same choice.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class SimpleRuntimeServiceInstanceSelector implements RuntimeServiceInstanceSelector {
@@ -18,17 +27,15 @@ public class SimpleRuntimeServiceInstanceSelector implements RuntimeServiceInsta
     public Optional<ServiceInstance> selectService(ServerWebExchange exchange, Collection<ServiceInstance> candidates) {
 
         if (candidates.size() > 1) {
-            // logging a warning until we have a better service selection
-            log.warn("multiple matches {}: {}", exchange.getRequest().getURI().getHost(), candidates.stream()
+            log.debug("multiple matches {}: {}", exchange.getRequest().getURI().getHost(), candidates.stream()
                     .map(service -> serviceMetadata.getDeploymentId(service).map(DeploymentId::toString)
                             .orElse("<none>")).toList());
         }
 
-        // sorting based on deployment-id alphabetical order, to get at least a stable selection
-        return candidates.stream().min((service1, service2) -> {
-            var d1 = serviceMetadata.getDeploymentId(service1).map(DeploymentId::toString).orElse("");
-            var d2 = serviceMetadata.getDeploymentId(service2).map(DeploymentId::toString).orElse("");
-            return d1.compareTo(d2);
-        });
+        return candidates.stream().min(
+                Comparator.comparing((ServiceInstance service) -> serviceMetadata.getCreationTimestamp(service)
+                                .orElse(Instant.MAX))
+                        .thenComparing(service -> serviceMetadata.getDeploymentId(service)
+                                .map(DeploymentId::toString).orElse("")));
     }
 }
