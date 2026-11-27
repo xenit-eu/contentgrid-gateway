@@ -27,12 +27,12 @@ class SimpleRuntimeServiceInstanceSelectorTest {
             MockServerHttpRequest.get("https://my-app.contentgrid.cloud/").build());
 
     @Test
-    void selectsOldestDeployment_regardlessOfDeploymentId() {
-        var older = service(DeploymentId.from("ffffffff-0000-0000-0000-000000000000"), Instant.parse("2026-01-01T10:00:00Z"));
-        var newer = service(DeploymentId.from("00000000-0000-0000-0000-000000000000"), Instant.parse("2026-01-01T11:00:00Z"));
+    void selectsYoungestDeployment_regardlessOfDeploymentId() {
+        var older = service(DeploymentId.from("00000000-0000-0000-0000-000000000000"), Instant.parse("2026-01-01T10:00:00Z"));
+        var newer = service(DeploymentId.from("ffffffff-0000-0000-0000-000000000000"), Instant.parse("2026-01-01T11:00:00Z"));
 
-        assertThat(selector.selectService(exchange, List.of(newer, older))).containsSame(older);
-        assertThat(selector.selectService(exchange, List.of(older, newer))).containsSame(older);
+        assertThat(selector.selectService(exchange, List.of(newer, older))).containsSame(newer);
+        assertThat(selector.selectService(exchange, List.of(older, newer))).containsSame(newer);
     }
 
     @Test

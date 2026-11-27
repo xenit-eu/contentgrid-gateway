@@ -12,11 +12,11 @@ import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * Selects the oldest deployment of an application.
+ * Selects the youngest deployment of an application.
  * <p>
  * Service discovery only offers deployments that have ready endpoints. When a new deployment is rolled out next to
- * an old one, traffic keeps going to the old deployment until it is removed (or stops being ready), and then moves to
- * the new one. The choice only depends on the candidates, so all gateway replicas make the same choice.
+ * an old one, traffic moves to the new deployment as soon as it is ready. The choice only depends on the candidates,
+ * so all gateway replicas make the same choice.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -34,7 +34,7 @@ public class SimpleRuntimeServiceInstanceSelector implements RuntimeServiceInsta
 
         return candidates.stream().min(
                 Comparator.comparing((ServiceInstance service) -> serviceMetadata.getCreationTimestamp(service)
-                                .orElse(Instant.MAX))
+                                .orElse(Instant.MIN), Comparator.reverseOrder())
                         .thenComparing(service -> serviceMetadata.getDeploymentId(service)
                                 .map(DeploymentId::toString).orElse("")));
     }
